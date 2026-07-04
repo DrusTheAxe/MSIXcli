@@ -19,6 +19,8 @@ namespace
     {
         IDC_PACKAGE_FULL_NAME,
         IDC_PACKAGE_FAMILY_NAME,
+        IDC_PACKAGEORIGIN,
+        IDC_SIGNATURE_ORIGIN,
         IDC_PAYLOAD_COUNT,
         IDC_FILE_COMPRESSED_SIZE,
         IDC_FILE_UNCOMPRESSED_SIZE,
@@ -336,6 +338,7 @@ void MSIXPropertyPage::OnInitDialog(HWND hwndDlg)
     SetDlgItemText(hwndDlg, IDC_PACKAGE_FULL_NAME, m_package.PackageFullName());
     SetDlgItemText(hwndDlg, IDC_PACKAGE_FAMILY_NAME, m_package.PackageFamilyName());
     SetDlgItemText(hwndDlg, IDC_SIGNATURE_ORIGIN, MSIX::ToString(m_package.SignatureOrigin()));
+    SetDlgItemText_Format(hwndDlg, IDC_PAYLOAD_COUNT, m_package.PayloadTotalCount(), m_package.PayloadTotalCount() == 1 ? L" file" : L" files");
 
     UpdatePackageStatus(hwndDlg);
 
@@ -350,8 +353,6 @@ void MSIXPropertyPage::OnInitDialog(HWND hwndDlg)
     SetDlgItemText_FormatSize(hwndDlg, IDC_FILE_UNCOMPRESSED_SIZE, sizeUncompressed);
     SetDlgItemText_FormatSizeAndRatio(hwndDlg, IDC_FOOTPRINT_COMPRESSED_SIZE, sizeFootprintCompressed, footprintCompressionRatio);
     SetDlgItemText_FormatSizeAndRatio(hwndDlg, IDC_PAYLOAD_COMPRESSED_SIZE, sizePayloadCompressed, payloadCompressionRatio);
-
-    SetDlgItemText_Format(hwndDlg, IDC_PAYLOAD_COUNT, m_package.PayloadTotalCount());
 
     if (m_packageManager3)
     {
@@ -441,6 +442,15 @@ void MSIXPropertyPage::OnInitDialog(HWND hwndDlg)
 
 void MSIXPropertyPage::UpdatePackageStatus(HWND hwndDlg)
 {
+    if (m_package.IsStaged() || m_package.IsRegistered())
+    {
+        SetDlgItemText(hwndDlg, IDC_PACKAGEORIGIN, m_package.PackageOriginString());
+    }
+    else
+    {
+        SetDlgItemText(hwndDlg, IDC_PACKAGEORIGIN, L"--N/A--");
+    }
+
     EnableAndShowControl(GetDlgItem(hwndDlg, IDC_IS_STAGED), m_package.IsStaged());
 
     if (m_package.IsRegistered())
@@ -979,10 +989,10 @@ void MSIXPropertyPage::FormatSize(std::uint64_t bytes, PWSTR buffer, size_t cch)
     }
 }
 
-void MSIXPropertyPage::SetDlgItemText_Format(HWND hwndDlg, int nIDDlgItem, std::uint64_t value)
+void MSIXPropertyPage::SetDlgItemText_Format(HWND hwndDlg, int nIDDlgItem, std::uint64_t value, PCWSTR suffix)
 {
-    WCHAR string[64]{};
-    StringCchPrintfW(string, ARRAYSIZE(string), L"%llu", value);
+    WCHAR string[256]{};
+    StringCchPrintfW(string, ARRAYSIZE(string), L"%llu%ls", value, suffix ? suffix : L"");
     SetDlgItemText(hwndDlg, nIDDlgItem, string);
 }
 

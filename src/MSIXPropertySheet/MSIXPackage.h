@@ -280,6 +280,26 @@ public:
         return m_packageOrigin;
     }
 
+    PCWSTR PackageOriginString() const
+    {
+        return ToString(m_packageOrigin);
+    }
+
+    static constexpr PCWSTR ToString(::PackageOrigin packageOrigin)
+    {
+        switch (packageOrigin)
+        {
+            case PackageOrigin_Unknown:             return L"???";
+            case PackageOrigin_Unsigned:            return L"Unsigned (not signed, or not validly)";
+            case PackageOrigin_Inbox:               return L"Inbox (aka Windows)";
+            case PackageOrigin_Store:               return L"Store";
+            case PackageOrigin_DeveloperUnsigned:   return L"Developer Unsigned";
+            case PackageOrigin_DeveloperSigned:     return L"Developer Signed";
+            case PackageOrigin_LineOfBusiness:      return L"Line of Business";
+            default:                                return L"???";
+        }
+    }
+
     bool IsStaged() const
     {
         return m_packageOrigin != ::PackageOrigin_Unknown;

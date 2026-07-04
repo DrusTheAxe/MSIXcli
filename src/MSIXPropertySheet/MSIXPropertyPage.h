@@ -90,7 +90,7 @@ private:
     void ShowControl(HWND hControl, bool show);
 
     void FormatSize(std::uint64_t bytes, PWSTR buffer, size_t cch) noexcept;
-    void SetDlgItemText_Format(HWND hwndDlg, int nIDDlgItem, std::uint64_t value);
+    void SetDlgItemText_Format(HWND hwndDlg, int nIDDlgItem, std::uint64_t value, PCWSTR suffix = nullptr);
     void SetDlgItemText_FormatSize(HWND hwndDlg, int nIDDlgItem, std::uint64_t size);
     void SetDlgItemText_FormatSizeAndRatio(HWND hwndDlg, int nIDDlgItem, std::uint64_t size, std::uint64_t ratio);
 

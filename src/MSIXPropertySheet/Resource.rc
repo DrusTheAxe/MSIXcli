@@ -16,46 +16,48 @@ BEGIN
     // Identity
     LTEXT       "File:",                    IDC_STATIC,                       7,   9,  78,  8
     EDITTEXT                                IDC_FILE_PATH,                   88,   7, 157, 14,  ES_AUTOHSCROLL | ES_READONLY | WS_TABSTOP
-    LTEXT       "Package Full Name:",       IDC_STATIC,                       7,  27,  78,  8
+    LTEXT       "Package Full Name:",       IDC_STATIC,                       7,  27,  78,  8,  SS_CENTERIMAGE
     EDITTEXT                                IDC_PACKAGE_FULL_NAME,           88,  25, 157, 12,  ES_AUTOHSCROLL | NOT WS_BORDER
-    LTEXT       "Package Family Name:",     IDC_STATIC,                       7,  39,  78,  8
+    LTEXT       "Package Family Name:",     IDC_STATIC,                       7,  39,  78,  8,  SS_CENTERIMAGE
     EDITTEXT                                IDC_PACKAGE_FAMILY_NAME,         88,  37, 157, 12,  ES_AUTOHSCROLL | NOT WS_BORDER
 
     CONTROL     "", IDC_STATIC, "Static", SS_ETCHEDHORZ,                      0,  51, 250,  1
 
-    LTEXT       "Staged",                   IDC_IS_STAGED,                    7,  56,  38, 10,  SS_OWNERDRAW
-    LTEXT       "Registered",               IDC_IS_REGISTERED,               49,  56,  54, 10,  SS_OWNERDRAW
-    LTEXT       "Remove[Pending]",          IDC_IS_REMOVE_PENDING,          107,  56,  82, 10,  SS_OWNERDRAW
-    PUSHBUTTON  "Remove",                   IDC_UNINSTALL,                  195,  54,  50, 14,  WS_TABSTOP
+    LTEXT       "Package Origin:",          IDC_PACKAGEORIGIN_LABEL,          7,  56,  78,  8,  SS_CENTERIMAGE
+    EDITTEXT                                IDC_PACKAGEORIGIN,               88,  54, 157, 12,  ES_AUTOHSCROLL | NOT WS_BORDER
+    LTEXT       "Staged",                   IDC_IS_STAGED,                    7,  70,  38, 10,  SS_OWNERDRAW
+    LTEXT       "Registered",               IDC_IS_REGISTERED,               49,  70,  54, 10,  SS_OWNERDRAW
+    LTEXT       "Remove[Pending]",          IDC_IS_REMOVE_PENDING,          107,  70,  82, 10,  SS_OWNERDRAW
+    PUSHBUTTON  "Remove",                   IDC_UNINSTALL,                  195,  68,  50, 14,  WS_TABSTOP
 
-    CONTROL     "", IDC_STATIC, "Static", SS_ETCHEDHORZ,                      0,  70, 250,  1
+    CONTROL     "", IDC_STATIC, "Static", SS_ETCHEDHORZ,                      0,  84, 250,  1
 
     // Package information
-    LTEXT       "Signature Origin:",        IDC_STATIC,                       7,  75,  78,  8
-    EDITTEXT                                IDC_SIGNATURE_ORIGIN,            88,  73, 157, 12,  ES_AUTOHSCROLL | NOT WS_BORDER
-    LTEXT       "Uncompressed Size:",       IDC_STATIC,                       7,  87,  78,  8
-    EDITTEXT                                IDC_FILE_UNCOMPRESSED_SIZE,      88,  85, 157, 12,  ES_AUTOHSCROLL | NOT WS_BORDER
-    LTEXT       "Compressed Footprint:",    IDC_STATIC,                       7,  99,  78,  8
-    EDITTEXT                                IDC_FOOTPRINT_COMPRESSED_SIZE,   88,  97, 157, 12,  ES_AUTOHSCROLL | NOT WS_BORDER
-    LTEXT       "Compressed Payload:",      IDC_STATIC,                       7, 111,  78,  8
-    EDITTEXT                                IDC_PAYLOAD_COMPRESSED_SIZE,     88, 109, 157, 12,  ES_AUTOHSCROLL | NOT WS_BORDER
-    LTEXT       "Payload Files:",           IDC_STATIC,                       7, 123,  78,  8
-    EDITTEXT                                IDC_PAYLOAD_COUNT,               88, 121, 157, 12,  ES_AUTOHSCROLL | NOT WS_BORDER
+    LTEXT       "Signature Origin:",        IDC_STATIC,                       7,  89,  78,  8,  SS_CENTERIMAGE
+    EDITTEXT                                IDC_SIGNATURE_ORIGIN,            88,  87, 157, 12,  ES_AUTOHSCROLL | NOT WS_BORDER
+    LTEXT       "Uncompressed Size:",       IDC_STATIC,                       7, 101,  78,  8,  SS_CENTERIMAGE
+    EDITTEXT                                IDC_FILE_UNCOMPRESSED_SIZE,      88,  99, 157, 12,  ES_AUTOHSCROLL | NOT WS_BORDER
+    LTEXT       "Compressed Footprint:",    IDC_STATIC,                       7, 113,  78,  8,  SS_CENTERIMAGE
+    EDITTEXT                                IDC_FOOTPRINT_COMPRESSED_SIZE,   88, 111, 157, 12,  ES_AUTOHSCROLL | NOT WS_BORDER
+    LTEXT       "Compressed Payload:",      IDC_STATIC,                       7, 125,  78,  8,  SS_CENTERIMAGE
+    EDITTEXT                                IDC_PAYLOAD_COMPRESSED_SIZE,     88, 123, 157, 12,  ES_AUTOHSCROLL | NOT WS_BORDER
+    LTEXT       "Payload Files:",           IDC_STATIC,                       7, 137,  78,  8,  SS_CENTERIMAGE
+    EDITTEXT                                IDC_PAYLOAD_COUNT,               88, 135, 157, 12,  ES_AUTOHSCROLL | NOT WS_BORDER
 
-    CONTROL     "", IDC_STATIC, "Static", SS_ETCHEDHORZ,                      0, 135, 250,  1
+    CONTROL     "", IDC_STATIC, "Static", SS_ETCHEDHORZ,                      0, 149, 250,  1
 
-    AUTOCHECKBOX  "&Allow unsigned",            IDC_ALLOWUNSIGNED,            7, 138,  70, 10
-    AUTOCHECKBOX  "&Defer while in use",        IDC_DEFERWHILEINUSE,        120, 138,  80, 10
-    AUTOCHECKBOX  "Developer &mode",            IDC_DEVELOPERMODE,            7, 150,  72, 10
-    AUTOCHECKBOX  "&Force",                     IDC_FORCE,                  120, 150,  42, 10
-    AUTOCHECKBOX  "&Limit to existing packages",IDC_LIMITTOEXISTINGPACKAGES,  7, 162, 110, 10
-    AUTOCHECKBOX  "Re&tain files on failure",   IDC_RETAINFILESONFAILURE,   120, 162,  98, 10
-    AUTOCHECKBOX  "&External Location",         IDC_EXTERNAL,                 7, 175,  80, 10
-    EDITTEXT                                    IDC_EXTERNAL_PATH,           90, 174, 155, 14,  ES_AUTOHSCROLL | WS_TABSTOP
-    LTEXT         "&Priority:",                 IDC_PRIORITY_LABEL,           7, 192,  32,  8
-    COMBOBOX                                    IDC_PRIORITY,                41, 190,  50, 60,  CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
-    LTEXT         "&Volume:",                   IDC_VOLUME_LABEL,            95, 192,  30,  8
-    COMBOBOX                                    IDC_VOLUME,                 129, 190, 116, 60,  CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
+    AUTOCHECKBOX  "&Allow unsigned",            IDC_ALLOWUNSIGNED,            7, 152,  70, 10
+    AUTOCHECKBOX  "&Defer while in use",        IDC_DEFERWHILEINUSE,        120, 152,  80, 10
+    AUTOCHECKBOX  "Developer &mode",            IDC_DEVELOPERMODE,            7, 164,  72, 10
+    AUTOCHECKBOX  "&Force",                     IDC_FORCE,                  120, 164,  42, 10
+    AUTOCHECKBOX  "&Limit to existing packages",IDC_LIMITTOEXISTINGPACKAGES,  7, 176, 110, 10
+    AUTOCHECKBOX  "Re&tain files on failure",   IDC_RETAINFILESONFAILURE,   120, 176,  98, 10
+    AUTOCHECKBOX  "&External Location",         IDC_EXTERNAL,                 7, 189,  80, 10
+    EDITTEXT                                    IDC_EXTERNAL_PATH,           90, 188, 155, 14,  ES_AUTOHSCROLL | WS_TABSTOP
+    LTEXT         "&Priority:",                 IDC_PRIORITY_LABEL,           7, 206,  26,  8
+    COMBOBOX                                    IDC_PRIORITY,                37, 202,  50, 60,  CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
+    LTEXT         "&Volume:",                   IDC_VOLUME_LABEL,            91, 206,  26,  8
+    COMBOBOX                                    IDC_VOLUME,                 119, 204, 126, 60,  CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
 
     PUSHBUTTON    "Add Certificate",            IDC_ADDCERTIFICATE,           7, 229,  60, 14,  BS_DEFPUSHBUTTON | WS_TABSTOP
 
