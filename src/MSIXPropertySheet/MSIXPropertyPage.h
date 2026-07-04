@@ -119,6 +119,11 @@ private:
     // (WS_POPUP) window, so it is not auto-destroyed with the dialog's child controls.
     HWND m_hwndTip{};
 
+    // Scratch buffer for tooltip text supplied via TTN_GETDISPINFO. The notify
+    // struct's own szText is only 80 chars, which truncates longer tooltip
+    // strings, so we load the full resource string here and point lpszText at it.
+    WCHAR m_tooltipText[512]{};
+
     // Current status-badge colors, refreshed by UpdatePackageStatus and applied
     // by the owner-draw handler (DrawStatusBadge).
     StatusColor m_registeredStatusColor{ StatusColor::None };

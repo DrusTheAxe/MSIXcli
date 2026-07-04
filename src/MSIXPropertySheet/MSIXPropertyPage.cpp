@@ -196,8 +196,8 @@ INT_PTR CALLBACK MSIXPropertyPage::DialogProc(HWND hwndDlg, UINT uMsg, WPARAM wP
                         }
                         else
                         {
-                            LoadStringW(g_hInstance, controlId, pdi->szText, ARRAYSIZE(pdi->szText));
-                            pdi->lpszText = pdi->szText;
+                            LoadStringW(g_hInstance, controlId, pThis->m_tooltipText, ARRAYSIZE(pThis->m_tooltipText));
+                            pdi->lpszText = pThis->m_tooltipText;
                         }
                     }
                     break;
