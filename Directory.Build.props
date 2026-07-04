@@ -1,0 +1,35 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<!-- Copyright (c) Howard Kapustein. All rights reserved. Licensed under the MIT License. See LICENSE in the project root for license information. -->
+<!-- This is a special MSBuild file that is parsed before everything else when MSBuild detects it in our directory structure.
+     Adding Sdk="Microsoft.NET.Sdk" to a project causes NuGet files to be generated very early on, so we need these defines to be here
+     to ensure that all of our build output files end up in the same location. -->
+<Project InitialTargets="DirectoryBuildPropsInfo" ToolsVersion="14.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <!-- Due to import ordering inconsistencies between different project types, we import this file from multiple places. -->
+  <Import Project="$(MSBuildThisFileDirectory)build\EnsureOutputLayout.props" Condition="$(EnsureOutputLayoutPropsIncluded) == ''" />
+
+  <PropertyGroup>
+    <GeneratedFilesDir>$(BaseIntermediateOutputPath)Generated Files\</GeneratedFilesDir>
+    <GenerateProjectSpecificOutputFolder>True</GenerateProjectSpecificOutputFolder>
+    <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+    <NugetPackageDirectory>$(RepoRoot)\packages</NugetPackageDirectory>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <PreferredToolArchitecture>x64</PreferredToolArchitecture>
+  </PropertyGroup>
+
+  <!-- The standard props files do not set _DEBUG for the resource compiler -->
+  <ItemDefinitionGroup Condition="$(Configuration) == 'Debug'">
+    <ResourceCompile>
+      <PreprocessorDefinitions>_DEBUG;%(PreprocessorDefinitions);</PreprocessorDefinitions>
+    </ResourceCompile>
+  </ItemDefinitionGroup>
+
+  <!-- Define our standardardized options for C/C++ builds -->
+  <Import Project="$(MSBuildThisFileDirectory)build\Build.Cpp.props" />
+
+  <!-- Emits a low-importance message confirming that this Directory.Build.props was loaded for the current project. -->
+  <Target Name="DirectoryBuildPropsInfo">
+    <Message Importance="Low" Text="Directory.Build.props loaded for $(MSBuildProjectName) ($(Configuration)|$(Platform))" />
+  </Target>
+</Project>

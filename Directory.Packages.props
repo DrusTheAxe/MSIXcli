@@ -1,0 +1,17 @@
+<!--
+    This is the project file used by CentralPackageVersions, and used to control all PackageReference's
+    and make sure the version is only declared in a single place
+
+    https://learn.microsoft.com/en-us/nuget/consume-packages/Central-Package-Management
+-->
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <WILVersion>1.0.260126.7</WILVersion>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageVersion Include="Microsoft.Windows.ImplementationLibrary" Version="$(WILVersion)" Condition="'$(WILVersion)'!=''" />
+  </ItemGroup>
+  <PropertyGroup>
+    <CentralPackageTransitivePinningEnabled>true</CentralPackageTransitivePinningEnabled>
+  </PropertyGroup>
+</Project>

@@ -1,0 +1,108 @@
+// Copyright (c) Howard Kapustein
+// Licensed under the MIT License. See LICENSE in the project root for license information.
+
+#include <Windows.h>
+#include <commctrl.h>
+
+#include "resource.h"
+
+LANGUAGE LANG_ENGLISH, SUBLANG_ENGLISH_US
+
+IDD_MSIX_PROPPAGE DIALOGEX 0, 0, 252, 250
+STYLE DS_SETFONT | DS_FIXEDSYS | WS_CHILD | WS_DISABLED | WS_CAPTION
+CAPTION "MSIX"
+FONT 8, "MS Shell Dlg", 400, 0, 0x1
+BEGIN
+    // Identity
+    LTEXT       "File:",                    IDC_STATIC,                       7,   9,  78,  8
+    EDITTEXT                                IDC_FILE_PATH,                   88,   7, 157, 14,  ES_AUTOHSCROLL | ES_READONLY | WS_TABSTOP
+    LTEXT       "Package Full Name:",       IDC_STATIC,                       7,  27,  78,  8
+    EDITTEXT                                IDC_PACKAGE_FULL_NAME,           88,  25, 157, 12,  ES_AUTOHSCROLL | NOT WS_BORDER
+    LTEXT       "Package Family Name:",     IDC_STATIC,                       7,  39,  78,  8
+    EDITTEXT                                IDC_PACKAGE_FAMILY_NAME,         88,  37, 157, 12,  ES_AUTOHSCROLL | NOT WS_BORDER
+
+    CONTROL     "", IDC_STATIC, "Static", SS_ETCHEDHORZ,                      0,  51, 250,  1
+
+    LTEXT       "Staged",                   IDC_IS_STAGED,                    7,  56,  38, 10,  SS_OWNERDRAW
+    LTEXT       "Registered",               IDC_IS_REGISTERED,               49,  56,  54, 10,  SS_OWNERDRAW
+    LTEXT       "Remove[Pending]",          IDC_IS_REMOVE_PENDING,          107,  56,  82, 10,  SS_OWNERDRAW
+    PUSHBUTTON  "Deregister",               IDC_UNINSTALL,                  195,  54,  50, 14,  WS_TABSTOP
+
+    CONTROL     "", IDC_STATIC, "Static", SS_ETCHEDHORZ,                      0,  70, 250,  1
+
+    // Package information
+    LTEXT       "Signature Origin:",        IDC_STATIC,                       7,  75,  78,  8
+    EDITTEXT                                IDC_SIGNATURE_ORIGIN,            88,  73, 157, 12,  ES_AUTOHSCROLL | NOT WS_BORDER
+    LTEXT       "Uncompressed Size:",       IDC_STATIC,                       7,  87,  78,  8
+    EDITTEXT                                IDC_FILE_UNCOMPRESSED_SIZE,      88,  85, 157, 12,  ES_AUTOHSCROLL | NOT WS_BORDER
+    LTEXT       "Compressed Footprint:",    IDC_STATIC,                       7,  99,  78,  8
+    EDITTEXT                                IDC_FOOTPRINT_COMPRESSED_SIZE,   88,  97, 157, 12,  ES_AUTOHSCROLL | NOT WS_BORDER
+    LTEXT       "Compressed Payload:",      IDC_STATIC,                       7, 111,  78,  8
+    EDITTEXT                                IDC_PAYLOAD_COMPRESSED_SIZE,     88, 109, 157, 12,  ES_AUTOHSCROLL | NOT WS_BORDER
+    LTEXT       "Payload Files:",           IDC_STATIC,                       7, 123,  78,  8
+    EDITTEXT                                IDC_PAYLOAD_COUNT,               88, 121, 157, 12,  ES_AUTOHSCROLL | NOT WS_BORDER
+
+    CONTROL     "", IDC_STATIC, "Static", SS_ETCHEDHORZ,                      0, 135, 250,  1
+
+    AUTOCHECKBOX  "&Allow unsigned",            IDC_ALLOWUNSIGNED,            7, 138,  70, 10
+    AUTOCHECKBOX  "&Defer while in use",        IDC_DEFERWHILEINUSE,        120, 138,  80, 10
+    AUTOCHECKBOX  "Developer &mode",            IDC_DEVELOPERMODE,            7, 150,  72, 10
+    AUTOCHECKBOX  "&Force",                     IDC_FORCE,                  120, 150,  42, 10
+    AUTOCHECKBOX  "&Limit to existing packages",IDC_LIMITTOEXISTINGPACKAGES,  7, 162, 110, 10
+    AUTOCHECKBOX  "Re&tain files on failure",   IDC_RETAINFILESONFAILURE,   120, 162,  98, 10
+    AUTOCHECKBOX  "&External Location",         IDC_EXTERNAL,                 7, 175,  80, 10
+    EDITTEXT                                    IDC_EXTERNAL_PATH,           90, 174, 155, 14,  ES_AUTOHSCROLL | WS_TABSTOP
+    LTEXT         "Install &Priority:",         IDC_PRIORITY_LABEL,           7, 192,  60,  8
+    COMBOBOX                                    IDC_PRIORITY,                70, 190,  50, 60,  CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
+    LTEXT         "Target &Volume:",            IDC_VOLUME_LABEL,             7, 208,  60,  8
+    COMBOBOX                                    IDC_VOLUME,                  70, 206, 155, 60,  CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
+
+    PUSHBUTTON    "Add Certificate",            IDC_ADDCERTIFICATE,           7, 229,  60, 14,  BS_DEFPUSHBUTTON | WS_TABSTOP
+
+    COMBOBOX                                    IDC_INSTALLACTION,          140, 229,  50, 60,  CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
+    PUSHBUTTON    "&Install",                   IDC_INSTALL,                195, 229,  50, 14,  BS_DEFPUSHBUTTON | WS_TABSTOP
+END
+
+// [Add certificate]
+// is registered [Install/Add] [Stage] [Provision]
+// is pending registration
+
+STRINGTABLE
+BEGIN
+    IDC_FILE_PATH                       "Full path to the MSIX package file"
+    IDC_PACKAGE_FULL_NAME               "The package full name: Name_Version_Architecture_ResourceId_PublisherId"
+    IDC_PACKAGE_FAMILY_NAME             "The package family name: Name_PublisherId"
+
+    IDC_IS_STAGED                       "The package is staged"
+    IDC_IS_REGISTERED                   "The package is registered"
+    IDC_IS_REMOVE_PENDING               "Package removal is pending"
+
+    IDC_SIGNATURE_ORIGIN                "Origin of the MSIX package's signing"
+    IDC_PAYLOAD_COUNT                   "Number of payload files contained in the package"
+    IDC_COMPRESSED_LABEL                "Size of the data as stored (compressed) in the package"
+    IDC_UNCOMPRESSED_LABEL              "Size of the data after extraction (uncompressed)"
+    IDC_SIZE_LABEL                      "Size of the package file"
+    IDC_FILE_COMPRESSED_SIZE            "Compressed (on-disk) size of the package file"
+    IDC_FILE_UNCOMPRESSED_SIZE          "Uncompressed size of the package file's contents (excluding AppxBlockMap.xml)"
+    IDC_FOOTPRINT_LABEL                 "Size of the package footprint files (manifest, block map, signature, etc.)"
+    IDC_FOOTPRINT_COMPRESSED_SIZE       "Compressed size of the package footprint files (manifest, block map, signature, etc.)"
+    IDC_FOOTPRINT_UNCOMPRESSED_SIZE     "Uncompressed size of the package footprint files"
+    IDC_PAYLOAD_LABEL                   "Size of all payload files in the package"
+    IDC_PAYLOAD_COMPRESSED_SIZE         "Compressed size of all payload files"
+    IDC_PAYLOAD_UNCOMPRESSED_SIZE       "Uncompressed size of all payload files"
+
+    IDC_FORCE                           "Force running processes using the package to shut down so the package can be installed"
+    IDC_DEFERWHILEINUSE                 "Defer registration while the package's files are in use, applying it at next available opportunity (worst case at next logon)"
+    IDC_INSTALLACTION                   "Choose whether to Add (install) or Stage the package"
+    IDC_INSTALL                         "Perform the selected action (Add or Stage) using the options selected above"
+    IDC_DEVELOPERMODE                   "Install in developer mode (requires Developer Mode in Settings to be enabled)"
+    IDC_ALLOWUNSIGNED                   "Allow installing a package that is not signed"
+    IDC_RETAINFILESONFAILURE            "Retain staged files if the installation fails"
+    IDC_LIMITTOEXISTINGPACKAGES         "Limit the operation to updating existing packages only (do not add a new package)"
+    IDC_VOLUME_LABEL                    "Target volume where the package will be installed"
+    IDC_VOLUME                          "Target volume where the package will be installed"
+    IDC_PRIORITY_LABEL                  "Priority of the deployment operation"
+    IDC_PRIORITY                        "Priority of the deployment operation: Low, Default, or High"
+    IDC_EXTERNAL                        "Install the package using content stored at an external location"
+    IDC_EXTERNAL_PATH                   "Path or URI to the package's external content"
+END
