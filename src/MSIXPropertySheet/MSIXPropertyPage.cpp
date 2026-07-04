@@ -313,7 +313,7 @@ void MSIXPropertyPage::OnInitDialog(HWND hwndDlg)
         SendDlgItemMessage(hwndDlg, id, EM_SETREADONLY, TRUE, 0);
     }
 
-    // Populate the Priority combobox and select "Default" by default.
+    // Populate the Priority combobox and select "Default" by default
     {
         HWND hPriority{ GetDlgItem(hwndDlg, IDC_PRIORITY) };
         SendMessage(hPriority, CB_ADDSTRING, 0, reinterpret_cast<LPARAM>(L"Low"));
@@ -459,10 +459,10 @@ void MSIXPropertyPage::UpdatePackageStatus(HWND hwndDlg)
     EnableAndShowControl(GetDlgItem(hwndDlg, IDC_IS_REMOVE_PENDING), m_package.IsRemovalPending());
     m_removalPendingStatusColor = m_package.IsRemovalPending() ? StatusColor::Warning : StatusColor::None;
 
-    // The Deregister button is only shown/enabled when the package can be removed.
+    // The Remove button is only shown/enabled when the package can be removed
     EnableAndShowControl(GetDlgItem(hwndDlg, IDC_UNINSTALL), m_package.IsRemovable());
 
-    // Repaint the owner-drawn status badges to reflect their current colors.
+    // Repaint the owner-drawn status badges to reflect their current colors
     if (HWND hwndStaged{ GetDlgItem(hwndDlg, IDC_IS_STAGED) })
     {
         InvalidateRect(hwndStaged, nullptr, TRUE);
@@ -524,7 +524,7 @@ void MSIXPropertyPage::DrawStatusBadge(const DRAWITEMSTRUCT& dis)
     const int padding{ textSize.cy / 2 };
     const RECT badge{ rc.left, rc.top, rc.left + textSize.cx + padding * 2, rc.bottom };
 
-    // Rounded "pill": state-colored fill with a slightly darker (text-color) border.
+    // Rounded "pill": state-colored fill with a slightly darker (text-color) border
     const int diameter{ badge.bottom - badge.top };
     wil::unique_hpen pen{ CreatePen(PS_SOLID, 1, textColor) };
     wil::unique_hbrush fill{ CreateSolidBrush(backColor) };
@@ -534,7 +534,7 @@ void MSIXPropertyPage::DrawStatusBadge(const DRAWITEMSTRUCT& dis)
     SelectObject(hdc, oldBrush);
     SelectObject(hdc, oldPen);
 
-    // State-colored text centered within the badge.
+    // State-colored text centered within the badge
     const int previousBkMode{ SetBkMode(hdc, TRANSPARENT) };
     const COLORREF previousTextColor{ SetTextColor(hdc, textColor) };
     RECT textRect{ badge };
@@ -617,7 +617,7 @@ void MSIXPropertyPage::OnAddCertificate(HWND hwndDlg)
 
 void MSIXPropertyPage::OnInstallDropDown(HWND hwndDlg)
 {
-    // Read the newly selected action from the combobox.
+    // Read the newly selected action from the combobox
     const LRESULT selection{ SendDlgItemMessage(hwndDlg, IDC_INSTALLACTION, CB_GETCURSEL, 0, 0) };
     const InstallAction action{ (selection == 1) ? InstallAction::Stage : InstallAction::Add };
 
@@ -682,7 +682,7 @@ HRESULT MSIXPropertyPage::OnInstall(
         return (IsDlgButtonChecked(hwndDlg, id) == BST_CHECKED) ? TRUE : FALSE;
     };
 
-    // Resolve the inputs shared by both Add and Stage.
+    // Resolve the inputs shared by both Add and Stage
     wil::com_ptr_nothrow<ABI::Windows::Management::Deployment::IPackageVolume> targetVolume;
     auto hwndVolume{ GetDlgItem(hwndDlg, IDC_VOLUME) };
     const auto targetVolumeIndex{ SendMessage(hwndVolume, CB_GETCURSEL, 0, 0) };
@@ -752,7 +752,7 @@ HRESULT MSIXPropertyPage::OnInstall(
             return S_OK;
         }
 
-        // Map the option checkboxes onto the AddPackageOptions object.
+        // Map the option checkboxes onto the AddPackageOptions object
         RETURN_IF_FAILED(m_addPackageOptions->put_ForceAppShutdown(isChecked(IDC_FORCE)));
         RETURN_IF_FAILED(m_addPackageOptions->put_DeferRegistrationWhenPackagesAreInUse(isChecked(IDC_DEFERWHILEINUSE)));
         RETURN_IF_FAILED(m_addPackageOptions->put_DeveloperMode(isChecked(IDC_DEVELOPERMODE)));
@@ -851,7 +851,7 @@ HRESULT MSIXPropertyPage::OnUninstall(
         return (IsDlgButtonChecked(hwndDlg, id) == BST_CHECKED) ? TRUE : FALSE;
     };
 
-    // Resolve the inputs shared by both Add and Stage.
+    // Resolve the inputs shared by both Add and Stage
     wil::com_ptr_nothrow<ABI::Windows::Management::Deployment::IPackageVolume> targetVolume;
     auto hwndVolume{ GetDlgItem(hwndDlg, IDC_VOLUME) };
     const auto targetVolumeIndex{ SendMessage(hwndVolume, CB_GETCURSEL, 0, 0) };
@@ -958,7 +958,7 @@ void MSIXPropertyPage::ShowControl(HWND hControl, bool show)
 
 void MSIXPropertyPage::FormatSize(std::uint64_t bytes, PWSTR buffer, size_t cch) noexcept
 {
-    // StrFormatByteSizeW takes LONGLONG; clamp gracefully for huge values.
+    // StrFormatByteSizeW takes LONGLONG; clamp gracefully for huge values
     const LONGLONG signedBytes{ (
         bytes > static_cast<std::uint64_t>(LLONG_MAX))
             ? LLONG_MAX
@@ -1047,7 +1047,7 @@ HRESULT MSIXPropertyPage::GetText(HWND hwndDlg, int nIDDlgItem, wistd::unique_pt
 
 ABI::Windows::Management::Deployment::PackageOperationPriority MSIXPropertyPage::GetPriority(HWND hwndDlg)
 {
-    // The combobox items are ordered Low, Default, High, matching the enum values 0/1/2.
+    // The combobox items are ordered Low, Default, High, matching the enum values 0/1/2
     const LRESULT sel{ SendDlgItemMessage(hwndDlg, IDC_PRIORITY, CB_GETCURSEL, 0, 0) };
     return (sel == CB_ERR) ?
         ABI::Windows::Management::Deployment::PackageOperationPriority_Normal :

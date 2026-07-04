@@ -292,7 +292,7 @@ public:
 
     bool IsRemovable() const
     {
-        return m_packageOrigin != ::PackageOrigin_Inbox;
+        return (m_packageOrigin != ::PackageOrigin_Inbox) && (IsRegistered() || IsStaged());
     }
 
     bool IsRemovalPending() const

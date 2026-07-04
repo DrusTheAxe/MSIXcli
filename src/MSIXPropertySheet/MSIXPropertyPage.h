@@ -1,5 +1,5 @@
 // Copyright (c) Howard Kapustein
-// Licensed under the MIT License. See LICENSE in the project root for license information.
+// Licensed under the MIT License. See LICENSE in the project root for license information
 
 #pragma once
 
@@ -47,10 +47,10 @@ private:
     // Handles the IDC_ADDCERTIFICATE button click
     void OnAddCertificate(HWND hwndDlg);
 
-    // Handles the IDC_INSTALL button click: runs the currently selected action.
+    // Handles the IDC_INSTALL button click: runs the currently selected action
     void OnInstall(HWND hwndDlg);
 
-    // Run the requested deployment action and report any failure to the user.
+    // Run the requested deployment action and report any failure to the user
     void ExecuteInstall(HWND hwndDlg, InstallAction action);
 
     HRESULT OnInstall(
@@ -68,10 +68,10 @@ private:
         HRESULT& extendedError,
         GUID& activityId) const;
 
-    // Handles the IDC_UNINSTALL ("Deregister") button click.
+    // Handles the IDC_UNINSTALL button click
     void OnUninstall(HWND hwndDlg);
 
-    // Run the requested deployment action and report any failure to the user.
+    // Run the requested deployment action and report any failure to the user
     void ExecuteUninstall(HWND hwndDlg);
 
     HRESULT OnUninstall(
@@ -115,9 +115,8 @@ private:
     wil::com_ptr_nothrow<ABI::Windows::Management::Deployment::IStagePackageOptions3> m_stagePackageOptions3;
     InstallAction m_installAction{ InstallAction::Add };
 
-    // Tooltip control created in OnInitDialog; destroyed in OnDestroy. It is a
-    // top-level (WS_POPUP) window, so it is not auto-destroyed with the dialog's
-    // child controls.
+    // Tooltip control created in OnInitDialog; destroyed in OnDestroy. It is a top-level
+    // (WS_POPUP) window, so it is not auto-destroyed with the dialog's child controls.
     HWND m_hwndTip{};
 
     // Current status-badge colors, refreshed by UpdatePackageStatus and applied

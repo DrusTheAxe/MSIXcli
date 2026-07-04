@@ -33,7 +33,7 @@ constexpr PCWSTR ToString(SignatureOrigin signatureOrigin)
     {
         case SignatureOrigin::Windows:          return L"Windows";
         case SignatureOrigin::Store:            return L"Store";
-        case SignatureOrigin::LineOfBusiness:   return L"LineOfBusiness";
+        case SignatureOrigin::LineOfBusiness:   return L"Line of Business";
         case SignatureOrigin::Unknown:          return L"Signed but unknown (e.g. self signed)";
         case SignatureOrigin::Unsigned:         return L"Unsigned (No signature or no valid one)";
         default:                                return L"???";
