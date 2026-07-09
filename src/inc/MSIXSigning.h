@@ -228,6 +228,17 @@ public:
         return S_OK;
     }
 
+    // Extracts the leaf (signing) certificate from a package's signature so
+    // callers can inspect or display it. Read-only; requires no elevation.
+    // @return S_OK with the certificate, S_FALSE if the package has no usable
+    //         signature, or a failing HRESULT on a hard error
+    static HRESULT GetSigningCertificate(IAppxPackageReader* packageReader, wil::unique_cert_context& signingCertificate)
+    {
+        signingCertificate.reset();
+        RETURN_HR_IF_NULL(E_POINTER, packageReader);
+        return GetPackageSignerCertificate(packageReader, signingCertificate);
+    }
+
 public:
     // Determines the signature origin of an opened package
     static HRESULT DetectSignatureOrigin(IAppxPackageReader* packageReader, SignatureOrigin& signatureOrigin)

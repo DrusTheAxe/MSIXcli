@@ -160,15 +160,190 @@ HRESULT Command_Certificate_Exists(PCWSTR filename)
     return S_OK;
 }
 
+// Writes a byte blob as an uppercase hex string. Set bigEndian to reverse the
+// bytes for little-endian fields such as a certificate serial number.
+void PrintCertificateHexBytes(const BYTE* data, DWORD size, bool bigEndian)
+{
+    for (DWORD i = 0; i < size; ++i)
+    {
+        wprintf(L"%02X", data[bigEndian ? (size - 1 - i) : i]);
+    }
+}
+
+// Writes a certificate name (Subject or Issuer) as an X.500 distinguished name
+HRESULT PrintCertificateName(PCWSTR label, PCERT_NAME_BLOB nameBlob)
+{
+    const DWORD chars{ CertNameToStrW(X509_ASN_ENCODING, nameBlob, CERT_X500_NAME_STR, nullptr, 0) };
+    if (chars <= 1)
+    {
+        wprintf(L"%ls(none)\n", label);
+        return S_OK;
+    }
+    auto buffer{ wil::make_unique_cotaskmem_nothrow<WCHAR[]>(chars) };
+    RETURN_IF_NULL_ALLOC(buffer);
+    CertNameToStrW(X509_ASN_ENCODING, nameBlob, CERT_X500_NAME_STR, buffer.get(), chars);
+    wprintf(L"%ls%ls\n", label, buffer.get());
+    return S_OK;
+}
+
+// Writes a certificate validity timestamp (stored in UTC) in ISO-like form
+void PrintCertificateFileTime(PCWSTR label, const FILETIME& fileTime)
+{
+    SYSTEMTIME utc{};
+    if (FileTimeToSystemTime(&fileTime, &utc))
+    {
+        wprintf(L"%ls%04hu-%02hu-%02hu %02hu:%02hu:%02hu UTC\n", label,
+                utc.wYear, utc.wMonth, utc.wDay, utc.wHour, utc.wMinute, utc.wSecond);
+    }
+    else
+    {
+        wprintf(L"%ls(unknown)\n", label);
+    }
+}
+
+// Writes whether the certificate is valid for code signing and lists its
+// Enhanced Key Usages (EKUs). A certificate carrying no EKU restriction is
+// valid for all uses.
+HRESULT PrintCertificateEnhancedKeyUsage(PCCERT_CONTEXT certificate)
+{
+    DWORD usageSize{};
+    wil::unique_cotaskmem_ptr<BYTE[]> usageBuffer;
+    PCERT_ENHKEY_USAGE usage{};
+    if (CertGetEnhancedKeyUsage(certificate, 0, nullptr, &usageSize) && (usageSize > 0))
+    {
+        usageBuffer = wil::make_unique_cotaskmem_nothrow<BYTE[]>(usageSize);
+        RETURN_IF_NULL_ALLOC(usageBuffer);
+        if (CertGetEnhancedKeyUsage(certificate, 0, reinterpret_cast<PCERT_ENHKEY_USAGE>(usageBuffer.get()), &usageSize))
+        {
+            usage = reinterpret_cast<PCERT_ENHKEY_USAGE>(usageBuffer.get());
+        }
+    }
+
+    bool codeSigning{ false };
+    if (usage)
+    {
+        for (DWORD i = 0; i < usage->cUsageIdentifier; ++i)
+        {
+            const PCSTR oid{ usage->rgpszUsageIdentifier[i] };
+            if (oid && (strcmp(oid, szOID_PKIX_KP_CODE_SIGNING) == 0))
+            {
+                codeSigning = true;
+                break;
+            }
+        }
+    }
+    wprintf(L"  Code signing: %ls\n", codeSigning ? L"Yes" : L"No");
+
+    if (!usage || (usage->cUsageIdentifier == 0))
+    {
+        wprintf(L"  EKU(s):       (none; valid for all uses)\n");
+        return S_OK;
+    }
+
+    wprintf(L"  EKU(s):\n");
+    for (DWORD i = 0; i < usage->cUsageIdentifier; ++i)
+    {
+        const PCSTR oid{ usage->rgpszUsageIdentifier[i] };
+        if (!oid)
+        {
+            continue;
+        }
+        const PCCRYPT_OID_INFO oidInfo{ CryptFindOIDInfo(CRYPT_OID_INFO_OID_KEY,
+            const_cast<PSTR>(oid), CRYPT_ENHKEY_USAGE_OID_GROUP_ID) };
+        if (oidInfo && oidInfo->pwszName)
+        {
+            wprintf(L"    %ls (%hs)\n", oidInfo->pwszName, oid);
+        }
+        else
+        {
+            wprintf(L"    %hs\n", oid);
+        }
+    }
+    return S_OK;
+}
+
+// Writes the interesting fields of a certificate to the console
+HRESULT PrintCertificate(PCCERT_CONTEXT certificate)
+{
+    RETURN_HR_IF_NULL(E_INVALIDARG, certificate);
+    const PCERT_INFO info{ certificate->pCertInfo };
+
+    RETURN_IF_FAILED(PrintCertificateName(L"  Subject:      ", &info->Subject));
+    RETURN_IF_FAILED(PrintCertificateName(L"  Issuer:       ", &info->Issuer));
+
+    wprintf(L"  Serial:       ");
+    PrintCertificateHexBytes(info->SerialNumber.pbData, info->SerialNumber.cbData, true);
+    wprintf(L"\n");
+
+    BYTE thumbprint[20]{};
+    DWORD thumbprintSize{ sizeof(thumbprint) };
+    if (CertGetCertificateContextProperty(certificate, CERT_SHA1_HASH_PROP_ID, thumbprint, &thumbprintSize))
+    {
+        wprintf(L"  Thumbprint:   ");
+        PrintCertificateHexBytes(thumbprint, thumbprintSize, false);
+        wprintf(L"\n");
+    }
+
+    PrintCertificateFileTime(L"  Valid from:   ", info->NotBefore);
+    PrintCertificateFileTime(L"  Valid to:     ", info->NotAfter);
+
+    // CertVerifyTimeValidity(nullptr, ...) compares NotBefore/NotAfter against the
+    // current time, returning 0 only when now is within the validity window
+    const bool isValid{ CertVerifyTimeValidity(nullptr, info) == 0 };
+    wprintf(L"  Is valid:     %ls\n", isValid ? L"Yes" : L"No (Expired)");
+
+    PCSTR algorithmOid{ info->SignatureAlgorithm.pszObjId };
+    if (algorithmOid)
+    {
+        const PCCRYPT_OID_INFO algorithmInfo{ CryptFindOIDInfo(CRYPT_OID_INFO_OID_KEY,
+            const_cast<PSTR>(algorithmOid), CRYPT_SIGN_ALG_OID_GROUP_ID) };
+        if (algorithmInfo && algorithmInfo->pwszName)
+        {
+            wprintf(L"  Algorithm:    %ls (%hs)\n", algorithmInfo->pwszName, algorithmOid);
+        }
+        else
+        {
+            wprintf(L"  Algorithm:    %hs\n", algorithmOid);
+        }
+    }
+
+    DWORD keyProvSize{};
+    const bool hasPrivateKey{ CertGetCertificateContextProperty(certificate, CERT_KEY_PROV_INFO_PROP_ID, nullptr, &keyProvSize) != FALSE };
+    wprintf(L"  Private key:  %ls\n", hasPrivateKey ? L"Yes" : L"No");
+
+    RETURN_IF_FAILED(PrintCertificateEnhancedKeyUsage(certificate));
+    return S_OK;
+}
+
 HRESULT Command_Certificate_List(PCWSTR filename)
 {
     wil::com_ptr_nothrow<IAppxPackageReader> packageReader;
     RETURN_IF_FAILED_MSG(MSIX::Packaging::Package::Reader::Open(filename, packageReader), "%ls", filename);
-    RETURN_IF_FAILED_MSG(MSIX::Signing::AddCertificate(packageReader.get()), "%ls", filename);
 
-    //TODO certificate list
-    //TODO : list the certificate from the package
-    (void)filename;
+    // Classify where the package's trust comes from (read-only; no elevation needed)
+    MSIX::SignatureOrigin origin{ MSIX::SignatureOrigin::Unsigned };
+    RETURN_IF_FAILED_MSG(MSIX::Signing::DetectSignatureOrigin(packageReader.get(), origin), "%ls", filename);
+
+    wprintf(L"Package: %ls\n", filename);
+    wprintf(L"Origin:  %ls\n", MSIX::ToString(origin));
+
+    if (origin == MSIX::SignatureOrigin::Unsigned)
+    {
+        wprintf(L"No certificate to list (package is unsigned)\n");
+        return S_OK;
+    }
+
+    // Extract and display the leaf (signing) certificate carried in the package
+    wil::unique_cert_context signingCertificate;
+    const HRESULT signerHr{ MSIX::Signing::GetSigningCertificate(packageReader.get(), signingCertificate) };
+    RETURN_IF_FAILED_MSG(signerHr, "%ls", filename);
+    if ((signerHr == S_FALSE) || !signingCertificate)
+    {
+        wprintf(L"No certificate to list\n");
+        return S_OK;
+    }
+
+    RETURN_IF_FAILED(PrintCertificate(signingCertificate.get()));
     return S_OK;
 }
 
