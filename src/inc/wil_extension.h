@@ -70,9 +70,9 @@ namespace details
 inline HRESULT parse_hexstring(PCWSTR string, size_t bytesSize, BYTE* bytes)
 {
     const size_t stringLength{ wcslen(string) };
-    RETURN_HR_IF(E_INVALIDARG, stringLength * 2 != bytesSize);
+    RETURN_HR_IF(E_INVALIDARG, stringLength != bytesSize * 2);
 
-    for (size_t index=0; index < stringLength; index += 2)
+    for (size_t index=0; index < stringLength; ++index)
     {
         const wchar_t c1{ string[index] };
         const auto b1{ details::hexdigit_to_byte(c1) };
@@ -82,8 +82,9 @@ inline HRESULT parse_hexstring(PCWSTR string, size_t bytesSize, BYTE* bytes)
         const auto b2{ details::hexdigit_to_byte(c2) };
         RETURN_HR_IF(E_INVALIDARG, b2 < 0);
 
-        const BYTE value{ static_cast<BYTE>((b2 << 4) | b1) };
+        const BYTE value{ static_cast<BYTE>((b1 << 4) | b2) };
         *bytes++ = value;
     }
+    return S_OK;
 }
 }

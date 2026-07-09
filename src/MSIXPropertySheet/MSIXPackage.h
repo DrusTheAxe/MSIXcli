@@ -163,11 +163,11 @@ public:
         return S_OK;
     }
 
-    HRESULT AddCertificate()
+    HRESULT AddCertificate(MSIX::Signing::AddResult& result)
     {
         RETURN_HR_IF(E_NOT_VALID_STATE, !m_packageReader);
 
-        RETURN_IF_FAILED(MSIX::Signing::AddCertificate(m_packageReader.get()));
+        RETURN_IF_FAILED(MSIX::Signing::AddCertificate(m_packageReader.get(), result));
         return S_OK;
     }
 

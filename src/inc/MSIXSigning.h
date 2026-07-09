@@ -43,6 +43,8 @@ constexpr PCWSTR ToString(SignatureOrigin signatureOrigin)
 class Signing
 {
 public:
+    enum AddResult { Installed, AlreadyTrusted, NoUsableCertificate };
+
     // Add the package's certificate to the system's certificate store, equivalent to the Powershell script:
     //
     //      $cer = Join-Path $root 'something.cer'
@@ -66,7 +68,7 @@ public:
     //      10. Click the **Next** button on the **Certificate Import Wizard** window.
     //      11. Click **Finish** button to complete the certificate install.
     //      12. Close all windows.
-    static HRESULT AddCertificate(IAppxPackageReader* packageReader)
+    static HRESULT AddCertificate(IAppxPackageReader* packageReader, AddResult& result)
     {
         // Writing to the LocalMachine store requires administrator rights
         // Fail if we're not elevated
@@ -79,7 +81,8 @@ public:
         RETURN_IF_FAILED(DetectSignatureOrigin(packageReader, origin));
         if ((origin == SignatureOrigin::Windows) || (origin == SignatureOrigin::Store))
         {
-            return S_FALSE; // Already trusted -> nothing to install
+            result = AddResult::AlreadyTrusted;
+            return S_OK;
         }
 
         // Extract the leaf (signing) certificate from the package signature
@@ -88,11 +91,46 @@ public:
         RETURN_IF_FAILED(signerHr);
         if (signerHr == S_FALSE)
         {
-            return S_FALSE; // No usable certificate -> nothing to install
+            result = AddResult::NoUsableCertificate;
+            return S_OK;
         }
 
         // Install the leaf into LocalMachine\TrustedPeople
         RETURN_IF_FAILED(InstallLeafToTrustedPeople(signingCertificate.get()));
+        result = AddResult::Installed;
+        return S_OK;
+    }
+
+    // Removes the certificate with the given thumbprint (its SHA-1 hash) from
+    // LocalMachine\TrustedPeople if present. A thumbprint alone cannot convey
+    // Windows/Store origin, so use the IAppxPackageReader overload when origin matters.
+    // @param thumbprintSize Number of bytes in the thumbprint (20 for a SHA-1 hash)
+    // @param thumbprint The certificate's SHA-1 hash (thumbprint) bytes
+    // @return S_OK if a certificate was removed, S_FALSE if there was nothing to do
+    static HRESULT RemoveCertificate(size_t thumbprintSize, BYTE* thumbprint)
+    {
+        // Writing to the LocalMachine store requires administrator rights
+        // Fail if we're not elevated
+        RETURN_HR_IF(E_ACCESSDENIED, !IsRunningAsAdmin());
+        RETURN_HR_IF_NULL(E_POINTER, thumbprint);
+        RETURN_HR_IF(E_INVALIDARG, (thumbprintSize == 0) || (thumbprintSize > 0xFFFFFFFFull));
+
+        CRYPT_HASH_BLOB thumbprintBlob{};
+        thumbprintBlob.cbData = static_cast<DWORD>(thumbprintSize);
+        thumbprintBlob.pbData = thumbprint;
+
+        wil::unique_hcertstore store{ OpenTrustedPeopleStore() };
+        RETURN_LAST_ERROR_IF_NULL(store);
+
+        // CertFindCertificateInStore returns a context owned by the store; deleting
+        // it consumes the reference, so it must not be double-freed
+        PCCERT_CONTEXT found{ CertFindCertificateInStore(store.get(), c_encoding, 0,
+            CERT_FIND_SHA1_HASH, &thumbprintBlob, nullptr) };
+        if (!found)
+        {
+            return S_FALSE; // Not installed -> nothing to remove
+        }
+        RETURN_IF_WIN32_BOOL_FALSE(CertDeleteCertificateFromStore(found));
         return S_OK;
     }
 
@@ -196,12 +234,29 @@ public:
         return S_OK;
     }
 
-    // Reports whether the certificate is trusted, based on the certificate's thumbprint.
-    // @return true for Windows/Store-signed certificates' thumbprints,
-    //         otherwise true only if the leaf is present in LocalMachine\TrustedPeople.
+    // Reports whether a certificate with the given thumbprint (its SHA-1 hash) is
+    // present in LocalMachine\TrustedPeople. A thumbprint alone cannot convey
+    // Windows/Store origin, so use the IAppxPackageReader overload when origin matters.
+    // @param thumbprintSize  Number of bytes in the thumbprint (20 for a SHA-1 hash)
+    // @param thumbprint      The certificate's SHA-1 hash (thumbprint) bytes
+    // @param isInstalled     Receives true if a matching certificate is installed
     static HRESULT IsCertificateInstalled(size_t thumbprintSize, BYTE* thumbprint, bool& isInstalled)
     {
-        //TODO
+        isInstalled = false;
+        RETURN_HR_IF_NULL(E_POINTER, thumbprint);
+        RETURN_HR_IF(E_INVALIDARG, (thumbprintSize == 0) || (thumbprintSize > 0xFFFFFFFFull));
+
+        CRYPT_HASH_BLOB thumbprintBlob{};
+        thumbprintBlob.cbData = static_cast<DWORD>(thumbprintSize);
+        thumbprintBlob.pbData = thumbprint;
+
+        wil::unique_hcertstore store{ OpenTrustedPeopleStore() };
+        RETURN_LAST_ERROR_IF_NULL(store);
+
+        wil::unique_cert_context found{ CertFindCertificateInStore(store.get(), c_encoding, 0,
+            CERT_FIND_SHA1_HASH, &thumbprintBlob, nullptr) };
+        isInstalled = static_cast<bool>(found);
+        return S_OK;
     }
 
     // Reports whether the package's certificate is trusted.

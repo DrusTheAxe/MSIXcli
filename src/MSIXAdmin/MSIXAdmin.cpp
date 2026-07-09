@@ -145,10 +145,24 @@ HRESULT Command_Certificate_Add(PCWSTR filename)
 {
     wil::com_ptr_nothrow<IAppxPackageReader> packageReader;
     RETURN_IF_FAILED_MSG(MSIX::Packaging::Package::Reader::Open(filename, packageReader), "%ls", filename);
-    RETURN_IF_FAILED_MSG(MSIX::Signing::AddCertificate(packageReader.get()), "%ls", filename);
+    MSIX::Signing::AddResult result{};
+    RETURN_IF_FAILED_MSG(MSIX::Signing::AddCertificate(packageReader.get(), result), "%ls", filename);
 
-    wprintf(L"Certificate from '%ls' added to the system\n", filename);
-    return S_OK;
+    if (result == MSIX::Signing::AddResult::Installed)
+    {
+        wprintf(L"Certificate from '%ls' added to the system\n", filename);
+        return S_OK;
+    }
+    else if (result == MSIX::Signing::AddResult::AlreadyTrusted)
+    {
+        wprintf(L"Certificate from '%ls' is already trusted\n", filename);
+        return S_FALSE;
+    }
+    else
+    {
+        wprintf(L"'%ls' is not signed\n", filename);
+        return SCARD_E_NO_SUCH_CERTIFICATE;
+    }
 }
 
 HRESULT Command_Certificate_Exists(PCWSTR filename)
@@ -156,14 +170,14 @@ HRESULT Command_Certificate_Exists(PCWSTR filename)
     bool isInstalled{};
     if (wil::string_starts_with(filename, L"0x"))
     {
-        const size_t thumbprintSize{ 32 }; // SHA-256
+        const size_t thumbprintLength{ wcslen(filename + 2) };
+        RETURN_HR_IF(E_INVALIDARG, (thumbprintLength % 2) != 0);
+        const size_t thumbprintSize{ thumbprintLength / 2 };
         wistd::unique_ptr<BYTE[]> thumbprint{ new (std::nothrow) BYTE[thumbprintSize] };
         RETURN_IF_NULL_ALLOC(thumbprint);
         RETURN_IF_FAILED(wil::parse_hexstring(filename + 2, thumbprintSize, thumbprint.get()));
-
         RETURN_IF_FAILED_MSG(MSIX::Signing::IsCertificateInstalled(thumbprintSize, thumbprint.get(), isInstalled), "%ls", filename);
         wprintf(L"Certificate with thumbprint '%ls' is%ls installed\n", filename + 2, isInstalled ? L"" : L" not");
-        return S_OK;
     }
     else
     {
@@ -365,12 +379,25 @@ HRESULT Command_Certificate_List(PCWSTR filename)
 
 HRESULT Command_Certificate_Remove(PCWSTR filename)
 {
-    wil::com_ptr_nothrow<IAppxPackageReader> packageReader;
-    RETURN_IF_FAILED_MSG(MSIX::Packaging::Package::Reader::Open(filename, packageReader), "%ls", filename);
-
-    //TODO certificate remove
-    (void)filename;
-    return S_OK;
+    HRESULT hr{};
+    if (wil::string_starts_with(filename, L"0x"))
+    {
+        const size_t thumbprintLength{ wcslen(filename + 2) };
+        RETURN_HR_IF(E_INVALIDARG, (thumbprintLength % 2) != 0);
+        const size_t thumbprintSize{ thumbprintLength / 2 };
+        wistd::unique_ptr<BYTE[]> thumbprint{ new (std::nothrow) BYTE[thumbprintSize] };
+        RETURN_IF_NULL_ALLOC(thumbprint);
+        RETURN_IF_FAILED(wil::parse_hexstring(filename + 2, thumbprintSize, thumbprint.get()));
+        RETURN_IF_FAILED_MSG(hr = MSIX::Signing::RemoveCertificate(thumbprintSize, thumbprint.get()), "%ls", filename);
+    }
+    else
+    {
+        wil::com_ptr_nothrow<IAppxPackageReader> packageReader;
+        RETURN_IF_FAILED_MSG(MSIX::Packaging::Package::Reader::Open(filename, packageReader), "%ls", filename);
+        RETURN_IF_FAILED_MSG(hr = MSIX::Signing::RemoveCertificate(packageReader.get()), "%ls", filename);
+    }
+    wprintf(L"Certificate with thumbprint '%ls' %ls\n", filename + 2, (hr == S_OK ? L"is removed" : (hr == S_FALSE ? L"is not found" : L"???")));
+    return hr;
 }
 
 HRESULT Command_Certificate(int argc, wchar_t* argv[])

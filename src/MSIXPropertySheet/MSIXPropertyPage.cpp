@@ -605,7 +605,8 @@ void MSIXPropertyPage::OnCommand(HWND hwndDlg, WPARAM wParam, LPARAM /*lParam*/)
 void MSIXPropertyPage::OnAddCertificate(HWND hwndDlg)
 {
     // The Add Certificate button was clicked
-    const HRESULT hr{ LOG_IF_FAILED(MSIX::Signing::AddCertificate(m_package.PackageReader())) };
+    MSIX::Signing::AddResult result{};
+    const HRESULT hr{ LOG_IF_FAILED(MSIX::Signing::AddCertificate(m_package.PackageReader(), result)) };
     if (FAILED(hr))
     {
         PCWSTR verb{ L"adding certificate" };
