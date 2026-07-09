@@ -15,6 +15,16 @@ inline wil::unique_hlocal_string format_message_nothrow(HRESULT hr) noexcept
     return message;
 }
 
+inline bool string_starts_with(PCWSTR haystack, PCWSTR needle, bool noCase = false)
+{
+    const auto haystackLength{ wcslen(haystack) };
+    const auto needleLength{ wcslen(needle) };
+    if (needleLength > haystackLength)
+    {
+        return false;
+    }
+    return CompareStringOrdinal(haystack, static_cast<int>(needleLength), needle, static_cast<int>(needleLength), noCase ? TRUE : FALSE) == CSTR_EQUAL;
+}
 
 inline bool string_ends_with(PCWSTR haystack, PCWSTR needle, bool noCase = false)
 {
@@ -32,5 +42,48 @@ inline HRESULT to_hstring_reference(PCWSTR string, HSTRING_HEADER& hstringHeader
 {
     RETURN_IF_FAILED(::WindowsCreateStringReference(string ? string : L"<null>", static_cast<std::uint32_t>(wcslen(string)), &hstringHeader, &hstring));
     return S_OK;
+}
+
+namespace details
+{
+    inline int hexdigit_to_byte(const wchar_t c)
+    {
+        if ((c >= L'0') && (c <= L'9'))
+        {
+            return c - L'0';
+        }
+        else if ((c >= L'A') && (c <= L'F'))
+        {
+            return c - L'A' + 10;
+        }
+        else if ((c >= L'a') && (c <= L'f'))
+        {
+            return c - L'a' + 10;
+        }
+        else
+        {
+            return -1;
+        }
+    }
+}
+
+inline HRESULT parse_hexstring(PCWSTR string, size_t bytesSize, BYTE* bytes)
+{
+    const size_t stringLength{ wcslen(string) };
+    RETURN_HR_IF(E_INVALIDARG, stringLength * 2 != bytesSize);
+
+    for (size_t index=0; index < stringLength; index += 2)
+    {
+        const wchar_t c1{ string[index] };
+        const auto b1{ details::hexdigit_to_byte(c1) };
+        RETURN_HR_IF(E_INVALIDARG, b1 < 0);
+
+        const wchar_t c2{ string[++index] };
+        const auto b2{ details::hexdigit_to_byte(c2) };
+        RETURN_HR_IF(E_INVALIDARG, b2 < 0);
+
+        const BYTE value{ static_cast<BYTE>((b2 << 4) | b1) };
+        *bytes++ = value;
+    }
 }
 }

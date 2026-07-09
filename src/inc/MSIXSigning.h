@@ -196,6 +196,14 @@ public:
         return S_OK;
     }
 
+    // Reports whether the certificate is trusted, based on the certificate's thumbprint.
+    // @return true for Windows/Store-signed certificates' thumbprints,
+    //         otherwise true only if the leaf is present in LocalMachine\TrustedPeople.
+    static HRESULT IsCertificateInstalled(size_t thumbprintSize, BYTE* thumbprint, bool& isInstalled)
+    {
+        //TODO
+    }
+
     // Reports whether the package's certificate is trusted.
     // @return true for Windows/Store-signed packages,
     //         otherwise true only if the leaf is present in LocalMachine\TrustedPeople.

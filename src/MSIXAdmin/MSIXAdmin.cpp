@@ -80,10 +80,12 @@ HRESULT ShowLogo()
             L"  -?, -h, --help      Show command line help\n"
             L"\n"
             L"Commands:\n"
-            L"  add <FILE>     Add the certificate from the signed package file\n"
-            L"  exists <FILE>  Check if the certificate from the signed package file exists\n"
-            L"  list <FILE>    List the certificate from the signed package file\n"
-            L"  remove <FILE>  Remove the certificate per the signed package file\n");
+            L"  add <FILE>      Add the certificate from the signed package file\n"
+            L"  exists <FILE*>  Check if the certificate from the signed package file exists\n"
+            L"  list <FILE>     List the certificate from the signed package file\n"
+            L"  remove <FILE*>  Remove the certificate per the signed package file\n"
+            L"\n"
+            L"NOTE: <FILE> can be '0x<HEX>' to specify a certificate by its SHA-256 thumbprint\n");
     ::ExitProcess(1);
 }
 
@@ -151,13 +153,27 @@ HRESULT Command_Certificate_Add(PCWSTR filename)
 
 HRESULT Command_Certificate_Exists(PCWSTR filename)
 {
-    wil::com_ptr_nothrow<IAppxPackageReader> packageReader;
-    RETURN_IF_FAILED_MSG(MSIX::Packaging::Package::Reader::Open(filename, packageReader), "%ls", filename);
     bool isInstalled{};
-    RETURN_IF_FAILED_MSG(MSIX::Signing::IsCertificateInstalled(packageReader.get(), isInstalled), "%ls", filename);
+    if (wil::string_starts_with(filename, L"0x"))
+    {
+        const size_t thumbprintSize{ 32 }; // SHA-256
+        wistd::unique_ptr<BYTE[]> thumbprint{ new (std::nothrow) BYTE[thumbprintSize] };
+        RETURN_IF_NULL_ALLOC(thumbprint);
+        RETURN_IF_FAILED(wil::parse_hexstring(filename + 2, thumbprintSize, thumbprint.get()));
 
-    wprintf(L"Certificate from '%ls' is%ls installed\n", filename, isInstalled ? L"" : L" not");
-    return S_OK;
+        RETURN_IF_FAILED_MSG(MSIX::Signing::IsCertificateInstalled(thumbprintSize, thumbprint.get(), isInstalled), "%ls", filename);
+        wprintf(L"Certificate with thumbprint '%ls' is%ls installed\n", filename + 2, isInstalled ? L"" : L" not");
+        return S_OK;
+    }
+    else
+    {
+        wil::com_ptr_nothrow<IAppxPackageReader> packageReader;
+        RETURN_IF_FAILED_MSG(MSIX::Packaging::Package::Reader::Open(filename, packageReader), "%ls", filename);
+        RETURN_IF_FAILED_MSG(MSIX::Signing::IsCertificateInstalled(packageReader.get(), isInstalled), "%ls", filename);
+        wprintf(L"Certificate from '%ls' is%ls installed\n", filename, isInstalled ? L"" : L" not");
+    }
+
+    return isInstalled ? S_OK : S_FALSE;
 }
 
 // Writes a byte blob as an uppercase hex string. Set bigEndian to reverse the
