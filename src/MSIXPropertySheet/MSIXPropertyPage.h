@@ -61,13 +61,6 @@ private:
         HRESULT& extendedError,
         GUID& activityId);
 
-    HRESULT GetResults(
-        __FIAsyncOperationWithProgress_2_Windows__CManagement__CDeployment__CDeploymentResult_Windows__CManagement__CDeployment__CDeploymentProgress* deploymentOperation,
-        PCWSTR& errorText,
-        wil::unique_hstring& errorTextHString,
-        HRESULT& extendedError,
-        GUID& activityId) const;
-
     // Handles the IDC_UNINSTALL button click
     void OnUninstall(HWND hwndDlg);
 

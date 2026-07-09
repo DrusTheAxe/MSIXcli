@@ -6,6 +6,7 @@
 #include <minappmodel.h>
 #include <appmodel.h>
 
+#include <MSIXPackaging.h>
 #include <MSIXSigning.h>
 
 namespace MSIX
@@ -28,11 +29,7 @@ public:
         ABI::Windows::Management::Deployment::IPackageManager12* packageManager12)
     {
         wil::com_ptr_nothrow<IAppxFactory> factory;
-        RETURN_IF_FAILED(CoCreateInstance(__uuidof(AppxFactory), nullptr, CLSCTX_INPROC_SERVER, IID_PPV_ARGS(&factory)));
-
-        wil::com_ptr_nothrow<IStream> stream;
-        RETURN_IF_FAILED(SHCreateStreamOnFileEx(filename, STGM_READ | STGM_SHARE_DENY_WRITE, 0, FALSE, nullptr, &stream));
-        RETURN_IF_FAILED(factory->CreatePackageReader(stream.get(), &m_packageReader));
+        RETURN_IF_FAILED_MSG(MSIX::Packaging::Package::Reader::Open(filename, m_packageReader), "%ls", filename);
 
         RETURN_IF_FAILED(m_packageReader->GetManifest(&m_manifestReader));
         wil::com_ptr_nothrow<IAppxManifestPackageId> manifestPackageId;

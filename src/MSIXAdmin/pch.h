@@ -24,5 +24,7 @@
 #include <wil/result.h>
 #include <wil/winrt.h>
 
+#include <MSIXDeployment.h>
+#include <MSIXPackaging.h>
 #include <MSIXSigning.h>
 #include <wil_extension.h>

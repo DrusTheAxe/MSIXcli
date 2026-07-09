@@ -76,11 +76,14 @@ HRESULT ShowLogo()
             L"  msixadmin certificate [command] [options]\n"
             L"\n"
             L"Options:\n"
-            L"  -nologo, --no-logo  Do not display the startup banner or the copyright message\n"
+            L"  -nologo, --no-logo  Do not display startup banner or copyright message\n"
             L"  -?, -h, --help      Show command line help\n"
             L"\n"
             L"Commands:\n"
-            L"  add <FILE>  Add the certificate from the signed package file\n");
+            L"  add <FILE>     Add the certificate from the signed package file\n"
+            L"  exists <FILE>  Check if the certificate from the signed package file exists\n"
+            L"  list <FILE>    List the certificate from the signed package file\n"
+            L"  remove <FILE>  Remove the certificate per the signed package file\n");
     ::ExitProcess(1);
 }
 
@@ -97,7 +100,7 @@ HRESULT ShowLogo()
             L"  <PACKAGEFAMILYNAME> The package family to deprovision\n"
             L"\n"
             L"Options:\n"
-            L"  -nologo, --no-logo  Do not display the startup banner or the copyright message\n"
+            L"  -nologo, --no-logo  Do not display startup banner or copyright message\n"
             L"  -?, -h, --help      Show command line help\n");
     ::ExitProcess(1);
 }
@@ -115,8 +118,9 @@ HRESULT ShowLogo()
             L"  <PACKAGEFAMILYNAME> The package family to provision\n"
             L"\n"
             L"Options:\n"
-            L"  -nologo, --no-logo  Do not display the startup banner or the copyright message\n"
-            L"  -?, -h, --help      Show command line help\n");
+            L"  --defer-registration  Defer automatic registration\n"
+            L"  -nologo, --no-logo    Do not display startup banner or copyright message\n"
+            L"  -?, -h, --help        Show command line help\n");
     ::ExitProcess(1);
 }
 
@@ -130,9 +134,52 @@ HRESULT ShowLogo()
             L"  msixadmin version [options]\n"
             L"\n"
             L"Options:\n"
-            L"  -nologo, --no-logo  Do not display the startup banner or the copyright message\n"
+            L"  -nologo, --no-logo  Do not display startup banner or copyright message\n"
             L"  -?, -h, --help      Show command line help\n");
     ::ExitProcess(1);
+}
+
+HRESULT Command_Certificate_Add(PCWSTR filename)
+{
+    wil::com_ptr_nothrow<IAppxPackageReader> packageReader;
+    RETURN_IF_FAILED_MSG(MSIX::Packaging::Package::Reader::Open(filename, packageReader), "%ls", filename);
+    RETURN_IF_FAILED_MSG(MSIX::Signing::AddCertificate(packageReader.get()), "%ls", filename);
+
+    wprintf(L"Certificate from '%ls' added to the system\n", filename);
+    return S_OK;
+}
+
+HRESULT Command_Certificate_Exists(PCWSTR filename)
+{
+    wil::com_ptr_nothrow<IAppxPackageReader> packageReader;
+    RETURN_IF_FAILED_MSG(MSIX::Packaging::Package::Reader::Open(filename, packageReader), "%ls", filename);
+    bool isInstalled{};
+    RETURN_IF_FAILED_MSG(MSIX::Signing::IsCertificateInstalled(packageReader.get(), isInstalled), "%ls", filename);
+
+    wprintf(L"Certificate from '%ls' is%ls installed\n", filename, isInstalled ? L"" : L" not");
+    return S_OK;
+}
+
+HRESULT Command_Certificate_List(PCWSTR filename)
+{
+    wil::com_ptr_nothrow<IAppxPackageReader> packageReader;
+    RETURN_IF_FAILED_MSG(MSIX::Packaging::Package::Reader::Open(filename, packageReader), "%ls", filename);
+    RETURN_IF_FAILED_MSG(MSIX::Signing::AddCertificate(packageReader.get()), "%ls", filename);
+
+    //TODO certificate list
+    //TODO : list the certificate from the package
+    (void)filename;
+    return S_OK;
+}
+
+HRESULT Command_Certificate_Remove(PCWSTR filename)
+{
+    wil::com_ptr_nothrow<IAppxPackageReader> packageReader;
+    RETURN_IF_FAILED_MSG(MSIX::Packaging::Package::Reader::Open(filename, packageReader), "%ls", filename);
+
+    //TODO certificate remove
+    (void)filename;
+    return S_OK;
 }
 
 HRESULT Command_Certificate(int argc, wchar_t* argv[])
@@ -144,7 +191,10 @@ HRESULT Command_Certificate(int argc, wchar_t* argv[])
 
     PCWSTR action{ argv[2] };
     PCWSTR filename{ argv[3] };
-    if (CompareStringOrdinal(action, -1, L"add", -1, FALSE) != CSTR_EQUAL)
+    if ((CompareStringOrdinal(action, -1, L"add", -1, FALSE) != CSTR_EQUAL) &&
+        (CompareStringOrdinal(action, -1, L"exists", -1, FALSE) != CSTR_EQUAL) &&
+        (CompareStringOrdinal(action, -1, L"list", -1, FALSE) != CSTR_EQUAL) &&
+        (CompareStringOrdinal(action, -1, L"remove", -1, FALSE) != CSTR_EQUAL))
     {
         UnknownArgument(action);
     }
@@ -181,9 +231,26 @@ HRESULT Command_Certificate(int argc, wchar_t* argv[])
         ShowLogo();
     }
 
-    //TODO
-    (void)action;
-    (void)filename;
+    if (CompareStringOrdinal(action, -1, L"add", -1, FALSE) == CSTR_EQUAL)
+    {
+        RETURN_IF_FAILED(Command_Certificate_Add(filename));
+    }
+    else if (CompareStringOrdinal(action, -1, L"exists", -1, FALSE) == CSTR_EQUAL)
+    {
+        RETURN_IF_FAILED(Command_Certificate_Exists(filename));
+    }
+    else if (CompareStringOrdinal(action, -1, L"list", -1, FALSE) == CSTR_EQUAL)
+    {
+        RETURN_IF_FAILED(Command_Certificate_List(filename));
+    }
+    else if (CompareStringOrdinal(action, -1, L"remove", -1, FALSE) == CSTR_EQUAL)
+    {
+        RETURN_IF_FAILED(Command_Certificate_Remove(filename));
+    }
+    else
+    {
+        FAIL_FAST_HR(E_UNEXPECTED);
+    }
     return S_OK;
 }
 
@@ -228,7 +295,7 @@ HRESULT Command_Deprovision(int argc, wchar_t* argv[])
         ShowLogo();
     }
 
-    //TODO
+    //TODO deprovision
     (void)packageFamilyName;
     return S_OK;
 }
@@ -242,6 +309,7 @@ HRESULT Command_Provision(int argc, wchar_t* argv[])
 
     PCWSTR packageFamilyName{ argv[2] };
 
+    bool deferRegistration{ true };
     bool logo{ true };
 
     int argn{ 3 };
@@ -253,6 +321,10 @@ HRESULT Command_Provision(int argc, wchar_t* argv[])
             (CompareStringOrdinal(arg, -1, L"--help", -1, FALSE) == CSTR_EQUAL))
         {
             Command_Deprovision_Help();
+        }
+        else if (CompareStringOrdinal(arg, -1, L"--defer-registration", -1, FALSE) == CSTR_EQUAL)
+        {
+            deferRegistration = true;
         }
         else if ((CompareStringOrdinal(arg, -1, L"-nologo", -1, FALSE) == CSTR_EQUAL) ||
                  (CompareStringOrdinal(arg, -1, L"--no-logo", -1, FALSE) == CSTR_EQUAL))
@@ -274,8 +346,64 @@ HRESULT Command_Provision(int argc, wchar_t* argv[])
         ShowLogo();
     }
 
-    //TODO
-    (void)packageFamilyName;
+    HSTRING_HEADER packageFamilyNameHeader{};
+    HSTRING packageFamilyNameHString{};
+    RETURN_IF_FAILED(wil::to_hstring_reference(packageFamilyName, packageFamilyNameHeader, packageFamilyNameHString));
+
+    wil::com_ptr_nothrow<__FIAsyncOperationWithProgress_2_Windows__CManagement__CDeployment__CDeploymentResult_Windows__CManagement__CDeployment__CDeploymentProgress> deploymentOperation;
+    if (deferRegistration)
+    {
+        wil::com_ptr_nothrow<ABI::Windows::Management::Deployment::IPackageAllUserProvisioningOptions> packageAllUserProvisioningOptions;
+        wil::com_ptr_nothrow<ABI::Windows::Management::Deployment::IPackageAllUserProvisioningOptions2> packageAllUserProvisioningOptions2;
+        {
+            HSTRING_HEADER classIdHeader{};
+            HSTRING classId{};
+            RETURN_IF_FAILED(WindowsCreateStringReference(
+                RuntimeClass_Windows_Management_Deployment_PackageAllUserProvisioningOptions,
+                ARRAYSIZE(RuntimeClass_Windows_Management_Deployment_PackageAllUserProvisioningOptions) - 1,
+                &classIdHeader, &classId));
+            wil::com_ptr_nothrow<IInspectable> inspectable;
+            RETURN_IF_FAILED(RoActivateInstance(classId, inspectable.put()));
+            RETURN_IF_FAILED(inspectable->QueryInterface(IID_PPV_ARGS(packageAllUserProvisioningOptions.put())));
+            RETURN_IF_FAILED(inspectable->QueryInterface(IID_PPV_ARGS(packageAllUserProvisioningOptions2.put())));
+        }
+        RETURN_IF_FAILED(packageAllUserProvisioningOptions2->put_DeferAutomaticRegistration(true));
+        wil::com_ptr_nothrow<ABI::Windows::Management::Deployment::IPackageManager10> packageManager10;
+        {
+            HSTRING_HEADER classIdHeader{};
+            HSTRING classId{};
+            RETURN_IF_FAILED(WindowsCreateStringReference(
+                RuntimeClass_Windows_Management_Deployment_PackageManager,
+                ARRAYSIZE(RuntimeClass_Windows_Management_Deployment_PackageManager) - 1,
+                &classIdHeader, &classId));
+            wil::com_ptr_nothrow<IInspectable> inspectable;
+            RETURN_IF_FAILED(RoActivateInstance(classId, inspectable.put()));
+            RETURN_IF_FAILED(inspectable->QueryInterface(IID_PPV_ARGS(packageManager10.put())));
+        }
+        RETURN_IF_FAILED(packageManager10->ProvisionPackageForAllUsersWithOptionsAsync(packageFamilyNameHString, packageAllUserProvisioningOptions.get(), deploymentOperation.put()));
+    }
+    else
+    {
+        wil::com_ptr_nothrow<ABI::Windows::Management::Deployment::IPackageManager6> packageManager6;
+        {
+            HSTRING_HEADER classIdHeader{};
+            HSTRING classId{};
+            RETURN_IF_FAILED(WindowsCreateStringReference(
+                RuntimeClass_Windows_Management_Deployment_PackageManager,
+                ARRAYSIZE(RuntimeClass_Windows_Management_Deployment_PackageManager) - 1,
+                &classIdHeader, &classId));
+            wil::com_ptr_nothrow<IInspectable> inspectable;
+            RETURN_IF_FAILED(RoActivateInstance(classId, inspectable.put()));
+            RETURN_IF_FAILED(inspectable->QueryInterface(IID_PPV_ARGS(packageManager6.put())));
+        }
+        RETURN_IF_FAILED(packageManager6->ProvisionPackageForAllUsersAsync(packageFamilyNameHString, deploymentOperation.put()));
+    }
+    PCWSTR errorText{};
+    wil::unique_hstring errorTextHString{};
+    HRESULT extendedError{};
+    GUID activityId{};
+    RETURN_IF_FAILED(MSIX::Deployment::GetResults(deploymentOperation.get(), errorText, errorTextHString, extendedError, activityId));
+
     return S_OK;
 }
 
@@ -327,6 +455,16 @@ HRESULT Command_Version(int argc, wchar_t* argv[])
     return S_OK;
 }
 
+HRESULT MessageOnError(HRESULT hr)
+{
+    if (FAILED(hr))
+    {
+        wil::unique_hlocal_string message{ wil::format_message_nothrow(hr) };
+        wprintf(L"Error 0x%08X: %ls", hr, message.get());
+    }
+    return hr;
+}
+
 int wmain(int argc, wchar_t* argv[])
 {
     auto com_init{ wil::CoInitializeEx_failfast() };
@@ -348,19 +486,19 @@ int wmain(int argc, wchar_t* argv[])
 
     if (CompareStringOrdinal(arg, -1, L"certificate", -1, FALSE) == CSTR_EQUAL)
     {
-        return Command_Deprovision(argc, argv);
+        return MessageOnError(Command_Certificate(argc, argv));
     }
     else if (CompareStringOrdinal(arg, -1, L"deprovision", -1, FALSE) == CSTR_EQUAL)
     {
-        return Command_Deprovision(argc, argv);
+        return MessageOnError(Command_Deprovision(argc, argv));
     }
     else if (CompareStringOrdinal(arg, -1, L"provision", -1, FALSE) == CSTR_EQUAL)
     {
-        return Command_Provision(argc, argv);
+        return MessageOnError(Command_Provision(argc, argv));
     }
     else if (CompareStringOrdinal(arg, -1, L"version", -1, FALSE) == CSTR_EQUAL)
     {
-        return Command_Version(argc, argv);
+        return MessageOnError(Command_Version(argc, argv));
     }
     else
     {

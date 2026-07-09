@@ -27,6 +27,8 @@
 #include <wil/win32_helpers.h>
 #include <wil/winrt.h>
 
+#include <MSIXDeployment.h>
+#include <MSIXPackaging.h>
 #include <MSIXSigning.h>
 #include <wil_extension.h>
 

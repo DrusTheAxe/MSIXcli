@@ -787,30 +787,7 @@ HRESULT MSIXPropertyPage::OnInstall(
         RETURN_IF_FAILED(m_packageManager9->AddPackageByUriAsync(packageUri.get(), m_addPackageOptions.get(), deploymentOperation.put()));
     }
 
-    RETURN_IF_FAILED(GetResults(deploymentOperation.get(), errorText, errorTextHString, extendedError, activityId));
-    return S_OK;
-}
-
-HRESULT MSIXPropertyPage::GetResults(
-    __FIAsyncOperationWithProgress_2_Windows__CManagement__CDeployment__CDeploymentResult_Windows__CManagement__CDeployment__CDeploymentProgress* deploymentOperation,
-    PCWSTR& errorText,
-    wil::unique_hstring& errorTextHString,
-    HRESULT& extendedError,
-    GUID& activityId) const
-{
-    const HRESULT waitHr{ wil::wait_for_completion_nothrow(deploymentOperation) };
-    wil::com_ptr_nothrow<ABI::Windows::Management::Deployment::IDeploymentResult> deploymentResult;
-    const HRESULT resultsHr{ deploymentOperation->GetResults(deploymentResult.put()) };
-    if (deploymentResult)
-    {
-        std::ignore = LOG_IF_FAILED(deploymentResult->get_ErrorText(wil::out_param(errorTextHString)));
-        errorText = WindowsGetStringRawBuffer(errorTextHString.get(), nullptr);
-        std::ignore = LOG_IF_FAILED(deploymentResult->get_ExtendedErrorCode(&extendedError));
-        std::ignore = LOG_IF_FAILED(deploymentResult->get_ActivityId(&activityId));
-    }
-    RETURN_IF_FAILED_MSG(waitHr, "Deployment failed. Extended:0x%08X Text:%ls", extendedError, errorText ? errorText : L"<null>");
-    RETURN_IF_FAILED_MSG(resultsHr, "GetResults failed. Extended:0x%08X Text:%ls", extendedError, errorText ? errorText : L"<null>");
-    RETURN_IF_FAILED(extendedError);
+    RETURN_IF_FAILED(MSIX::Deployment::GetResults(deploymentOperation.get(), errorText, errorTextHString, extendedError, activityId));
     return S_OK;
 }
 
@@ -911,19 +888,7 @@ HRESULT MSIXPropertyPage::OnUninstall(
 #endif
     RETURN_IF_FAILED(m_packageManager2->RemovePackageWithOptionsAsync(packageFullName, removeOptions, deploymentOperation.put()));
 
-    const HRESULT waitHr{ wil::wait_for_completion_nothrow(deploymentOperation.get()) };
-    wil::com_ptr_nothrow<ABI::Windows::Management::Deployment::IDeploymentResult> deploymentResult;
-    const HRESULT resultsHr{ deploymentOperation->GetResults(deploymentResult.put()) };
-    if (deploymentResult)
-    {
-        std::ignore = LOG_IF_FAILED(deploymentResult->get_ErrorText(wil::out_param(errorTextHString)));
-        errorText = WindowsGetStringRawBuffer(errorTextHString.get(), nullptr);
-        std::ignore = LOG_IF_FAILED(deploymentResult->get_ExtendedErrorCode(&extendedError));
-        std::ignore = LOG_IF_FAILED(deploymentResult->get_ActivityId(&activityId));
-    }
-    RETURN_IF_FAILED_MSG(waitHr, "Deployment failed. Extended:0x%08X Text:%ls", extendedError, errorText ? errorText : L"<null>");
-    RETURN_IF_FAILED_MSG(resultsHr, "GetResults failed. Extended:0x%08X Text:%ls", extendedError, errorText ? errorText : L"<null>");
-    RETURN_IF_FAILED(extendedError);
+    RETURN_IF_FAILED(MSIX::Deployment::GetResults(deploymentOperation.get(), errorText, errorTextHString, extendedError, activityId));
     return S_OK;
 }
 
