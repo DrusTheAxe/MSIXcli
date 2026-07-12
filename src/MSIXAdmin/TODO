@@ -1,0 +1,15 @@
+? https://learn.microsoft.com/uwp/api/windows.management.deployment.packagemanager.clearpackagestatus?view=winrt-28000
+? https://learn.microsoft.com/uwp/api/windows.management.deployment.packagemanager.setpackagestatus?view=winrt-28000
+? https://learn.microsoft.com/uwp/api/windows.management.deployment.packagemanager.setpackagevolumeofflineasync?view=winrt-28000
+? https://learn.microsoft.com/uwp/api/windows.management.deployment.packagemanager.setpackagevolumeonlineasync?view=winrt-28000
+? https://learn.microsoft.com/uwp/api/windows.management.deployment.packagevolume.findpackageforuser?view=winrt-28000
+? https://learn.microsoft.com/uwp/api/windows.management.deployment.packagevolume.findpackagesforuser?view=winrt-28000
+https://learn.microsoft.com/uwp/api/windows.management.deployment.appinstallermanager.getforsystem?view=winrt-28000
+https://learn.microsoft.com/uwp/api/windows.management.deployment.packagemanager.cleanuppackageforuserasync?view=winrt-28000
+https://learn.microsoft.com/uwp/api/windows.management.deployment.packagemanager.findpackageforuser?view=winrt-28000
+https://learn.microsoft.com/uwp/api/windows.management.deployment.packagemanager.findpackages?view=winrt-28000
+https://learn.microsoft.com/uwp/api/windows.management.deployment.packagemanager.findpackagesforuser?view=winrt-28000
+https://learn.microsoft.com/uwp/api/windows.management.deployment.packagemanager.findpackagesforuserwithpackagetypes?view=winrt-28000
+https://learn.microsoft.com/uwp/api/windows.management.deployment.packagemanager.findpackageswithpackagetypes?view=winrt-28000
+https://learn.microsoft.com/uwp/api/windows.management.deployment.packagemanager.findprovisionedpackages?view=winrt-28000
+https://learn.microsoft.com/uwp/api/windows.management.deployment.packagemanager.findusers?view=winrt-28000
