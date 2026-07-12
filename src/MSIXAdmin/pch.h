@@ -27,4 +27,5 @@
 #include <MSIXDeployment.h>
 #include <MSIXPackaging.h>
 #include <MSIXSigning.h>
+#include <wil_array.h>
 #include <wil_extension.h>
