@@ -3,6 +3,8 @@
 
 #include <winresrc.h>
 
+#include "Version.h"
+
 #define STR1(x) #x
 #define DELIM STR1(.)
 #define STR3(a,b,c)     STR1(a) DELIM STR1(b) DELIM STR1(c)

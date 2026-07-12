@@ -141,6 +141,8 @@ HRESULT ShowLogo()
             L"  msixadmin provision list [options]\n"
             L"\n"
             L"Options:\n"
+            L"  --glob=<PATTERN>      Display package families matching PATTERN (*,? wildcards)\n"
+            L"  --no-summary          Do not display summary information\n"
             L"  -nologo, --no-logo    Do not display startup banner or copyright message\n"
             L"  -?, -h, --help        Show command line help\n");
     ::ExitProcess(1);
@@ -432,7 +434,7 @@ HRESULT Command_Certificate_Remove(PCWSTR filename)
         RETURN_IF_FAILED_MSG(hr = MSIX::Signing::RemoveCertificate(packageReader.get()), "%ls", filename);
     }
     wprintf(L"Certificate with thumbprint '%ls' %ls\n", filename + 2, (hr == S_OK ? L"is removed" : (hr == S_FALSE ? L"is not found" : L"???")));
-    return hr;
+    return S_OK;
 }
 
 HRESULT Command_Certificate(int argc, wchar_t* argv[])
@@ -610,6 +612,7 @@ HRESULT Command_Provision_Add(int argc, wchar_t* argv[])
     HRESULT extendedError{};
     GUID activityId{};
     RETURN_IF_FAILED(MSIX::Deployment::GetResults(deploymentOperation.get(), errorText, errorTextHString, extendedError, activityId));
+    wprintf(L"Package family '%ls' is provisioned\n", packageFamilyName);
 
     return S_OK;
 }
@@ -617,6 +620,8 @@ HRESULT Command_Provision_Add(int argc, wchar_t* argv[])
 HRESULT Command_Provision_List(int argc, wchar_t* argv[])
 {
     bool logo{ true };
+    PCWSTR glob{};
+    bool summary{ true };
 
     int argn{ 3 };
     for (; argn < argc; ++argn)
@@ -627,6 +632,14 @@ HRESULT Command_Provision_List(int argc, wchar_t* argv[])
             (CompareStringOrdinal(arg, -1, L"--help", -1, FALSE) == CSTR_EQUAL))
         {
             Command_Provision_List_Help();
+        }
+        else if (wil::string_starts_with(arg, L"--glob="))
+        {
+            glob = arg + (ARRAYSIZE(L"--glob=") - 1);
+        }
+        else if (CompareStringOrdinal(arg, -1, L"--no-summary", -1, FALSE) == CSTR_EQUAL)
+        {
+            summary = false;
         }
         else if ((CompareStringOrdinal(arg, -1, L"-nologo", -1, FALSE) == CSTR_EQUAL) ||
                  (CompareStringOrdinal(arg, -1, L"--no-logo", -1, FALSE) == CSTR_EQUAL))
@@ -648,6 +661,7 @@ HRESULT Command_Provision_List(int argc, wchar_t* argv[])
         ShowLogo();
     }
 
+    std::uint32_t countDisplayed{};
 
     wil::com_ptr_nothrow<ABI::Windows::Foundation::Collections::IVector<ABI::Windows::ApplicationModel::Package*>> packages;
     {
@@ -674,7 +688,29 @@ HRESULT Command_Provision_List(int argc, wchar_t* argv[])
         wil::unique_hstring packageFamilyName;
         RETURN_IF_FAILED(packageId->get_FamilyName(wil::out_param(packageFamilyName)));
         PCWSTR familyName{ WindowsGetStringRawBuffer(packageFamilyName.get(), nullptr) };
-        wprintf(L"    %ls\n", familyName);
+        if (glob)
+        {
+            // PathMatchSpecEx() isn't technically GLOB, but given PackageFamilyName
+            // content restrictions its wildcard matching fits the data correctly.
+            // We'll use our poor-man's GLOB, as the alternatives (std::regex, VBScript.RegExp, etc)
+            // require C++ Exceptions or heavyweight dependencies.
+            //
+            // @see https://learn.microsoft.com/windows/apps/desktop/modernize/package-identity-overview#package-identity-fields-limits
+            // @see https://learn.microsoft.com/windows/win32/api/shlwapi/nf-shlwapi-pathmatchspecexw
+            const HRESULT hr{ ::PathMatchSpecEx(familyName, glob, 0) };
+            RETURN_IF_FAILED_MSG(hr, "PackageFamilyName=%ls --glob=%ls", familyName, glob);
+            if (hr == S_FALSE)
+            {
+                continue;
+            }
+        }
+        ++countDisplayed;
+        wprintf(L"%ls\n", familyName);
+    }
+
+    if (summary)
+    {
+        wprintf(L"%u package%ls\n", countDisplayed, countDisplayed == 1 ? L"" : L"s");
     }
 
     return S_OK;
@@ -692,7 +728,7 @@ HRESULT Command_Provision_Remove(int argc, wchar_t* argv[])
 
     bool logo{ true };
 
-    int argn{ 3 };
+    int argn{ 4 };
     for (; argn < argc; ++argn)
     {
         PCWSTR arg{ argv[argn] };
@@ -745,6 +781,7 @@ HRESULT Command_Provision_Remove(int argc, wchar_t* argv[])
     HRESULT extendedError{};
     GUID activityId{};
     RETURN_IF_FAILED(MSIX::Deployment::GetResults(deploymentOperation.get(), errorText, errorTextHString, extendedError, activityId));
+    wprintf(L"Package family '%ls' is deprovisioned\n", packageFamilyName);
 
     return S_OK;
 }
