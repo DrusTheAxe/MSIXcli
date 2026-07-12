@@ -46,7 +46,14 @@ HRESULT ShowLogo()
     std::uint16_t build{};
     std::uint16_t patch{};
     RETURN_IF_FAILED(GetExeVersion(major, minor, build, patch));
-    wprintf(L"msixadmin v%hu.%hu.%hu.%hu - Copyright (C) Howard Kapustein\n", major, minor, build, patch);
+    if (patch != 0)
+    {
+        wprintf(L"msixadmin v%hu.%hu.%hu.%hu - Copyright (C) Howard Kapustein\n", major, minor, build, patch);
+    }
+    else
+    {
+        wprintf(L"msixadmin v%hu.%hu.%hu - Copyright (C) Howard Kapustein\n", major, minor, build);
+    }
     return S_OK;
 }
 
@@ -57,9 +64,8 @@ HRESULT ShowLogo()
             L"  msixadmin <command> [arguments]\n"
             L"\n"
             L"Commands:\n"
-            L"  certificate  Add a certificate to the system\n"
-            L"  deprovision  Remove a package from the provisioning list\n"
-            L"  provision    Add a package to the provisioning list\n"
+            L"  certificate  Certificate management\n"
+            L"  provision    Provision management\n"
             L"  version      Display version\n"
             L"\n"
             L"Run 'MSIXAdmin [command] --help' for more information on a command\n");
@@ -89,38 +95,67 @@ HRESULT ShowLogo()
     ::ExitProcess(1);
 }
 
-[[noreturn]] void Command_Deprovision_Help()
-{
-    ShowLogo();
-    wprintf(L"Description:\n"
-            L"  MSIX Deprovisioner\n"
-            L"\n"
-            L"Usage:\n"
-            L"  msixadmin deprovision <PACKAGEFAMILYNAME> [options]\n"
-            L"\n"
-            L"Arguments:\n"
-            L"  <PACKAGEFAMILYNAME> The package family to deprovision\n"
-            L"\n"
-            L"Options:\n"
-            L"  -nologo, --no-logo  Do not display startup banner or copyright message\n"
-            L"  -?, -h, --help      Show command line help\n");
-    ::ExitProcess(1);
-}
-
 [[noreturn]] void Command_Provision_Help()
 {
     ShowLogo();
     wprintf(L"Description:\n"
-            L"  MSIX Provisioner\n"
+            L"  View or modify the provisioned list\n"
             L"\n"
             L"Usage:\n"
-            L"  msixadmin provision <PACKAGEFAMILYNAME> [options]\n"
+            L"  msixadmin provision <command> [options]\n"
             L"\n"
-            L"Arguments:\n"
-            L"  <PACKAGEFAMILYNAME> The package family to provision\n"
+            L"Options:\n"
+            L"  -nologo, --no-logo    Do not display startup banner or copyright message\n"
+            L"  -?, -h, --help        Show command line help\n"
+            L"\n"
+            L"Commands:\n"
+            L"  add <PACKAGEFAMILYNAME>     Add a package family to the provisioning list\n"
+            L"  list                        Display the currently provisioned package families\n"
+            L"  remove <PACKAGEFAMILYNAME>  Remove a package family from the provisioning list\n");
+    ::ExitProcess(1);
+}
+
+[[noreturn]] void Command_Provision_Add_Help()
+{
+    ShowLogo();
+    wprintf(L"Description:\n"
+            L"  Add a package family to the provisioning list\n"
+            L"\n"
+            L"Usage:\n"
+            L"  msixadmin provision add <PACKAGEFAMILYNAME> [options]\n"
             L"\n"
             L"Options:\n"
             L"  --defer-registration  Defer automatic registration\n"
+            L"  -nologo, --no-logo    Do not display startup banner or copyright message\n"
+            L"  -?, -h, --help        Show command line help\n");
+    ::ExitProcess(1);
+}
+
+[[noreturn]] void Command_Provision_List_Help()
+{
+    ShowLogo();
+    wprintf(L"Description:\n"
+            L"  Display the currently provisioned package families\n"
+            L"\n"
+            L"Usage:\n"
+            L"  msixadmin provision list [options]\n"
+            L"\n"
+            L"Options:\n"
+            L"  -nologo, --no-logo    Do not display startup banner or copyright message\n"
+            L"  -?, -h, --help        Show command line help\n");
+    ::ExitProcess(1);
+}
+
+[[noreturn]] void Command_Provision_Remove_Help()
+{
+    ShowLogo();
+    wprintf(L"Description:\n"
+            L"  Remove a package family from the provisioning list\n"
+            L"\n"
+            L"Usage:\n"
+            L"  msixadmin provision remove <PACKAGEFAMILYNAME> [options]\n"
+            L"\n"
+            L"Options:\n"
             L"  -nologo, --no-logo    Do not display startup banner or copyright message\n"
             L"  -?, -h, --help        Show command line help\n");
     ::ExitProcess(1);
@@ -472,65 +507,19 @@ HRESULT Command_Certificate(int argc, wchar_t* argv[])
     return S_OK;
 }
 
-HRESULT Command_Deprovision(int argc, wchar_t* argv[])
+HRESULT Command_Provision_Add(int argc, wchar_t* argv[])
 {
-    if (argc < 3)
+    if (argc < 4)
     {
-        Command_Deprovision_Help();
+        Command_Provision_Add_Help();
     }
 
-    PCWSTR packageFamilyName{ argv[2] };
-
-    bool logo{ true };
-
-    int argn{ 3 };
-    for (; argn < argc; ++argn)
-    {
-        PCWSTR arg{ argv[argn] };
-        if ((CompareStringOrdinal(arg, -1, L"-?", -1, FALSE) == CSTR_EQUAL) ||
-            (CompareStringOrdinal(arg, -1, L"-h", -1, FALSE) == CSTR_EQUAL) ||
-            (CompareStringOrdinal(arg, -1, L"--help", -1, FALSE) == CSTR_EQUAL))
-        {
-            Command_Deprovision_Help();
-        }
-        else if ((CompareStringOrdinal(arg, -1, L"-nologo", -1, FALSE) == CSTR_EQUAL) ||
-                 (CompareStringOrdinal(arg, -1, L"--no-logo", -1, FALSE) == CSTR_EQUAL))
-        {
-            logo = false;
-        }
-        else
-        {
-            UnknownArgument(arg);
-        }
-    }
-    if (argn < argc)
-    {
-        UnknownArgument(argv[argn]);
-    }
-
-    if (logo)
-    {
-        ShowLogo();
-    }
-
-    //TODO deprovision
-    (void)packageFamilyName;
-    return S_OK;
-}
-
-HRESULT Command_Provision(int argc, wchar_t* argv[])
-{
-    if (argc < 3)
-    {
-        Command_Provision_Help();
-    }
-
-    PCWSTR packageFamilyName{ argv[2] };
+    PCWSTR packageFamilyName{ argv[3] };
 
     bool deferRegistration{ true };
     bool logo{ true };
 
-    int argn{ 3 };
+    int argn{ 4 };
     for (; argn < argc; ++argn)
     {
         PCWSTR arg{ argv[argn] };
@@ -538,7 +527,7 @@ HRESULT Command_Provision(int argc, wchar_t* argv[])
             (CompareStringOrdinal(arg, -1, L"-h", -1, FALSE) == CSTR_EQUAL) ||
             (CompareStringOrdinal(arg, -1, L"--help", -1, FALSE) == CSTR_EQUAL))
         {
-            Command_Deprovision_Help();
+            Command_Provision_Add_Help();
         }
         else if (CompareStringOrdinal(arg, -1, L"--defer-registration", -1, FALSE) == CSTR_EQUAL)
         {
@@ -625,6 +614,168 @@ HRESULT Command_Provision(int argc, wchar_t* argv[])
     return S_OK;
 }
 
+HRESULT Command_Provision_List(int argc, wchar_t* argv[])
+{
+    bool logo{ true };
+
+    int argn{ 3 };
+    for (; argn < argc; ++argn)
+    {
+        PCWSTR arg{ argv[argn] };
+        if ((CompareStringOrdinal(arg, -1, L"-?", -1, FALSE) == CSTR_EQUAL) ||
+            (CompareStringOrdinal(arg, -1, L"-h", -1, FALSE) == CSTR_EQUAL) ||
+            (CompareStringOrdinal(arg, -1, L"--help", -1, FALSE) == CSTR_EQUAL))
+        {
+            Command_Provision_List_Help();
+        }
+        else if ((CompareStringOrdinal(arg, -1, L"-nologo", -1, FALSE) == CSTR_EQUAL) ||
+                 (CompareStringOrdinal(arg, -1, L"--no-logo", -1, FALSE) == CSTR_EQUAL))
+        {
+            logo = false;
+        }
+        else
+        {
+            UnknownArgument(arg);
+        }
+    }
+    if (argn < argc)
+    {
+        UnknownArgument(argv[argn]);
+    }
+
+    if (logo)
+    {
+        ShowLogo();
+    }
+
+
+    wil::com_ptr_nothrow<ABI::Windows::Foundation::Collections::IVector<ABI::Windows::ApplicationModel::Package*>> packages;
+    {
+        HSTRING_HEADER classIdHeader{};
+        HSTRING classId{};
+        RETURN_IF_FAILED(WindowsCreateStringReference(
+            RuntimeClass_Windows_Management_Deployment_PackageManager,
+            ARRAYSIZE(RuntimeClass_Windows_Management_Deployment_PackageManager) - 1,
+            &classIdHeader, &classId));
+        wil::com_ptr_nothrow<IInspectable> inspectable;
+        RETURN_IF_FAILED(RoActivateInstance(classId, inspectable.put()));
+        wil::com_ptr_nothrow<ABI::Windows::Management::Deployment::IPackageManager9> packageManager9;
+        RETURN_IF_FAILED(inspectable->QueryInterface(IID_PPV_ARGS(packageManager9.put())));
+        RETURN_IF_FAILED(packageManager9->FindProvisionedPackages(packages.put()));
+    }
+    std::uint32_t packagesCount{};
+    RETURN_IF_FAILED(packages->get_Size(&packagesCount));
+    for (std::uint32_t index = 0; index < packagesCount; ++index)
+    {
+        wil::com_ptr_nothrow<ABI::Windows::ApplicationModel::IPackage> package;
+        RETURN_IF_FAILED(packages->GetAt(index, package.put()));
+        wil::com_ptr_nothrow<ABI::Windows::ApplicationModel::IPackageId> packageId;
+        RETURN_IF_FAILED(package->get_Id(packageId.put()));
+        wil::unique_hstring packageFamilyName;
+        RETURN_IF_FAILED(packageId->get_FamilyName(wil::out_param(packageFamilyName)));
+        PCWSTR familyName{ WindowsGetStringRawBuffer(packageFamilyName.get(), nullptr) };
+        wprintf(L"    %ls\n", familyName);
+    }
+
+    return S_OK;
+}
+
+
+HRESULT Command_Provision_Remove(int argc, wchar_t* argv[])
+{
+    if (argc < 4)
+    {
+        Command_Provision_Remove_Help();
+    }
+
+    PCWSTR packageFamilyName{ argv[3] };
+
+    bool logo{ true };
+
+    int argn{ 3 };
+    for (; argn < argc; ++argn)
+    {
+        PCWSTR arg{ argv[argn] };
+        if ((CompareStringOrdinal(arg, -1, L"-?", -1, FALSE) == CSTR_EQUAL) ||
+            (CompareStringOrdinal(arg, -1, L"-h", -1, FALSE) == CSTR_EQUAL) ||
+            (CompareStringOrdinal(arg, -1, L"--help", -1, FALSE) == CSTR_EQUAL))
+        {
+            Command_Provision_Remove_Help();
+        }
+        else if ((CompareStringOrdinal(arg, -1, L"-nologo", -1, FALSE) == CSTR_EQUAL) ||
+                 (CompareStringOrdinal(arg, -1, L"--no-logo", -1, FALSE) == CSTR_EQUAL))
+        {
+            logo = false;
+        }
+        else
+        {
+            UnknownArgument(arg);
+        }
+    }
+    if (argn < argc)
+    {
+        UnknownArgument(argv[argn]);
+    }
+
+    if (logo)
+    {
+        ShowLogo();
+    }
+
+    HSTRING_HEADER packageFamilyNameHeader{};
+    HSTRING packageFamilyNameHString{};
+    RETURN_IF_FAILED(wil::to_hstring_reference(packageFamilyName, packageFamilyNameHeader, packageFamilyNameHString));
+
+    wil::com_ptr_nothrow<__FIAsyncOperationWithProgress_2_Windows__CManagement__CDeployment__CDeploymentResult_Windows__CManagement__CDeployment__CDeploymentProgress> deploymentOperation;
+    {
+        HSTRING_HEADER classIdHeader{};
+        HSTRING classId{};
+        RETURN_IF_FAILED(WindowsCreateStringReference(
+            RuntimeClass_Windows_Management_Deployment_PackageManager,
+            ARRAYSIZE(RuntimeClass_Windows_Management_Deployment_PackageManager) - 1,
+            &classIdHeader, &classId));
+        wil::com_ptr_nothrow<IInspectable> inspectable;
+        RETURN_IF_FAILED(RoActivateInstance(classId, inspectable.put()));
+        wil::com_ptr_nothrow<ABI::Windows::Management::Deployment::IPackageManager8> packageManager8;
+        RETURN_IF_FAILED(inspectable->QueryInterface(IID_PPV_ARGS(packageManager8.put())));
+        RETURN_IF_FAILED(packageManager8->DeprovisionPackageForAllUsersAsync(packageFamilyNameHString, deploymentOperation.put()));
+    }
+    PCWSTR errorText{};
+    wil::unique_hstring errorTextHString{};
+    HRESULT extendedError{};
+    GUID activityId{};
+    RETURN_IF_FAILED(MSIX::Deployment::GetResults(deploymentOperation.get(), errorText, errorTextHString, extendedError, activityId));
+
+    return S_OK;
+}
+
+HRESULT Command_Provision(int argc, wchar_t* argv[])
+{
+    if (argc < 3)
+    {
+        Command_Provision_Help();
+    }
+
+    PCWSTR command{ argv[2] };
+    if (CompareStringOrdinal(command, -1, L"add", -1, FALSE) == CSTR_EQUAL)
+    {
+        RETURN_IF_FAILED(Command_Provision_Add(argc, argv));
+    }
+    else if (CompareStringOrdinal(command, -1, L"list", -1, FALSE) == CSTR_EQUAL)
+    {
+        RETURN_IF_FAILED(Command_Provision_List(argc, argv));
+    }
+    else if (CompareStringOrdinal(command, -1, L"remove", -1, FALSE) == CSTR_EQUAL)
+    {
+        RETURN_IF_FAILED(Command_Provision_Remove(argc, argv));
+    }
+    else
+    {
+        Command_Provision_Help();
+    }
+    return S_OK;
+}
+
 HRESULT Command_Version(int argc, wchar_t* argv[])
 {
     if (argc < 2)
@@ -642,7 +793,7 @@ HRESULT Command_Version(int argc, wchar_t* argv[])
             (CompareStringOrdinal(arg, -1, L"-h", -1, FALSE) == CSTR_EQUAL) ||
             (CompareStringOrdinal(arg, -1, L"--help", -1, FALSE) == CSTR_EQUAL))
         {
-            Command_Deprovision_Help();
+            Command_Version_Help();
         }
         else if ((CompareStringOrdinal(arg, -1, L"-nologo", -1, FALSE) == CSTR_EQUAL) ||
                  (CompareStringOrdinal(arg, -1, L"--no-logo", -1, FALSE) == CSTR_EQUAL))
@@ -669,7 +820,14 @@ HRESULT Command_Version(int argc, wchar_t* argv[])
     std::uint16_t build{};
     std::uint16_t patch{};
     RETURN_IF_FAILED(GetExeVersion(major, minor, build, patch));
-    wprintf(L"%hu.%hu.%hu.%hu\n", major, minor, build, patch);
+    if (patch == 0)
+    {
+        wprintf(L"%hu.%hu.%hu\n", major, minor, build);
+    }
+    else
+    {
+        wprintf(L"%hu.%hu.%hu.%hu\n", major, minor, build, patch);
+    }
     return S_OK;
 }
 
@@ -705,10 +863,6 @@ int wmain(int argc, wchar_t* argv[])
     if (CompareStringOrdinal(arg, -1, L"certificate", -1, FALSE) == CSTR_EQUAL)
     {
         return MessageOnError(Command_Certificate(argc, argv));
-    }
-    else if (CompareStringOrdinal(arg, -1, L"deprovision", -1, FALSE) == CSTR_EQUAL)
-    {
-        return MessageOnError(Command_Deprovision(argc, argv));
     }
     else if (CompareStringOrdinal(arg, -1, L"provision", -1, FALSE) == CSTR_EQUAL)
     {
