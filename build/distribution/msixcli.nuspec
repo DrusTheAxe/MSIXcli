@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<package xmlns="http://schemas.microsoft.com/packaging/2010/07/nuspec.xsd">
+  <metadata>
+    <id>MSIXcli</id>
+    <title>MSIX Command-Line Interface</title>
+    <version>$version$</version>
+    <icon>images\msixcli-64x64.png</icon>
+    <readme>docs\README.md</readme>
+    <authors>Howard Kapustein</authors>
+    <summary>Command line applications to manage MSIX packages</summary>
+    <description>MSIXcli is a set of utilities to access and manage [MSIX](https://learn.microsoft.com/windows/msix/overview) packages.
+
+    msix.exe provides access to MSIX functionality..
+
+    msixadmin.exe provides access to MSIX functionality requiring admin privilege, including provisioning and deprovisioning packages, adding and removing certifications and more.
+
+    MSIXcli is designed for developers, administrators and power-users developing, testing, deploying and/or managing MSIX packages.
+
+    Run with no parameters for help.</description>
+    <projectUrl>https://github.com/DrusTheAxe/MSIXPropertySheet</projectUrl>
+    <license type="expression">MIT</license>
+    <tags>MSIXcli MSIXadmin MSIX APPX Provisioning Provision Deprovision Certificate</tags>
+    <copyright>Copyright (C) Howard Kapustein</copyright>
+    <requireLicenseAcceptance>false</requireLicenseAcceptance>
+    <repository type="git" url="https://github.com/DrusTheAxe/MSIXPropertySheet" branch="main" />
+    <releaseNotes></releaseNotes>
+  </metadata>
+  <files>
+    <file src="src\msixadmin-64x64.png" target="images\" />
+    <file src="LICENSE" target="docs\" />
+    <file src="README.md" target="docs\" />
+    <file src="bin\Release\x64\*" target="tools\x64" />
+    <file src="bin\Release\arm64\*" target="tools\arm64" />
+  </files>
+</package>

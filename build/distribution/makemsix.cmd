@@ -1,0 +1,44 @@
+@ECHO Off
+SETLOCAL
+
+IF %1x == x GoTo Help
+IF %2x == x GoTo Help
+
+SET VER=%1
+SET ARCH=%2
+
+SET ROOTDIR=%~dp0\..
+SET BINDIR=%ROOTDIR%\bin\Release\%ARCH%
+SET TARGETDIR=%ROOTDIR%\Release
+SET TARGET=%TARGETDIR%\AppData-%VER%-%ARCH%.msix
+
+SET SCRATCH="%TEMP%\appxdata-temp-msix"
+IF EXIST %SCRATCH% RD /s/q %SCRATCH%
+MD %SCRATCH% 2>&1 >NUL
+COPY %BINDIR%\* %SCRATCH%\*
+COPY %ROOTDIR%\build\appxmanifest.xml %SCRATCH%\*
+COPY %ROOTDIR%\LICENSE %SCRATCH%\*
+COPY %ROOTDIR%\README.md %SCRATCH%\*
+COPY %ROOTDIR%\README.html %SCRATCH%\*
+COPY %ROOTDIR%\src\msixcli-64x64.png %SCRATCH%\*
+COPY %ROOTDIR%\src\msixcli-100x100.png %SCRATCH%\*
+COPY %ROOTDIR%\src\msixadmin-48x48.png %SCRATCH%\*
+COPY %ROOTDIR%\src\msixadmin-100x100.png %SCRATCH%\*
+
+SET MAKEAPPX=makeappx.exe
+SET MAKEAPPX_OPTS=pack /v /o /d %SCRATCH% /p %TARGET%
+IF NOT EXIST %TARGETDIR% MD %TARGETDIR% 2>&1 >NUL
+IF EXIST %TARGET% DEL /Q %TARGET%
+ECHO %MAKEAPPX% %MAKEAPPX_OPTS%
+%MAKEAPPX% %MAKEAPPX_OPTS%
+IF ERRORLEVEL 1 GOTO TheEnd
+
+GoTo TheEnd
+
+:Help
+ECHO Usage: MAKEMSIX version architecture
+ECHO        version = version (1.2.3)
+ECHO   architecture = x64 OR arm64
+
+:TheEnd
+ENDLOCAL

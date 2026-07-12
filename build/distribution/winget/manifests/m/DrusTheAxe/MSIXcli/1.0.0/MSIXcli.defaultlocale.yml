@@ -1,0 +1,39 @@
+# Created using wingetcreate 1.2.5.0
+# yaml-language-server: $schema=https://aka.ms/winget-manifest.installer.1.4.0.schema.json
+
+PackageIdentifier:      DrusTheAxe.MSIXcli
+PackageVersion:         1.0.0
+PackageLocale:          en-US
+Publisher:              Troll Cave Enterprises
+PublisherUrl:           https://github.com/DrusTheAxe/
+PublisherSupportUrl:    https://github.com/DrusTheAxe/MSIXPropertySheet/
+Author:                 Howard Kapustein
+PackageName:            MSIXcli
+PackageUrl:             https://github.com/DrusTheAxe/MSIXPropertySheet/
+License:                MIT License
+LicenseUrl:             https://github.com/DrusTheAxe/MSIXPropertySheet/blob/main/LICENSE
+Copyright:              Copyright (c) Howard Kapustein and Contributors
+ShortDescription:       Command line application to access and manipulate MSIX packages
+Description: |
+ MSIXcli is a set of utilities to access and manage [MSIX](https://learn.microsoft.com/windows/msix/overview) packages.
+
+ msix.exe provides access to MSIX functionality..
+
+ msixadmin.exe provides access to MSIX functionality requiring admin privilege, including provisioning and deprovisioning packages, adding and removing certifications and more.
+
+ MSIXcli is designed for developers, administrators and power-users developing, testing, deploying and/or managing MSIX packages.
+
+ Run with no parameters for help.
+Moniker:                MSIXcli
+Tags:
+- MSIXcli
+- MSIXadmin
+- MSIX
+- APPX
+- Provisioning
+- Provision
+- Deprovision
+- Certificate
+ReleaseNotesUrl:        https://github.com/DrusTheAxe/MSIXPropertySheet/releases/tag/1.0.0
+ManifestType:           defaultLocale
+ManifestVersion:        1.4.0

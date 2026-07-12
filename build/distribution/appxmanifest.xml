@@ -1,0 +1,76 @@
+<?xml version="1.0"?>
+<Package
+   xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10"
+   xmlns:mp="http://schemas.microsoft.com/appx/2014/phone/manifest"
+   xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10"
+   xmlns:uap3="http://schemas.microsoft.com/appx/manifest/uap/windows10/3"
+   xmlns:uap5="http://schemas.microsoft.com/appx/manifest/uap/windows10/5"
+   xmlns:uap10="http://schemas.microsoft.com/appx/manifest/uap/windows10/10"
+   xmlns:uap17="http://schemas.microsoft.com/appx/manifest/uap/windows10/17"
+   xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities"
+   xmlns:desktop="http://schemas.microsoft.com/appx/manifest/desktop/windows10"
+   IgnorableNamespaces="uap uap3 uap5 uap10 uap17 rescap desktop mp">
+  <mp:PhoneIdentity PhoneProductId="00000000-0000-0000-0000-000000000000" PhonePublisherId="00000000-0000-0000-0000-000000000000" />
+  <Identity Name="MSIXcli"
+    ProcessorArchitecture="x64"
+    Publisher="CN=TrollCaveEnterprises"
+    Version="1.0.0.0" />
+  <Properties>
+    <DisplayName>MSIXcli</DisplayName>
+    <PublisherDisplayName>Troll Cave Enterprises</PublisherDisplayName>
+    <Description>Building a better tomorrow &lt;del&gt;tomorrow&lt;/del&gt; today</Description>
+    <Logo>msixcli-100x100.png</Logo>
+    <uap10:PackageIntegrity>
+      <uap10:Content Enforcement="on"/>
+    </uap10:PackageIntegrity>
+    <uap17:UpdateWhileInUse>defer</uap17:UpdateWhileInUse>
+  </Properties>
+  <Resources>
+    <Resource Language="en-us" />
+  </Resources>
+  <Dependencies>
+    <TargetDeviceFamily Name="Windows.Desktop" MinVersion="10.0.17763.0" MaxVersionTested="10.0.28000.0" />
+  </Dependencies>
+  <Capabilities>
+    <rescap:Capability Name="runFullTrust"/>
+  </Capabilities>
+  <Applications>
+    <Application Id="MSIXcli" Executable="msix.exe" EntryPoint="Windows.FullTrustApplication">
+      <uap3:VisualElements
+            BackgroundColor="transparent"
+            DisplayName="MSIX CLI"
+            Square150x150Logo="msixcli-100x100.png"
+            Square44x44Logo="msixcli-48x48.png"
+            Description="MSIX package management"
+            AppListEntry="none">
+        <uap:SplashScreen BackgroundColor="transparent" Image="msixcli-100x100.png" uap5:Optional="true"/>
+      </uap3:VisualElements>
+      <Extensions>
+        <uap3:Extension Category="windows.appExecutionAlias">
+          <uap3:AppExecutionAlias>
+            <desktop:ExecutionAlias Alias="msix.exe"/>
+            <desktop:ExecutionAlias Alias="msixcli.exe"/>
+          </uap3:AppExecutionAlias>
+        </uap3:Extension>
+      </Extensions>
+    </Application>
+    <Application Id="MSIXadmin" Executable="msixadmin.exe" EntryPoint="Windows.FullTrustApplication">
+      <uap3:VisualElements
+            BackgroundColor="transparent"
+            DisplayName="MSIX Admin"
+            Square150x150Logo="msixadmin-100x100.png"
+            Square44x44Logo="msixadmin-48x48.png"
+            Description="MSIX package management (admin privileged functionality)"
+            AppListEntry="none">
+        <uap:SplashScreen BackgroundColor="transparent" Image="msixadmin-100x100.png" uap5:Optional="true"/>
+      </uap3:VisualElements>
+      <Extensions>
+        <uap3:Extension Category="windows.appExecutionAlias">
+          <uap3:AppExecutionAlias>
+            <desktop:ExecutionAlias Alias="msixadmin.exe"/>
+          </uap3:AppExecutionAlias>
+        </uap3:Extension>
+      </Extensions>
+    </Application>
+  </Applications>
+</Package>

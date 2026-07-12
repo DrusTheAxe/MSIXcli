@@ -1,0 +1,27 @@
+@ECHO Off
+SETLOCAL
+
+IF %1x == x GoTo Help
+
+SET VER=%1
+
+SET ROOTDIR=%~dp0\..
+SET TARGETDIR=%ROOTDIR%\Release
+SET TARGET=%TARGETDIR%\msixcli-%VER%.nupkg
+
+IF "%NUGETEXE%" == "" SET NUGETEXE=C:\Util.W32\nuget\nuget.exe
+SET NUGETOPTS=pack msixcli.nuspec -Version %VER% -BasePath %ROOTDIR% -OutputDirectory %TARGETDIR%
+
+IF NOT EXIST %TARGETDIR% MD %TARGETDIR% 2>&1 >NUL
+IF EXIST %TARGET% DEL /Q %TARGET%
+ECHO %NUGETEXE% %NUGETOPTS%
+%NUGETEXE% %NUGETOPTS%
+IF ERRORLEVEL 1 GOTO TheEnd
+
+GoTo TheEnd
+
+:Help
+ECHO Usage: MAKENUGET version
+
+:TheEnd
+ENDLOCAL

@@ -1,0 +1,23 @@
+# Created using wingetcreate 1.2.5.0
+# yaml-language-server: $schema=https://aka.ms/winget-manifest.installer.1.4.0.schema.json
+
+PackageIdentifier:      DrusTheAxe.MSIXcli
+PackageVersion:         1.0.0
+ReleaseDate:            2026-07-12
+Installers:
+- InstallerUrl:         https://github.com/DrusTheAxe/MSIXPropertySheet/releases/download/1.0.0/MSIXcli-1.0.0-x64.zip
+  Architecture:         x64
+  InstallerType:        zip
+  NestedInstallerType:  portable
+  NestedInstallerFiles:
+  - RelativeFilePath:   msix.exe
+  InstallerSha256:      7717bd116f15e6debfc581e6bde36ec8854e60eced1c9cb5c5496a7f640af0f3
+- InstallerUrl:         https://github.com/DrusTheAxe/MSIXPropertySheet/releases/download/1.0.0/MSIXcli-1.0.0-arm64.zip
+  Architecture:         arm64
+  InstallerType:        zip
+  NestedInstallerType:  portable
+  NestedInstallerFiles:
+  - RelativeFilePath:   msix.exe
+  InstallerSha256:      7717bd116f15e6debfc581e6bde36ec8854e60eced1c9cb5c5496a7f640af0f3
+ManifestType:           installer
+ManifestVersion:        1.4.0

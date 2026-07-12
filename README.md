@@ -1,6 +1,6 @@
-# MSIXPropertySheet
+# MSIXcli
 
-Windows Shell Extension adding a custom property sheet page to MSIX files.
+MSIX command-line utilities to access and manage MSIX packages.
 
 # Building the Project
 
@@ -9,7 +9,7 @@ Windows Shell Extension adding a custom property sheet page to MSIX files.
 - Windows SDK 10.0 or later
 
 ## Build Steps
-1. Open `MSIXPropertySheet.sln` in Visual Studio
+1. Open `MSIXcli.sln` in Visual Studio
 2. Select your desired configuration (Debug/Release) and platform (x86/x64)
 3. Build the solution (Build > Build Solution or Ctrl+Shift+B)
 4. The DLL will be created in the `Debug` or `Release` folder
