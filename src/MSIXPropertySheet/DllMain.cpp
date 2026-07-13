@@ -72,6 +72,7 @@ STDAPI DllRegisterServer(void)
     RETURN_IF_FAILED(RegisterInprocServer(szModule.get(), CLSID_MSIXPropertySheet, L"MSIXPropertySheet.PropertySheetExt Class", L"Apartment"));
 
     // Register the property sheet handler for .msix files
+    RETURN_IF_FAILED(RegisterShellExtPropertyHandler(L".appx", CLSID_MSIXPropertySheet));
     RETURN_IF_FAILED(RegisterShellExtPropertyHandler(L".msix", CLSID_MSIXPropertySheet));
 
     return S_OK;
@@ -83,6 +84,7 @@ STDAPI DllUnregisterServer(void)
     RETURN_IF_FAILED(UnregisterInprocServer(CLSID_MSIXPropertySheet));
 
     // Unregister the property sheet handler
+    RETURN_IF_FAILED(UnregisterShellExtPropertyHandler(L".appx", CLSID_MSIXPropertySheet));
     RETURN_IF_FAILED(UnregisterShellExtPropertyHandler(L".msix", CLSID_MSIXPropertySheet));
 
     return S_OK;

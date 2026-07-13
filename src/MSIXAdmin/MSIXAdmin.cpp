@@ -14,6 +14,15 @@
     ::ExitProcess(1);
 }
 
+HRESULT GetExePath(wil::unique_process_heap_string& path)
+{
+    RETURN_IF_FAILED(wil::GetModuleFileNameW(nullptr, path));
+    PCWSTR lastPathSegment{ wil::find_last_path_segment(path.get()) };
+    const auto offset{ lastPathSegment - path.get() };
+    path.get()[offset] = L'\0';
+    return S_OK;
+}
+
 HRESULT GetExeVersion(std::uint16_t& major, std::uint16_t& minor, std::uint16_t& build, std::uint16_t& revision)
 {
     wil::unique_process_heap_string path;
@@ -66,6 +75,7 @@ HRESULT ShowLogo()
             L"Commands:\n"
             L"  certificate  Certificate management\n"
             L"  provision    Provision management\n"
+            L"  tool         Install or manage tools that extend the MSIX experience\n"
             L"  version      Display version\n"
             L"\n"
             L"Run 'MSIXAdmin [command] --help' for more information on a command\n");
@@ -158,6 +168,91 @@ HRESULT ShowLogo()
             L"  msixadmin provision remove <PACKAGEFAMILYNAME> [options]\n"
             L"\n"
             L"Options:\n"
+            L"  -nologo, --no-logo    Do not display startup banner or copyright message\n"
+            L"  -?, -h, --help        Show command line help\n");
+    ::ExitProcess(1);
+}
+
+[[noreturn]] void Command_Tool_Help()
+{
+    ShowLogo();
+    wprintf(L"Description:\n"
+            L"  Install or manage tools that extend the MSIX experience\n"
+            L"\n"
+            L"Usage:\n"
+            L"  msixadmin tool <command> [options]\n"
+            L"\n"
+            L"Options:\n"
+            L"  -nologo, --no-logo    Do not display startup banner or copyright message\n"
+            L"  -?, -h, --help        Show command line help\n"
+            L"\n"
+            L"Commands:\n"
+            L"  propertysheet  Manage the MSIX property sheet extension\n");
+    ::ExitProcess(1);
+}
+
+[[noreturn]] void Command_Tool_PropertySheet_Help()
+{
+    ShowLogo();
+    wprintf(L"Description:\n"
+            L"  Manage the MSIX property sheet extension\n"
+            L"\n"
+            L"Usage:\n"
+            L"  msixadmin tool propertysheet <command> [options]\n"
+            L"\n"
+            L"Options:\n"
+            L"  -nologo, --no-logo    Do not display startup banner or copyright message\n"
+            L"  -?, -h, --help        Show command line help\n"
+            L"\n"
+            L"Commands:\n"
+            L"  install    Install the MSIX property sheet extension\n"
+            L"  list       Display the currently installed MSIX property sheet extension\n"
+            L"  uninstall  Uninstall the MSIX property sheet extension\n");
+    ::ExitProcess(1);
+}
+
+[[noreturn]] void Command_Tool_PropertySheet_Install_Help()
+{
+    ShowLogo();
+    wprintf(L"Description:\n"
+            L"  Install the MSIX property sheet extension\n"
+            L"\n"
+            L"Usage:\n"
+            L"  msixadmin tool propertysheet install [options]\n"
+            L"\n"
+            L"Options:\n"
+            L"  --path=<FILE>         The path to the MSIX property sheet DLL (default = GetPath(msixadmin.exe) + \\MSIXPropertySheet.dll)\n"
+            L"  -nologo, --no-logo    Do not display startup banner or copyright message\n"
+            L"  -?, -h, --help        Show command line help\n");
+    ::ExitProcess(1);
+}
+
+[[noreturn]] void Command_Tool_PropertySheet_List_Help()
+{
+    ShowLogo();
+    wprintf(L"Description:\n"
+            L"  Display the installed MSIX property sheet extension\n"
+            L"\n"
+            L"Usage:\n"
+            L"  msixadmin tool propertysheet list [options]\n"
+            L"\n"
+            L"Options:\n"
+            L"  -nologo, --no-logo    Do not display startup banner or copyright message\n"
+            L"  -?, -h, --help        Show command line help\n");
+    ::ExitProcess(1);
+}
+
+[[noreturn]] void Command_Tool_PropertySheet_Uninstall_Help()
+{
+    ShowLogo();
+    wprintf(L"Description:\n"
+            L"  Uninstall the MSIX property sheet extension\n"
+            L"\n"
+            L"Usage:\n"
+            L"  msixadmin tool propertysheet uninstall [options]\n"
+            L"\n"
+            L"Options:\n"
+            L"  --path=<FILE>         The path to the MSIX property sheet DLL (default = GetPath(msixadmin.exe) + \\MSIXPropertySheet.dll)\n"
             L"  -nologo, --no-logo    Do not display startup banner or copyright message\n"
             L"  -?, -h, --help        Show command line help\n");
     ::ExitProcess(1);
@@ -813,6 +908,274 @@ HRESULT Command_Provision(int argc, wchar_t* argv[])
     return S_OK;
 }
 
+HRESULT Command_Tool_PropertySheet_Install(int argc, wchar_t* argv[])
+{
+    if (argc < 4)
+    {
+        Command_Tool_PropertySheet_Install_Help();
+    }
+
+    bool logo{ true };
+    PCWSTR path{};
+
+    int argn{ 4 };
+    for (; argn < argc; ++argn)
+    {
+        PCWSTR arg{ argv[argn] };
+        if ((CompareStringOrdinal(arg, -1, L"-?", -1, FALSE) == CSTR_EQUAL) ||
+            (CompareStringOrdinal(arg, -1, L"-h", -1, FALSE) == CSTR_EQUAL) ||
+            (CompareStringOrdinal(arg, -1, L"--help", -1, FALSE) == CSTR_EQUAL))
+        {
+            Command_Provision_Add_Help();
+        }
+        else if (wil::string_starts_with(arg, L"--path="))
+        {
+            path = arg + (ARRAYSIZE(L"--path=") - 1);
+        }
+        else if ((CompareStringOrdinal(arg, -1, L"-nologo", -1, FALSE) == CSTR_EQUAL) ||
+                 (CompareStringOrdinal(arg, -1, L"--no-logo", -1, FALSE) == CSTR_EQUAL))
+        {
+            logo = false;
+        }
+        else
+        {
+            UnknownArgument(arg);
+        }
+    }
+    if (argn < argc)
+    {
+        UnknownArgument(argv[argn]);
+    }
+
+    if (logo)
+    {
+        ShowLogo();
+    }
+
+    wil::unique_process_heap_string filename;
+    PCWSTR dllFilename{};
+    if (path)
+    {
+        dllFilename = path;
+    }
+    else
+    {
+        wil::unique_process_heap_string exePath;
+        RETURN_IF_FAILED(GetExePath(exePath));
+        RETURN_IF_FAILED(wil::str_printf_nothrow(filename, L"%ls\\MSIXPropertySheet.dll", exePath.get()));
+        dllFilename = filename.get();
+    }
+    wil::unique_hmodule dll{ ::LoadLibraryExW(dllFilename, nullptr, LOAD_WITH_ALTERED_SEARCH_PATH) };
+    RETURN_LAST_ERROR_IF_NULL_MSG(dll, "%ls", dllFilename);
+    auto* function{ ::GetProcAddress(dll.get(), "DllRegisterServer") };
+    auto dllRegisterServer{ reinterpret_cast<HRESULT(__stdcall*)(void)>(function) };
+    RETURN_IF_FAILED(dllRegisterServer());
+    wprintf(L"MSIX property sheet DLL '%ls' is installed\n", dllFilename);
+
+    return S_OK;
+}
+
+HRESULT Command_Tool_PropertySheet_List(int argc, wchar_t* argv[])
+{
+    if (argc < 4)
+    {
+        Command_Tool_PropertySheet_List_Help();
+    }
+
+    bool logo{ true };
+
+    int argn{ 4 };
+    for (; argn < argc; ++argn)
+    {
+        PCWSTR arg{ argv[argn] };
+        if ((CompareStringOrdinal(arg, -1, L"-?", -1, FALSE) == CSTR_EQUAL) ||
+            (CompareStringOrdinal(arg, -1, L"-h", -1, FALSE) == CSTR_EQUAL) ||
+            (CompareStringOrdinal(arg, -1, L"--help", -1, FALSE) == CSTR_EQUAL))
+        {
+            Command_Provision_Add_Help();
+        }
+        else if ((CompareStringOrdinal(arg, -1, L"-nologo", -1, FALSE) == CSTR_EQUAL) ||
+                 (CompareStringOrdinal(arg, -1, L"--no-logo", -1, FALSE) == CSTR_EQUAL))
+        {
+            logo = false;
+        }
+        else
+        {
+            UnknownArgument(arg);
+        }
+    }
+    if (argn < argc)
+    {
+        UnknownArgument(argv[argn]);
+    }
+
+    if (logo)
+    {
+        ShowLogo();
+    }
+
+    // {8B6E4D93-1364-4bb9-BA15-5FC64B56BFB4}
+    constexpr GUID CLSID_MSIXPropertySheet{ 0x8b6e4d93, 0x1364, 0x4bb9, { 0xba, 0x15, 0x5f, 0xc6, 0x4b, 0x56, 0xbf, 0xb4 } };
+
+    wchar_t clsidAsString[39]{}; // GUID string is always 39 chars including null terminator
+    RETURN_HR_IF(E_UNEXPECTED, StringFromGUID2(CLSID_MSIXPropertySheet, clsidAsString, ARRAYSIZE(clsidAsString)) == 0);
+
+    {
+        wil::unique_cotaskmem_string subkey;
+        RETURN_IF_FAILED(wil::str_printf_nothrow(subkey, L"Software\\Classes\\CLSID\\%s", clsidAsString));
+
+        wil::unique_hkey regkeyClsid;
+        RETURN_IF_FAILED(wil::reg::try_open_unique_key_nothrow(HKEY_LOCAL_MACHINE, subkey.get(), regkeyClsid, wil::reg::key_access::read));
+        if (!regkeyClsid)
+        {
+            wprintf(L"MSIX property sheet extension is not installed\n");
+            return S_FALSE;
+        }
+        wil::unique_hkey regkeyInprocServer32;
+        RETURN_IF_FAILED(wil::reg::try_open_unique_key_nothrow(regkeyClsid.get(), L"InprocServer32", regkeyInprocServer32, wil::reg::key_access::read));
+        wil::unique_cotaskmem_string filename;
+        if (regkeyInprocServer32)
+        {
+            RETURN_IF_FAILED(wil::reg::get_value_string_nothrow(regkeyInprocServer32.get(), nullptr, filename));
+        }
+        wprintf(L"MSIX property sheet extension '%ls' is installed\n", filename ? filename.get() : L"<null>");
+    }
+    {
+        wprintf(L"Supported File Types:\n");
+        PCWSTR fileTypes[]{ L".appx", L".msix" };
+        for (PCWSTR fileType : fileTypes)
+        {
+            wil::unique_cotaskmem_string subkey;
+            RETURN_IF_FAILED(wil::str_printf_nothrow(subkey, L"Software\\Classes\\SystemFileAssociations\\%s\\shellex\\PropertySheetHandlers\\MSIXPropertySheet", fileType));
+            wil::unique_hkey regkey;
+            RETURN_IF_FAILED_MSG(wil::reg::try_open_unique_key_nothrow(HKEY_LOCAL_MACHINE, subkey.get(), regkey, wil::reg::key_access::read), "%ls", subkey.get());
+            bool isEnabled{};
+            if (regkey)
+            {
+                wil::unique_cotaskmem_string installedClsidAsString;
+                RETURN_IF_FAILED(wil::reg::get_value_string_nothrow(regkey.get(), nullptr, installedClsidAsString));
+                isEnabled = (CompareStringOrdinal(installedClsidAsString.get(), -1, clsidAsString, -1, TRUE) == CSTR_EQUAL);
+            }
+            wprintf(L"    %ls: %ls\n", fileType, isEnabled ? L"Yes" : L"No");
+        }
+    }
+
+    return S_OK;
+}
+
+HRESULT Command_Tool_PropertySheet_Uninstall(int argc, wchar_t* argv[])
+{
+    if (argc < 4)
+    {
+        Command_Tool_PropertySheet_Uninstall_Help();
+    }
+
+    bool logo{ true };
+    PCWSTR path{};
+
+    int argn{ 4 };
+    for (; argn < argc; ++argn)
+    {
+        PCWSTR arg{ argv[argn] };
+        if ((CompareStringOrdinal(arg, -1, L"-?", -1, FALSE) == CSTR_EQUAL) ||
+            (CompareStringOrdinal(arg, -1, L"-h", -1, FALSE) == CSTR_EQUAL) ||
+            (CompareStringOrdinal(arg, -1, L"--help", -1, FALSE) == CSTR_EQUAL))
+        {
+            Command_Provision_Add_Help();
+        }
+        else if (wil::string_starts_with(arg, L"--path="))
+        {
+            path = arg + (ARRAYSIZE(L"--path=") - 1);
+        }
+        else if ((CompareStringOrdinal(arg, -1, L"-nologo", -1, FALSE) == CSTR_EQUAL) ||
+                 (CompareStringOrdinal(arg, -1, L"--no-logo", -1, FALSE) == CSTR_EQUAL))
+        {
+            logo = false;
+        }
+        else
+        {
+            UnknownArgument(arg);
+        }
+    }
+    if (argn < argc)
+    {
+        UnknownArgument(argv[argn]);
+    }
+
+    if (logo)
+    {
+        ShowLogo();
+    }
+
+    wil::unique_process_heap_string filename;
+    PCWSTR dllFilename{};
+    if (path)
+    {
+        dllFilename = path;
+    }
+    else
+    {
+        wil::unique_process_heap_string exePath;
+        RETURN_IF_FAILED(GetExePath(exePath));
+        RETURN_IF_FAILED(wil::str_printf_nothrow(filename, L"%ls\\MSIXPropertySheet.dll", exePath.get()));
+        dllFilename = filename.get();
+    }
+    wil::unique_hmodule dll{ ::LoadLibraryExW(dllFilename, nullptr, LOAD_WITH_ALTERED_SEARCH_PATH) };
+    RETURN_LAST_ERROR_IF_NULL_MSG(dll, "%ls", dllFilename);
+    auto* function{ ::GetProcAddress(dll.get(), "DllUnregisterServer") };
+    auto dllUnregisterServer{ reinterpret_cast<HRESULT(__stdcall*)(void)>(function) };
+    RETURN_IF_FAILED(dllUnregisterServer());
+    wprintf(L"MSIX property sheet DLL '%ls' is uninstalled\n", dllFilename);
+
+    return S_OK;
+}
+
+HRESULT Command_Tool_PropertySheet(int argc, wchar_t* argv[])
+{
+    if (argc < 4)
+    {
+        Command_Tool_PropertySheet_Help();
+    }
+
+    PCWSTR command{ argv[3] };
+    if (CompareStringOrdinal(command, -1, L"install", -1, FALSE) == CSTR_EQUAL)
+    {
+        RETURN_IF_FAILED(Command_Tool_PropertySheet_Install(argc, argv));
+    }
+    else if (CompareStringOrdinal(command, -1, L"list", -1, FALSE) == CSTR_EQUAL)
+    {
+        RETURN_IF_FAILED(Command_Tool_PropertySheet_List(argc, argv));
+    }
+    else if (CompareStringOrdinal(command, -1, L"uninstall", -1, FALSE) == CSTR_EQUAL)
+    {
+        RETURN_IF_FAILED(Command_Tool_PropertySheet_Uninstall(argc, argv));
+    }
+    else
+    {
+        Command_Tool_PropertySheet_Help();
+    }
+    return S_OK;
+}
+
+HRESULT Command_Tool(int argc, wchar_t* argv[])
+{
+    if (argc < 3)
+    {
+        Command_Tool_Help();
+    }
+
+    PCWSTR command{ argv[2] };
+    if (CompareStringOrdinal(command, -1, L"propertysheet", -1, FALSE) == CSTR_EQUAL)
+    {
+        RETURN_IF_FAILED(Command_Tool_PropertySheet(argc, argv));
+    }
+    else
+    {
+        Command_Tool_Help();
+    }
+    return S_OK;
+}
+
 HRESULT Command_Version(int argc, wchar_t* argv[])
 {
     if (argc < 2)
@@ -904,6 +1267,10 @@ int wmain(int argc, wchar_t* argv[])
     else if (CompareStringOrdinal(arg, -1, L"provision", -1, FALSE) == CSTR_EQUAL)
     {
         return MessageOnError(Command_Provision(argc, argv));
+    }
+    else if (CompareStringOrdinal(arg, -1, L"tool", -1, FALSE) == CSTR_EQUAL)
+    {
+        return MessageOnError(Command_Tool(argc, argv));
     }
     else if (CompareStringOrdinal(arg, -1, L"version", -1, FALSE) == CSTR_EQUAL)
     {

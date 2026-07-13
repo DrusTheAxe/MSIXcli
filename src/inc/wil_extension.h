@@ -87,4 +87,28 @@ inline HRESULT parse_hexstring(PCWSTR string, size_t bytesSize, BYTE* bytes)
     }
     return S_OK;
 }
+
+namespace reg
+{
+    /**
+     * @brief Opens a new HKEY to the specified path - see RegOpenKeyExW
+     * @param key An open or well-known registry key
+     * @param subKey The name of the registry subkey to be opened.
+     *        If `nullptr`, then `key` is used without modification.
+     * @param[out] hkey A reference to a wil::unique_hkey to receive the opened HKEY
+     * @param access The requested access desired for the opened key
+     * @return HRESULT error code indicating success or failure (does not throw C++ exceptions)
+     */
+    inline HRESULT try_open_unique_key_nothrow(
+        HKEY key, _In_opt_ PCWSTR subKey, ::wil::unique_hkey& hkey, ::wil::reg::key_access access = ::wil::reg::key_access::read) WI_NOEXCEPT
+    {
+        const auto hr{ open_unique_key_nothrow(key, subKey, hkey, access) };
+        if (is_registry_not_found(hr))
+        {
+            hkey.reset();
+            return S_OK;
+        }
+        return hr;
+    }
+}
 }

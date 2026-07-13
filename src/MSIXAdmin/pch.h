@@ -20,6 +20,8 @@
 
 // Windows Implementation Library (WIL)
 #include <wil/com.h>
+#include <wil/filesystem.h>
+#include <wil/registry.h>
 #include <wil/resource.h>
 #include <wil/result.h>
 #include <wil/winrt.h>
