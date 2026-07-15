@@ -2,60 +2,44 @@
 
 MSIX command-line utilities to access and manage MSIX packages.
 
-# Building the Project
+This repository is based on various projects, musings, investigations, experimentation and personal itches needing scratching.
 
-## Prerequisites
-- Visual Studio 2026
-- Windows SDK 10.0 or later
+# Requirements
 
-## Build Steps
-1. Open `MSIXcli.sln` in Visual Studio
-2. Select your desired configuration (Debug/Release) and platform (x86/x64)
-3. Build the solution (Build > Build Solution or Ctrl+Shift+B)
-4. The DLL will be created in the `Debug` or `Release` folder
+- Windows 11 (aka >=21H2 aka >=10.0.22000.0)
 
-# Registration
+# msix.exe
 
-## Register the DLL
-Open an **elevated command prompt** (Run as Administrator) and execute:
+TBD
+
+# msixadmin.exe
+
+This command line executable provides access to MSIX functionality required admin privilege.
+
+If not launched elevated you'll see a UAC prompt to allow elevation, or process creation will fail.
+Nothing magical, just the usual Fusion manifest games (OK, perhaps that is a bit magical... :P).
+
+Run `msixadmin` or `msixadmin --help` for more information.
+
+## MSIX Property Sheet
+
+Run
 
 ```cmd
-regsvr32 "path\to\MSIXPropertySheet.dll"
+msixadmin tool propertysheet install
 ```
 
-## Unregister the DLL
-```cmd
-regsvr32 /u "path\to\MSIXPropertySheet.dll"
-```
+to install the MSIX PropertySheet page. This shows a new `MSIX` tab in Explorer's property sheet for
+MSIX files.
 
-# Testing
+**NOTE**: Currently supports *.msix and *.appx. Bundles and more are on the TODO list.
 
-1. Create a test file with the `.msix` extension
-2. Right-click the file and select "Properties"
-3. You should see a "MSIX" tab in the properties dialog
-4. The tab displays information about the MSIX package
-
-# Debugging
-
-## Debug in Visual Studio
-1. Set the project properties:
-   - **Debugging > Command**: `C:\Windows\explorer.exe`
-   - **Debugging > Command Arguments**: `/select,"C:\path\to\test.msix"`
-2. Set breakpoints in your code
-3. Press F5 to start debugging
-4. Right-click the test file and select Properties
+**TODO** insert-screenshot-here
 
 ## Common Issues
-- **Handler not appearing**: Make sure the DLL is registered correctly
-- **Access denied**: Run regsvr32 as Administrator
-- **Wrong architecture**: Match DLL architecture (x86/x64) with Explorer process
-- **Changes not taking effect**: Restart Windows Explorer (Task Manager > explorer.exe > Restart)
 
-## Restart Windows Explorer
-```cmd
-taskkill /f /im explorer.exe
-start explorer.exe
-```
+1. **Handler not appearing**: Make sure the DLL is registered correctly
+2. **Wrong architecture**: Match DLL architecture (x64/arm64) with Explorer process
 
 # License
 
