@@ -21,7 +21,7 @@ This command line executable provides access to MSIX functionality required admi
 If not launched elevated you'll see a UAC prompt to allow elevation, or process creation will fail.
 Nothing magical, just the usual Fusion manifest games (OK, perhaps that is a bit magical... :P).
 
-Run `msixadmin` or `msixadmin --help` for more information.
+Run `msixadmin --help` for more information.
 
 ## MSIX Property Sheet
 
@@ -36,7 +36,23 @@ MSIX files.
 
 **NOTE**: Currently supports *.msix and *.appx. Bundles and more are on the TODO list.
 
-**TODO** insert-screenshot-here
+### Screenshots
+
+#1 MSIX tab for a new .msix file. Install button will Add the package.
+
+![New .msix file, Add options](docs/images/MSIXPropertySheet/MSIX-1.png)
+
+#2 MSIX tab for a new .msix file. Install button will Stage the package.
+
+![New .msix file, Stage options](docs/images/MSIXPropertySheet/MSIX-2.png)
+
+#3 MSIX tab for a Staged package.
+
+![.msix file is Staged](docs/images/MSIXPropertySheet/MSIX-3.png)
+
+#4 MSIX tab for a Registered  package.
+
+![.msix file is Registered](docs/images/MSIXPropertySheet/MSIX-4.png)
 
 ## Common Issues
 
