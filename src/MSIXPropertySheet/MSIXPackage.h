@@ -50,7 +50,7 @@ public:
     {
         RETURN_HR_IF(E_NOT_VALID_STATE, !m_packageReader);
 
-        RETURN_IF_FAILED(MSIX::Signing::DetectSignatureOrigin(m_packageReader.get(), m_signatureOrigin));
+        RETURN_IF_FAILED(MSIX::Signing::DetectSignatureOrigin(m_packageReader.get(), m_signatureOrigin, m_thumbprintSize, m_thumbprint));
         return S_OK;
     }
 
@@ -267,6 +267,30 @@ public:
         return m_newerVersionFound.Version > 0;
     }
 
+    bool IsSigned() const
+    {
+        return (m_signatureOrigin == MSIX::SignatureOrigin::Windows) ||
+               (m_signatureOrigin == MSIX::SignatureOrigin::Store) ||
+               (m_signatureOrigin == MSIX::SignatureOrigin::LineOfBusiness) ||
+               (m_signatureOrigin == MSIX::SignatureOrigin::Unsigned);
+    }
+
+    HRESULT GetCertificateThumbprint(size_t& thumbprintSize, wil::unique_cotaskmem_ptr<BYTE[]>& thumbprint)
+    {
+        thumbprintSize = 0;
+        thumbprint.reset();
+
+        if ((m_thumbprintSize > 0) && m_thumbprint)
+        {
+            auto buffer{ wil::make_unique_cotaskmem_nothrow<BYTE[]>(m_thumbprintSize) };
+            RETURN_IF_NULL_ALLOC(buffer);
+            memcpy(buffer.get(), m_thumbprint.get(), m_thumbprintSize);
+            thumbprint = wistd::move(buffer);
+            thumbprintSize = m_thumbprintSize;
+        }
+        return S_OK;
+    }
+
     MSIX::SignatureOrigin SignatureOrigin() const
     {
         return m_signatureOrigin;
@@ -437,6 +461,8 @@ private:
     PACKAGE_VERSION m_newerVersionFound{};
     bool m_isRemovalPending{};
     MSIX::SignatureOrigin m_signatureOrigin{ MSIX::SignatureOrigin::Unsigned };
+    size_t m_thumbprintSize{};
+    wil::unique_cotaskmem_ptr<BYTE[]> m_thumbprint;
     std::uint64_t m_footprintFileSize[10]{};
     std::uint64_t m_packagePayloadFilesCount{};
     std::uint64_t m_packagePayloadFilesSizeCompressed{};

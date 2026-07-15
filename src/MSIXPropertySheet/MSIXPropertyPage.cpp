@@ -21,13 +21,13 @@ namespace
         IDC_PACKAGE_FAMILY_NAME,
         IDC_PACKAGEORIGIN,
         IDC_SIGNATURE_ORIGIN,
-        IDC_PAYLOAD_COUNT,
         IDC_FILE_COMPRESSED_SIZE,
         IDC_FILE_UNCOMPRESSED_SIZE,
         IDC_FOOTPRINT_COMPRESSED_SIZE,
         IDC_FOOTPRINT_UNCOMPRESSED_SIZE,
         IDC_PAYLOAD_COMPRESSED_SIZE,
         IDC_PAYLOAD_UNCOMPRESSED_SIZE,
+        IDC_CERTIFICATE_STATUS,
     };
 
     bool IsBorderlessReadOnlyEdit(int ctlId) noexcept
@@ -338,7 +338,6 @@ void MSIXPropertyPage::OnInitDialog(HWND hwndDlg)
     SetDlgItemText(hwndDlg, IDC_PACKAGE_FULL_NAME, m_package.PackageFullName());
     SetDlgItemText(hwndDlg, IDC_PACKAGE_FAMILY_NAME, m_package.PackageFamilyName());
     SetDlgItemText(hwndDlg, IDC_SIGNATURE_ORIGIN, MSIX::ToString(m_package.SignatureOrigin()));
-    SetDlgItemText_Format(hwndDlg, IDC_PAYLOAD_COUNT, m_package.PayloadTotalCount(), m_package.PayloadTotalCount() == 1 ? L" file" : L" files");
 
     UpdatePackageStatus(hwndDlg);
 
@@ -352,7 +351,8 @@ void MSIXPropertyPage::OnInitDialog(HWND hwndDlg)
     std::uint64_t sizeUncompressed{ sizeFootprintUncompressed + sizePayloadUncompressed };
     SetDlgItemText_FormatSize(hwndDlg, IDC_FILE_UNCOMPRESSED_SIZE, sizeUncompressed);
     SetDlgItemText_FormatSizeAndRatio(hwndDlg, IDC_FOOTPRINT_COMPRESSED_SIZE, sizeFootprintCompressed, footprintCompressionRatio);
-    SetDlgItemText_FormatSizeAndRatio(hwndDlg, IDC_PAYLOAD_COMPRESSED_SIZE, sizePayloadCompressed, payloadCompressionRatio);
+    SetDlgItemText_FormatSizeAndRatioAndCount(hwndDlg, IDC_PAYLOAD_COMPRESSED_SIZE, sizePayloadCompressed, payloadCompressionRatio,
+                                              m_package.PayloadTotalCount(), m_package.PayloadTotalCount() == 1 ? L" file" : L" files");
 
     if (m_packageManager3)
     {
@@ -436,6 +436,30 @@ void MSIXPropertyPage::OnInitDialog(HWND hwndDlg)
             SendMessage(hVolume, CB_SETCURSEL, 0, 0);
         }
     }
+
+    const bool isSigned{ m_package.IsSigned() };
+    if (isSigned)
+    {
+        size_t thumbprintSize{};
+        wil::unique_cotaskmem_ptr<BYTE[]> thumbprint;
+        if (SUCCEEDED_LOG(m_package.GetCertificateThumbprint(thumbprintSize, thumbprint)))
+        {
+            if ((thumbprintSize > 0) && thumbprint)
+            {
+                wil::unique_cotaskmem_string thumbprintAsString{ wil::make_cotaskmem_string_nothrow(nullptr, thumbprintSize * 2) };
+                if (thumbprintAsString)
+                {
+                    for (size_t index = 0; index < thumbprintSize; ++index)
+                    {
+                        StringCchPrintfW(thumbprintAsString.get() + (index * 2), 3, L"%02X", thumbprint[index]);
+                    }
+                    SetDlgItemText(hwndDlg, IDC_CERTIFICATE_STATUS, thumbprintAsString.get());
+                    EnableAndShowControl(GetDlgItem(hwndDlg, IDC_CERTIFICATE_STATUS), true);
+                }
+            }
+        }
+    }
+    EnableAndShowControl(GetDlgItem(hwndDlg, IDC_CERTIFICATE_STATUS), isSigned);
 
     UpdateAddCertificateButton(hwndDlg);
 }
@@ -568,11 +592,12 @@ void MSIXPropertyPage::RefreshPackageStatus(
 
 void MSIXPropertyPage::UpdateAddCertificateButton(HWND hwndDlg)
 {
-    // Only show the Add Certificate button if the package is signed but not known to the system
+    // Only show the Add Certificate button if the package is signed but not known to the system and actionable
     const bool enable{
         (m_package.SignatureOrigin() == MSIX::SignatureOrigin::Windows) ||
         (m_package.SignatureOrigin() == MSIX::SignatureOrigin::Store) ||
-        (m_package.SignatureOrigin() == MSIX::SignatureOrigin::Unsigned)
+        (m_package.SignatureOrigin() == MSIX::SignatureOrigin::LineOfBusiness) ||
+        (m_package.SignatureOrigin() == MSIX::SignatureOrigin::Unknown)
     };
     EnableAndShowControl(GetDlgItem(hwndDlg, IDC_ADDCERTIFICATE), enable);
 }
@@ -976,6 +1001,16 @@ void MSIXPropertyPage::SetDlgItemText_FormatSizeAndRatio(HWND hwndDlg, int nIDDl
 
     WCHAR string[100]{};
     StringCchPrintfW(string, ARRAYSIZE(string), L"%ls  [%llu%%]", sizeString, ratio);
+    SetDlgItemText(hwndDlg, nIDDlgItem, string);
+}
+
+void MSIXPropertyPage::SetDlgItemText_FormatSizeAndRatioAndCount(HWND hwndDlg, int nIDDlgItem, std::uint64_t size, std::uint64_t ratio, std::uint64_t count, PCWSTR suffix)
+{
+    WCHAR sizeString[64]{};
+    FormatSize(size, sizeString, ARRAYSIZE(sizeString));
+
+    WCHAR string[256]{};
+    StringCchPrintfW(string, ARRAYSIZE(string), L"%ls  [%llu%%] \u2012 %llu %ls", sizeString, ratio, count, suffix);
     SetDlgItemText(hwndDlg, nIDDlgItem, string);
 }
 

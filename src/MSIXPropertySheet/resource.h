@@ -9,7 +9,6 @@
 #define IDC_PACKAGE_FULL_NAME               1002
 #define IDC_PACKAGE_FAMILY_NAME             1003
 #define IDC_SIGNATURE_ORIGIN                1004
-#define IDC_PAYLOAD_COUNT                   1005
 
 #define IDC_PACKAGEORIGIN_LABEL             1101
 #define IDC_PACKAGEORIGIN                   1102
@@ -43,6 +42,7 @@
 #define IDC_EXTERNAL                        1311
 #define IDC_EXTERNAL_PATH                   1312
 
-#define IDC_ADDCERTIFICATE                  1401
-#define IDC_INSTALLACTION                   1402
-#define IDC_INSTALL                         1403
+#define IDC_CERTIFICATE_STATUS              1401
+#define IDC_ADDCERTIFICATE                  1402
+#define IDC_INSTALLACTION                   1403
+#define IDC_INSTALL                         1404

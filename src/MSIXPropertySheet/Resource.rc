@@ -41,24 +41,23 @@ BEGIN
     EDITTEXT                                IDC_FOOTPRINT_COMPRESSED_SIZE,   88, 113, 157,  8,  ES_AUTOHSCROLL | NOT WS_BORDER
     LTEXT       "Compressed Payload:",      IDC_STATIC,                       7, 125,  78,  8
     EDITTEXT                                IDC_PAYLOAD_COMPRESSED_SIZE,     88, 125, 157,  8,  ES_AUTOHSCROLL | NOT WS_BORDER
-    LTEXT       "Payload Files:",           IDC_STATIC,                       7, 137,  78,  8
-    EDITTEXT                                IDC_PAYLOAD_COUNT,               88, 137, 157,  8,  ES_AUTOHSCROLL | NOT WS_BORDER
 
-    CONTROL     "", IDC_STATIC, "Static", SS_ETCHEDHORZ,                      0, 149, 250,  1
+    CONTROL     "", IDC_STATIC, "Static", SS_ETCHEDHORZ,                      0, 137, 250,  1
 
-    AUTOCHECKBOX  "&Allow unsigned",            IDC_ALLOWUNSIGNED,            7, 152,  70, 10
-    AUTOCHECKBOX  "&Defer while in use",        IDC_DEFERWHILEINUSE,        120, 152,  80, 10
-    AUTOCHECKBOX  "Developer &mode",            IDC_DEVELOPERMODE,            7, 164,  72, 10
-    AUTOCHECKBOX  "&Force",                     IDC_FORCE,                  120, 164,  42, 10
-    AUTOCHECKBOX  "&Limit to existing packages",IDC_LIMITTOEXISTINGPACKAGES,  7, 176, 110, 10
-    AUTOCHECKBOX  "Re&tain files on failure",   IDC_RETAINFILESONFAILURE,   120, 176,  98, 10
-    AUTOCHECKBOX  "&External Location",         IDC_EXTERNAL,                 7, 189,  80, 10
-    EDITTEXT                                    IDC_EXTERNAL_PATH,           90, 188, 155, 14,  ES_AUTOHSCROLL | WS_TABSTOP
-    LTEXT         "&Priority:",                 IDC_PRIORITY_LABEL,           7, 206,  26,  8
-    COMBOBOX                                    IDC_PRIORITY,                37, 204,  50, 60,  CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
-    LTEXT         "&Volume:",                   IDC_VOLUME_LABEL,            91, 206,  26,  8
-    COMBOBOX                                    IDC_VOLUME,                 119, 204, 126, 60,  CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
+    AUTOCHECKBOX  "&Allow unsigned",            IDC_ALLOWUNSIGNED,            7, 140,  70, 10
+    AUTOCHECKBOX  "&Defer while in use",        IDC_DEFERWHILEINUSE,        120, 140,  80, 10
+    AUTOCHECKBOX  "Developer &mode",            IDC_DEVELOPERMODE,            7, 152,  72, 10
+    AUTOCHECKBOX  "&Force",                     IDC_FORCE,                  120, 152,  42, 10
+    AUTOCHECKBOX  "&Limit to existing packages",IDC_LIMITTOEXISTINGPACKAGES,  7, 164, 110, 10
+    AUTOCHECKBOX  "Re&tain files on failure",   IDC_RETAINFILESONFAILURE,   120, 164,  98, 10
+    AUTOCHECKBOX  "&External Location",         IDC_EXTERNAL,                 7, 177,  80, 10
+    EDITTEXT                                    IDC_EXTERNAL_PATH,           90, 176, 155, 14,  ES_AUTOHSCROLL | WS_TABSTOP
+    LTEXT         "&Priority:",                 IDC_PRIORITY_LABEL,           7, 194,  26,  8
+    COMBOBOX                                    IDC_PRIORITY,                37, 192,  50, 60,  CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
+    LTEXT         "&Volume:",                   IDC_VOLUME_LABEL,            91, 194,  26,  8
+    COMBOBOX                                    IDC_VOLUME,                 119, 192, 126, 60,  CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
 
+    EDITTEXT                                    IDC_CERTIFICATE_STATUS,       7, 215, 200,  8,  ES_AUTOHSCROLL | NOT WS_BORDER
     PUSHBUTTON    "Add Certificate",            IDC_ADDCERTIFICATE,           7, 229,  60, 14,  BS_DEFPUSHBUTTON | WS_TABSTOP
 
     COMBOBOX                                    IDC_INSTALLACTION,          140, 229,  50, 60,  CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
@@ -80,7 +79,6 @@ BEGIN
     IDC_IS_REMOVE_PENDING               "Package removal is pending"
 
     IDC_SIGNATURE_ORIGIN                "Origin of the MSIX package's signing"
-    IDC_PAYLOAD_COUNT                   "Number of payload files contained in the package"
     IDC_COMPRESSED_LABEL                "Size of the data as stored (compressed) in the package"
     IDC_UNCOMPRESSED_LABEL              "Size of the data after extraction (uncompressed)"
     IDC_SIZE_LABEL                      "Size of the package file"
@@ -95,8 +93,6 @@ BEGIN
 
     IDC_FORCE                           "Force running processes using the package to shut down so the package can be installed"
     IDC_DEFERWHILEINUSE                 "Defer registration while the package's files are in use, applying it at next available opportunity (worst case at next logon)"
-    IDC_INSTALLACTION                   "Choose whether to Add (install) or Stage the package"
-    IDC_INSTALL                         "Perform the selected action (Add or Stage) using the options selected above"
     IDC_DEVELOPERMODE                   "Install in developer mode (requires Developer Mode in Settings to be enabled)"
     IDC_ALLOWUNSIGNED                   "Allow installing a package that is not signed"
     IDC_RETAINFILESONFAILURE            "Retain staged files if the installation fails"
@@ -107,4 +103,9 @@ BEGIN
     IDC_PRIORITY                        "Priority of the deployment operation: Low, Default, or High"
     IDC_EXTERNAL                        "Install the package using content stored at an external location"
     IDC_EXTERNAL_PATH                   "Path or URI to the package's external content"
+
+    IDC_CERTIFICATE_STATUS              "The package's signing certificate's status"
+    IDC_ADDCERTIFICATE                  "Add the certificate to the Trusted People certificate store"
+    IDC_INSTALLACTION                   "Choose whether to Add (install) or Stage the package"
+    IDC_INSTALL                         "Perform the selected action (Add or Stage) using the options selected above"
 END

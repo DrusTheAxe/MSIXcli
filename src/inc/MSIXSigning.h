@@ -101,6 +101,29 @@ public:
         return S_OK;
     }
 
+    // Return the certificate's thumbprint (if signed).
+    // @param packageReader
+    // @param thumbprintSize Number of bytes in the thumbprint (20 for a SHA-1 hash), or zero if no certificate.
+    // @param thumbprint The certificate's SHA-1 hash (thumbprint) bytes, or null if no certificate.
+    // @return S_OK if successful, or a failing HRESULT on a hard error
+    static HRESULT GetCertificateThumbprint(IAppxPackageReader* packageReader, size_t& thumbprintSize, wil::unique_cotaskmem_ptr<BYTE[]>& thumbprint)
+    {
+        thumbprintSize = 0;
+        thumbprint.reset();
+
+        RETURN_HR_IF_NULL(E_POINTER, packageReader);
+
+        // Extract the leaf (signing) certificate from the package signature
+        wil::unique_cert_context signingCertificate;
+        const HRESULT hr{ GetPackageSignerCertificate(packageReader, signingCertificate) };
+        RETURN_IF_FAILED(hr);
+        if (hr == S_OK)
+        {
+            RETURN_IF_FAILED(GetCertificateThumbprintFromContext(signingCertificate.get(), thumbprintSize, thumbprint));
+        }
+        return S_OK;
+    }
+
     // Removes the certificate with the given thumbprint (its SHA-1 hash) from
     // LocalMachine\TrustedPeople if present. A thumbprint alone cannot convey
     // Windows/Store origin, so use the IAppxPackageReader overload when origin matters.
@@ -306,7 +329,33 @@ public:
     // Determines the signature origin of an opened package
     static HRESULT DetectSignatureOrigin(IAppxPackageReader* packageReader, SignatureOrigin& signatureOrigin)
     {
+        RETURN_IF_FAILED(_DetectSignatureOrigin(packageReader, signatureOrigin, nullptr, nullptr));
+        return S_OK;
+    }
+
+    // Determines the signature origin of an opened package
+    // @param thumbprintSize Number of bytes in the thumbprint (20 for a SHA-1 hash), or zero if no certificate.
+    // @param thumbprint The certificate's SHA-1 hash (thumbprint) bytes, or null if no certificate.
+    static HRESULT DetectSignatureOrigin(IAppxPackageReader* packageReader, SignatureOrigin& signatureOrigin, size_t& thumbprintSize, wil::unique_cotaskmem_ptr<BYTE[]>& thumbprint)
+    {
+        RETURN_IF_FAILED(_DetectSignatureOrigin(packageReader, signatureOrigin, &thumbprintSize, wil::out_param(thumbprint)));
+        return S_OK;
+    }
+
+private:
+    // Determines the signature origin of an opened package
+    // @note thumbprint is allocated via CoTaskMemAlloc()
+    static HRESULT _DetectSignatureOrigin(IAppxPackageReader* packageReader, SignatureOrigin& signatureOrigin, size_t* thumbprintSize, BYTE** thumbprint)
+    {
         signatureOrigin = SignatureOrigin::Unsigned;
+        if (thumbprintSize)
+        {
+            *thumbprintSize = 0;
+        }
+        if (thumbprint)
+        {
+            *thumbprint = nullptr;
+        }
         RETURN_HR_IF_NULL(E_POINTER, packageReader);
 
         // Read the raw AppxSignature.p7x footprint
@@ -319,10 +368,55 @@ public:
             return S_OK; // No (readable) signature -> Unsigned
         }
 
-        return DetectSignatureOriginFromBlob(signatureBlob.get(), signatureSize, signatureOrigin);
+        RETURN_IF_FAILED(DetectSignatureOriginFromBlob(signatureBlob.get(), signatureSize, signatureOrigin));
+
+        // If the package is signed and the caller asked for it, extract the leaf
+        // (signing) certificate's SHA-1 hash (thumbprint) from the same blob
+        if ((signatureOrigin != SignatureOrigin::Unsigned) && thumbprintSize && thumbprint)
+        {
+            wil::unique_cert_context signingCertificate;
+            const HRESULT signerHr{ GetSignerCertificateFromBlob(signatureBlob.get(), signatureSize, signingCertificate) };
+            RETURN_IF_FAILED(signerHr);
+            if (signerHr == S_OK)
+            {
+                size_t hashSize{};
+                wil::unique_cotaskmem_ptr<BYTE[]> hash;
+                RETURN_IF_FAILED(GetCertificateThumbprintFromContext(signingCertificate.get(), hashSize, hash));
+                if (thumbprintSize)
+                {
+                    *thumbprintSize = hashSize;
+                }
+                if (thumbprint)
+                {
+                    *thumbprint = hash.release();
+                }
+            }
+        }
+
+        return S_OK;
+    }
+    // @param thumbprintSize Number of bytes in the thumbprint (20 for a SHA-1 hash)
+    // @param thumbprint The certificate's SHA-1 hash (thumbprint) bytes, allocated via CoTaskMemAlloc()
+    static HRESULT GetCertificateThumbprintFromContext(PCCERT_CONTEXT certificate, size_t& thumbprintSize, wil::unique_cotaskmem_ptr<BYTE[]>& thumbprint)
+    {
+        thumbprintSize = 0;
+        thumbprint.reset();
+
+        RETURN_HR_IF_NULL(E_POINTER, certificate);
+
+        DWORD hashSize{};
+        RETURN_IF_WIN32_BOOL_FALSE(CertGetCertificateContextProperty(certificate, CERT_SHA1_HASH_PROP_ID, nullptr, &hashSize));
+        RETURN_HR_IF(E_UNEXPECTED, hashSize == 0);
+
+        auto buffer{ wil::make_unique_cotaskmem_nothrow<BYTE[]>(hashSize) };
+        RETURN_IF_NULL_ALLOC(buffer);
+        RETURN_IF_WIN32_BOOL_FALSE(CertGetCertificateContextProperty(certificate, CERT_SHA1_HASH_PROP_ID, buffer.get(), &hashSize));
+
+        thumbprintSize = hashSize;
+        thumbprint = wistd::move(buffer);
+        return S_OK;
     }
 
-private:
     // Classifies the signature origin from a raw AppxSignature.p7x blob (the same
     // format as the package footprint or the installed AppxSignature.p7x file)
     static HRESULT DetectSignatureOriginFromBlob(const BYTE* signatureBlob, DWORD signatureSize, SignatureOrigin& signatureOrigin)
