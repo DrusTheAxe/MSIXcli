@@ -26,10 +26,13 @@
     <releaseNotes></releaseNotes>
   </metadata>
   <files>
-    <file src="src\msixadmin-64x64.png" target="images\" />
+    <file src="images\msixcli-64x64.png" target="images\" />
+    <file src="images\msixadmin-64x64.png" target="images\" />
     <file src="LICENSE" target="docs\" />
     <file src="README.md" target="docs\" />
-    <file src="bin\Release\x64\*" target="tools\x64" />
-    <file src="bin\Release\arm64\*" target="tools\arm64" />
+    <file src="bin\Release\x64\MSIXadmin\MSIXadmin.exe"                 target="tools\x64" />
+    <file src="bin\Release\x64\MSIXPropertySheet\MSIXPropertySheet.dll" target="tools\x64" />
+    <file src="bin\Release\arm64\MSIXadmin\MSIXadmin.exe"                 target="tools\arm64" />
+    <file src="bin\Release\arm64\MSIXPropertySheet\MSIXPropertySheet.dll" target="tools\arm64" />
   </files>
 </package>

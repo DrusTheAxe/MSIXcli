@@ -2,7 +2,9 @@
 
 MSIX command-line utilities to access and manage MSIX packages.
 
-This repository is based on various projects, musings, investigations, experimentation and personal itches needing scratching.
+This repository is based on various projects, musings, investigations and experimentation
+to explore interesting, useful or simply neat ideas and scratch some personal itches. You'll
+have to decide for yourself whether you find these tools useful or dead ends (or both).
 
 # Requirements
 

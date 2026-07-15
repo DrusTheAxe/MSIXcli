@@ -15,6 +15,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "inc", "inc", "{8F46E7A1-874
 		src\inc\MSIXDeployment.h = src\inc\MSIXDeployment.h
 		src\inc\MSIXPackaging.h = src\inc\MSIXPackaging.h
 		src\inc\MSIXSigning.h = src\inc\MSIXSigning.h
+		src\inc\wil_array.h = src\inc\wil_array.h
 		src\inc\wil_extension.h = src\inc\wil_extension.h
 	EndProjectSection
 EndProject
