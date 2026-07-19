@@ -1160,6 +1160,13 @@ HRESULT Command_Shortcut_Add(int argc, wchar_t* argv[])
 
         if (targetType == ShortcutTargetType::ApplicationUserModelId)
         {
+            wil::unique_cotaskmem_string parseName;
+            RETURN_IF_FAILED(wil::str_printf_nothrow<wil::unique_cotaskmem_string>(parseName, L"shell:AppsFolder\\%ls", target));
+
+            wil::unique_cotaskmem_ptr<ITEMIDLIST_ABSOLUTE> pidl;
+            RETURN_IF_FAILED(SHParseDisplayName(parseName.get(), nullptr, wil::out_param(pidl), 0, nullptr));
+            RETURN_IF_FAILED(shellLink->SetIDList(pidl.get()));
+
             wil::com_ptr_nothrow<IPropertyStore> propertyStore;
             RETURN_IF_FAILED(shellLink->QueryInterface(IID_PPV_ARGS(&propertyStore)));
             RETURN_IF_FAILED(wil::set_property_store_value(propertyStore, PKEY_AppUserModel_ID, target));
