@@ -9,6 +9,11 @@
 #include <shlobj.h>
 #include <shlwapi.h>
 #include <prsht.h>
+#include <intshcut.h>
+#include <propsys.h>
+#include <propkey.h>
+#include <propvarutil.h>
+#include <shidfact.h>
 #include <commctrl.h>
 #include <strsafe.h>
 #include <AppxPackaging.h>

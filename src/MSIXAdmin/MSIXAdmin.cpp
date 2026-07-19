@@ -75,6 +75,7 @@ HRESULT ShowLogo()
             L"Commands:\n"
             L"  certificate  Certificate management\n"
             L"  provision    Provision management\n"
+            L"  shortcut     Shortcut operations\n"
             L"  tool         Install or manage tools that extend the MSIX experience\n"
             L"  version      Display version\n"
             L"\n"
@@ -101,7 +102,7 @@ HRESULT ShowLogo()
             L"  list <FILE>     List the certificate from the signed package file\n"
             L"  remove <FILE*>  Remove the certificate per the signed package file\n"
             L"\n"
-            L"NOTE: <FILE> can be '0x<HEX>' to specify a certificate by its SHA-256 thumbprint\n");
+            L"NOTE: <FILE*> can be '0x<HEX>' to specify a certificate by its SHA-256 thumbprint\n");
     ::ExitProcess(1);
 }
 
@@ -170,6 +171,52 @@ HRESULT ShowLogo()
             L"Options:\n"
             L"  -nologo, --no-logo    Do not display startup banner or copyright message\n"
             L"  -?, -h, --help        Show command line help\n");
+    ::ExitProcess(1);
+}
+
+[[noreturn]] void Command_Shortcut_Add_Help()
+{
+    ShowLogo();
+    wprintf(L"Description:\n"
+            L"  Create a shortcut (.LNK file) to run a target command\n"
+            L"\n"
+            L"Usage:\n"
+            L"  msixadmin shortcut add <FILE> <TARGET> [options]\n"
+            L"\n"
+            L"Arguments:\n"
+            L"  <FILE>    The shortcut file (*.url for an Internet shortcut)\n"
+            L"  <TARGET>  The target of the shortcut (file, appUserModelID or URL)\n"
+            L"\n"
+            L"Options:\n"
+            L"  --arguments=<ARGUMENTS>      Set the arguments\n"
+            L"  --description=<DESCRIPTION>  Set the description\n"
+            L"  --icon=<FILE>[,INDEX]        Set the icon (INDEX default = 0)\n"
+            L"  --run-as-administrator       Run as administrator\n"
+            L"  --show=<normal|min|max>      Set the initial window show state\n"
+            L"  --target=<app|file|url>      TARGET is an application (ApplicationUserModelID), file or URL\n"
+            L"  --working-directory=<PATH>   Set the working directory\n"
+            L"  -nologo, --no-logo           Do not display startup banner or copyright message\n"
+            L"  -?, -h, --help               Show command line help\n"
+            L"\n"
+            L"NOTE: URLs only support the --icon\n");
+    ::ExitProcess(1);
+}
+
+[[noreturn]] void Command_Shortcut_Help()
+{
+    ShowLogo();
+    wprintf(L"Description:\n"
+            L"  Manage Shortcut\n"
+            L"\n"
+            L"Usage:\n"
+            L"  msixadmin shortcut <command> [options]\n"
+            L"\n"
+            L"Options:\n"
+            L"  -nologo, --no-logo    Do not display startup banner or copyright message\n"
+            L"  -?, -h, --help        Show command line help\n"
+            L"\n"
+            L"Commands:\n"
+            L"  add  Create a shortcut (.LNK file)\n");
     ::ExitProcess(1);
 }
 
@@ -908,6 +955,279 @@ HRESULT Command_Provision(int argc, wchar_t* argv[])
     return S_OK;
 }
 
+enum class ShortcutTargetType
+{
+    Unknown = 0,
+    File,
+    ApplicationUserModelId,
+    URL,
+};
+
+
+HRESULT Command_Shortcut_Add(int argc, wchar_t* argv[])
+{
+    if (argc < 5)
+    {
+        Command_Shortcut_Add_Help();
+    }
+
+    bool logo{ true };
+    PCWSTR file{ argv[3] };
+    PCWSTR target{ argv[4] };
+
+    PCWSTR arguments{};
+    PCWSTR description{};
+    wil::unique_cotaskmem_string iconPathBuffer;
+    PCWSTR iconPath{};
+    int iconIndex{};
+    bool runAsAdministrator{};
+    int showCommand{};
+    auto targetType{ ShortcutTargetType::Unknown };
+    PCWSTR workingDirectory{};
+
+    int argn{ 5 };
+    for (; argn < argc; ++argn)
+    {
+        PCWSTR arg{ argv[argn] };
+        if ((CompareStringOrdinal(arg, -1, L"-?", -1, FALSE) == CSTR_EQUAL) ||
+            (CompareStringOrdinal(arg, -1, L"-h", -1, FALSE) == CSTR_EQUAL) ||
+            (CompareStringOrdinal(arg, -1, L"--help", -1, FALSE) == CSTR_EQUAL))
+        {
+            Command_Provision_Add_Help();
+        }
+        else if (wil::string_starts_with(arg, L"--arguments="))
+        {
+            arguments = arg + (ARRAYSIZE(L"--arguments=") - 1);
+        }
+        else if (wil::string_starts_with(arg, L"--description="))
+        {
+            description = arg + (ARRAYSIZE(L"--description=") - 1);
+        }
+        else if (wil::string_starts_with(arg, L"--icon="))
+        {
+            iconPath = arg + (ARRAYSIZE(L"--icon=") - 1);
+            PCWSTR delimiter{ wcsrchr(iconPath, L',') };
+            if (delimiter)
+            {
+                for (PCWSTR p = delimiter + 1; *delimiter; ++delimiter)
+                {
+                    const auto c{ *p };
+                    if ((c < L'0') || (L'9' < c))
+                    {
+                        UnknownArgument(arg);
+                    }
+                    iconIndex = iconIndex * 10 + static_cast<int>(c - L'0');
+                }
+                iconPathBuffer = wil::make_cotaskmem_string_nothrow(iconPath, delimiter - iconPath);
+                RETURN_IF_NULL_ALLOC(iconPathBuffer);
+                iconPath = iconPathBuffer.get();
+            }
+        }
+        else if (CompareStringOrdinal(arg, -1, L"--run-as-administrator", -1, FALSE) == CSTR_EQUAL)
+        {
+            runAsAdministrator = true;
+        }
+        else if (CompareStringOrdinal(arg, -1, L"--show=min", -1, FALSE) == CSTR_EQUAL)
+        {
+            showCommand = SW_SHOWMINNOACTIVE;
+        }
+        else if (CompareStringOrdinal(arg, -1, L"--show=max", -1, FALSE) == CSTR_EQUAL)
+        {
+            showCommand = SW_SHOWMAXIMIZED;
+        }
+        else if (CompareStringOrdinal(arg, -1, L"--show=normal", -1, FALSE) == CSTR_EQUAL)
+        {
+            showCommand = SW_SHOWNORMAL;
+        }
+        else if (CompareStringOrdinal(arg, -1, L"--target=file", -1, FALSE) == CSTR_EQUAL)
+        {
+            targetType = ShortcutTargetType::File;
+        }
+        else if (CompareStringOrdinal(arg, -1, L"--target=app", -1, FALSE) == CSTR_EQUAL)
+        {
+            targetType = ShortcutTargetType::ApplicationUserModelId;
+        }
+        else if (CompareStringOrdinal(arg, -1, L"--target=url", -1, FALSE) == CSTR_EQUAL)
+        {
+            targetType = ShortcutTargetType::URL;
+        }
+        else if (wil::string_starts_with(arg, L"--working-directory="))
+        {
+            workingDirectory = arg + (ARRAYSIZE(L"--working-directory=") - 1);
+        }
+        else if ((CompareStringOrdinal(arg, -1, L"-nologo", -1, FALSE) == CSTR_EQUAL) ||
+                 (CompareStringOrdinal(arg, -1, L"--no-logo", -1, FALSE) == CSTR_EQUAL))
+        {
+            logo = false;
+        }
+        else
+        {
+            UnknownArgument(arg);
+        }
+    }
+    if (argn < argc)
+    {
+        UnknownArgument(argv[argn]);
+    }
+
+    if (targetType == ShortcutTargetType::Unknown)
+    {
+        if (wil::string_ends_with(file, L".url", true))
+        {
+            targetType = ShortcutTargetType::URL;
+        }
+        else if (::VerifyApplicationUserModelId(target) == ERROR_SUCCESS)
+        {
+            targetType = ShortcutTargetType::ApplicationUserModelId;
+        }
+        else
+        {
+            targetType = ShortcutTargetType::File;
+        }
+    }
+    else if (targetType == ShortcutTargetType::ApplicationUserModelId)
+    {
+        if (::VerifyApplicationUserModelId(target) != ERROR_SUCCESS)
+        {
+            UnknownArgument(target);
+        }
+    }
+
+    if (targetType == ShortcutTargetType::URL)
+    {
+        if (arguments || description || runAsAdministrator || showCommand || workingDirectory)
+        {
+            Command_Shortcut_Add_Help();
+        }
+    }
+
+    if (logo)
+    {
+        ShowLogo();
+    }
+
+    wil::com_ptr_nothrow<IPersistFile> persistFile;
+    if (targetType == ShortcutTargetType::URL)
+    {
+        wil::com_ptr_nothrow<IUniformResourceLocatorW> url;
+        RETURN_IF_FAILED(CoCreateInstance(CLSID_InternetShortcut, nullptr, CLSCTX_INPROC_SERVER, IID_PPV_ARGS(&url)));
+
+        if (iconPath)
+        {
+            wil::com_ptr<IPropertySetStorage> propertySetStorage;
+            RETURN_IF_FAILED(url->QueryInterface(IID_PPV_ARGS(&propertySetStorage)));
+            wil::com_ptr<IPropertyStorage> propertyStorage;
+            HRESULT hr = propertySetStorage->Open(FMTID_Intshcut, STGM_READWRITE | STGM_SHARE_EXCLUSIVE, &propertyStorage);
+            if (hr == STG_E_FILENOTFOUND)
+            {
+                RETURN_IF_FAILED(propertySetStorage->Create(FMTID_Intshcut, nullptr, PROPSETFLAG_DEFAULT,
+                                                        STGM_READWRITE | STGM_SHARE_EXCLUSIVE, &propertyStorage));
+            }
+            else
+            {
+                RETURN_IF_FAILED(hr);
+            }
+
+            PROPSPEC propertySpec[2]{};
+            PROPVARIANT propertyVariant[2]{};
+            ULONG propertyCount{};
+            if (iconPath)
+            {
+                propertySpec[propertyCount].ulKind = PRSPEC_PROPID;
+                propertySpec[propertyCount].propid = PID_IS_ICONFILE;
+                propertyVariant[propertyCount].vt = VT_LPWSTR;
+                propertyVariant[propertyCount].pwszVal = const_cast<PWSTR>(iconPath);
+                ++propertyCount;
+            }
+            if (iconIndex)
+            {
+                propertySpec[propertyCount].ulKind = PRSPEC_PROPID;
+                propertySpec[propertyCount].propid = PID_IS_ICONINDEX;
+                propertyVariant[propertyCount].vt = VT_I4;
+                propertyVariant[propertyCount].lVal = iconIndex;
+                ++propertyCount;
+            }
+            RETURN_IF_FAILED(propertyStorage->WriteMultiple(propertyCount, propertySpec, propertyVariant, 0));
+            RETURN_IF_FAILED(propertyStorage->Commit(STGC_DEFAULT));
+        }
+
+        RETURN_IF_FAILED(url->QueryInterface(IID_PPV_ARGS(&persistFile)));
+    }
+    else
+    {
+        wil::com_ptr_nothrow<IShellLinkW> shellLink;
+        RETURN_IF_FAILED(CoCreateInstance(CLSID_ShellLink, nullptr, CLSCTX_INPROC_SERVER, IID_PPV_ARGS(&shellLink)));
+
+        if (targetType == ShortcutTargetType::ApplicationUserModelId)
+        {
+            wil::com_ptr_nothrow<IPropertyStore> propertyStore;
+            RETURN_IF_FAILED(shellLink->QueryInterface(IID_PPV_ARGS(&propertyStore)));
+            RETURN_IF_FAILED(wil::set_property_store_value(propertyStore, PKEY_AppUserModel_ID, target));
+            RETURN_IF_FAILED(propertyStore->Commit());
+        }
+        else
+        {
+            RETURN_IF_FAILED(shellLink->SetPath(target));
+        }
+
+        if (arguments)
+        {
+            RETURN_IF_FAILED(shellLink->SetArguments(arguments));
+        }
+        if (description)
+        {
+            RETURN_IF_FAILED(shellLink->SetDescription(description));
+        }
+        if (iconPath)
+        {
+            RETURN_IF_FAILED(shellLink->SetIconLocation(iconPath, iconIndex));
+        }
+        if (showCommand)
+        {
+            RETURN_IF_FAILED(shellLink->SetShowCmd(showCommand));
+        }
+        if (workingDirectory)
+        {
+            RETURN_IF_FAILED(shellLink->SetWorkingDirectory(workingDirectory));
+        }
+
+        if (runAsAdministrator)
+        {
+            wil::com_ptr_nothrow<IShellLinkDataList> dataList;
+            RETURN_IF_FAILED(shellLink->QueryInterface(IID_PPV_ARGS(&dataList)));
+            DWORD flags{};
+            RETURN_IF_FAILED(dataList->GetFlags(&flags));
+            flags |= SLDF_RUNAS_USER;
+            RETURN_IF_FAILED(dataList->SetFlags(flags));
+        }
+
+        RETURN_IF_FAILED(shellLink->QueryInterface(IID_PPV_ARGS(&persistFile)));
+    }
+    RETURN_IF_FAILED(persistFile->Save(file, TRUE));
+    wprintf(L"Shortcut '%ls' is created\n", file);
+
+    return S_OK;
+}
+
+HRESULT Command_Shortcut(int argc, wchar_t* argv[])
+{
+    if (argc < 3)
+    {
+        Command_Shortcut_Help();
+    }
+
+    PCWSTR command{ argv[2] };
+    if (CompareStringOrdinal(command, -1, L"add", -1, FALSE) == CSTR_EQUAL)
+    {
+        RETURN_IF_FAILED(Command_Shortcut_Add(argc, argv));
+    }
+    else
+    {
+        Command_Shortcut_Help();
+    }
+    return S_OK;
+}
+
 HRESULT Command_Tool_PropertySheet_Install(int argc, wchar_t* argv[])
 {
     if (argc < 4)
@@ -1267,6 +1587,10 @@ int wmain(int argc, wchar_t* argv[])
     else if (CompareStringOrdinal(arg, -1, L"provision", -1, FALSE) == CSTR_EQUAL)
     {
         return MessageOnError(Command_Provision(argc, argv));
+    }
+    else if (CompareStringOrdinal(arg, -1, L"shortcut", -1, FALSE) == CSTR_EQUAL)
+    {
+        return MessageOnError(Command_Shortcut(argc, argv));
     }
     else if (CompareStringOrdinal(arg, -1, L"tool", -1, FALSE) == CSTR_EQUAL)
     {

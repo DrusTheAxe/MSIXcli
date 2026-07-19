@@ -46,9 +46,29 @@ inline HRESULT to_hstring_reference(PCWSTR string, HSTRING_HEADER& hstringHeader
 
 namespace details
 {
+    inline bool is_digit(const wchar_t c)
+    {
+        return (c >= L'0') && (c <= L'9');
+    }
+
+    inline bool is_alpha_upper(const wchar_t c)
+    {
+        return (c >= L'A') && (c <= L'Z');
+    }
+
+    inline bool is_alpha_lower(const wchar_t c)
+    {
+        return (c >= L'a') && (c <= L'z');
+    }
+
+    inline bool is_alpha(const wchar_t c)
+    {
+        return is_alpha_upper(c) || is_alpha_lower(c);
+    }
+
     inline int hexdigit_to_byte(const wchar_t c)
     {
-        if ((c >= L'0') && (c <= L'9'))
+        if (isdigit(c))
         {
             return c - L'0';
         }
@@ -87,6 +107,68 @@ inline HRESULT parse_hexstring(PCWSTR string, size_t bytesSize, BYTE* bytes)
     }
     return S_OK;
 }
+
+inline bool is_url(PCWSTR url)
+{
+    // https://en.wikipedia.org/wiki/Uniform_Resource_Identifier#Syntax
+    // A non-empty scheme component followed by a colon (:), consisting of a sequence of characters
+    // beginning with a letter and followed by any combination of letters, digits, plus (+), period (.),
+    // or hyphen (-). Although schemes are case-insensitive, the canonical form is lowercase and
+    // documents that specify schemes must do so with lowercase letters.
+
+    if (!details::is_alpha(*url))
+    {
+        return false;
+    }
+
+    for (++url; *url; ++url)
+    {
+        const auto c{ *url };
+        if (c == L':')
+        {
+            return true;
+        }
+        else if (details::is_digit(c) || details::is_alpha(c) || (c == L'+') || (c == L'.') || (c == L'-'))
+        {
+            continue;
+        }
+        else
+        {
+            break;
+        }
+    }
+
+    return false;
+}
+
+#if (defined(_INC_SHIDFACT) && !defined(__WIL_SHIDFACT_H__)) || defined(WIL_DOXYGEN)
+#define __WIL_SHIDFACT_H__
+inline HRESULT set_property_store_value(IPropertyStore* propertyStore, REFPROPERTYKEY key, REFPROPVARIANT value)
+{
+    RETURN_IF_FAILED(propertyStore->SetValue(key, value));
+    RETURN_IF_FAILED(propertyStore->Commit());
+    return S_OK;
+}
+
+inline HRESULT set_property_store_value(wil::com_ptr_nothrow<IPropertyStore>& propertyStore, REFPROPERTYKEY key, REFPROPVARIANT value)
+{
+    return set_property_store_value(propertyStore.get(), key, value);
+}
+
+inline HRESULT set_property_store_value(wil::com_ptr_nothrow<IPropertyStore>& propertyStore, REFPROPERTYKEY key, PCWSTR value)
+{
+    wil::unique_prop_variant pv;
+    RETURN_IF_FAILED(InitPropVariantFromString(value, &pv));
+    return set_property_store_value(propertyStore.get(), key, pv);
+}
+
+inline HRESULT set_property_store_value(wil::com_ptr_nothrow<IPropertyStore>& propertyStore, REFPROPERTYKEY key, std::int32_t value)
+{
+    wil::unique_prop_variant pv;
+    RETURN_IF_FAILED(InitPropVariantFromInt32(value, &pv));
+    return set_property_store_value(propertyStore.get(), key, pv);
+}
+#endif // (defined(_INC_SHIDFACT) && !defined(__WIL_SHIDFACT_H__)) || defined(WIL_DOXYGEN)
 
 namespace reg
 {
