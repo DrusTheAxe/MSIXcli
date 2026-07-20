@@ -4,6 +4,7 @@
 #define IDC_STATIC                      -1
 
 #define IDD_MSIX_PROPPAGE               100
+#define IDD_MSIX_CERTIFICATE            101
 
 #define IDC_FILE_PATH                       1001
 #define IDC_PACKAGE_FULL_NAME               1002
@@ -43,6 +44,8 @@
 #define IDC_EXTERNAL_PATH                   1312
 
 #define IDC_CERTIFICATE_STATUS              1401
-#define IDC_ADDCERTIFICATE                  1402
+#define IDC_CERTIFICATE                     1402
 #define IDC_INSTALLACTION                   1403
 #define IDC_INSTALL                         1404
+
+#define IDC_OK                               100

@@ -25,6 +25,7 @@ BEGIN
 
     LTEXT       "Package Origin:",          IDC_PACKAGEORIGIN_LABEL,          7,  56,  78,  8
     EDITTEXT                                IDC_PACKAGEORIGIN,               88,  56, 157,  8,  ES_AUTOHSCROLL | NOT WS_BORDER
+    PUSHBUTTON  "&Certificate...",          IDC_CERTIFICATE,                195,  53,  50, 14,  BS_DEFPUSHBUTTON | WS_TABSTOP
     LTEXT       "Staged",                   IDC_IS_STAGED,                    7,  70,  38, 10,  SS_OWNERDRAW
     LTEXT       "Registered",               IDC_IS_REGISTERED,               49,  70,  54, 10,  SS_OWNERDRAW
     LTEXT       "Remove[Pending]",          IDC_IS_REMOVE_PENDING,          107,  70,  82, 10,  SS_OWNERDRAW
@@ -58,7 +59,6 @@ BEGIN
     COMBOBOX                                    IDC_VOLUME,                 119, 192, 126, 60,  CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
 
     EDITTEXT                                    IDC_CERTIFICATE_STATUS,       7, 215, 200,  8,  ES_AUTOHSCROLL | NOT WS_BORDER
-    PUSHBUTTON    "Add Certificate",            IDC_ADDCERTIFICATE,           7, 229,  60, 14,  BS_DEFPUSHBUTTON | WS_TABSTOP
 
     COMBOBOX                                    IDC_INSTALLACTION,          140, 229,  50, 60,  CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
     PUSHBUTTON    "&Install",                   IDC_INSTALL,                195, 229,  50, 14,  BS_DEFPUSHBUTTON | WS_TABSTOP
@@ -105,7 +105,26 @@ BEGIN
     IDC_EXTERNAL_PATH                   "Path or URI to the package's external content"
 
     IDC_CERTIFICATE_STATUS              "The package's signing certificate's status"
-    IDC_ADDCERTIFICATE                  "Add the certificate to the Trusted People certificate store"
+    //TODO IDC_ADDCERTIFICATE                  "Add the certificate to the Trusted People certificate store"
+    IDC_CERTIFICATE                     "Show certificate information"
     IDC_INSTALLACTION                   "Choose whether to Add (install) or Stage the package"
     IDC_INSTALL                         "Perform the selected action (Add or Stage) using the options selected above"
+END
+
+IDD_MSIX_CERTIFICATE DIALOGEX 0, 0, 400, 150
+STYLE DS_SETFONT | DS_FIXEDSYS | WS_CHILD | WS_DISABLED | WS_CAPTION
+CAPTION "MSIX Signing"
+FONT 8, "MS Shell Dlg", 400, 0, 0x1
+BEGIN
+    // Identity
+    LTEXT       "File:",                    IDC_STATIC,                       7,   9,  78,  8
+    EDITTEXT                                IDC_FILE_PATH,                   88,   7, 157, 14,  ES_AUTOHSCROLL | ES_READONLY | WS_TABSTOP
+    LTEXT       "Package Full Name:",       IDC_STATIC,                       7,  27,  78,  8
+    EDITTEXT                                IDC_PACKAGE_FULL_NAME,           88,  27, 157,  8,  ES_AUTOHSCROLL | NOT WS_BORDER
+    LTEXT       "Package Family Name:",     IDC_STATIC,                       7,  39,  78,  8
+    EDITTEXT                                IDC_PACKAGE_FAMILY_NAME,         88,  39, 157,  8,  ES_AUTOHSCROLL | NOT WS_BORDER
+
+    CONTROL     "", IDC_STATIC, "Static", SS_ETCHEDHORZ,                      0,  51, 250,  1
+
+    PUSHBUTTON    "OK",                     IDC_OK,                         300, 129,  20, 14,  BS_DEFPUSHBUTTON | WS_TABSTOP
 END

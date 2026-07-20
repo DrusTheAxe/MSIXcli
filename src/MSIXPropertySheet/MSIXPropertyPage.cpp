@@ -599,14 +599,14 @@ void MSIXPropertyPage::UpdateAddCertificateButton(HWND hwndDlg)
         (m_package.SignatureOrigin() == MSIX::SignatureOrigin::LineOfBusiness) ||
         (m_package.SignatureOrigin() == MSIX::SignatureOrigin::Unknown)
     };
-    EnableAndShowControl(GetDlgItem(hwndDlg, IDC_ADDCERTIFICATE), enable);
+    EnableAndShowControl(GetDlgItem(hwndDlg, IDC_CERTIFICATE), enable);
 }
 
 void MSIXPropertyPage::OnCommand(HWND hwndDlg, WPARAM wParam, LPARAM /*lParam*/)
 {
     switch (LOWORD(wParam))
     {
-        case IDC_ADDCERTIFICATE:
+        case IDC_CERTIFICATE:
             OnAddCertificate(hwndDlg);
             break;
 
