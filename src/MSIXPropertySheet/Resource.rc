@@ -15,7 +15,7 @@ FONT 8, "MS Shell Dlg", 400, 0, 0x1
 BEGIN
     // Identity
     LTEXT       "File:",                    IDC_STATIC,                       7,   9,  78,  8
-    EDITTEXT                                IDC_FILE_PATH,                   88,   7, 157, 14,  ES_AUTOHSCROLL | ES_READONLY | WS_TABSTOP
+    EDITTEXT                                IDC_FILE_PATH,                   88,   6, 157, 14,  ES_AUTOHSCROLL | ES_READONLY | WS_TABSTOP
     LTEXT       "Package Full Name:",       IDC_STATIC,                       7,  27,  78,  8
     EDITTEXT                                IDC_PACKAGE_FULL_NAME,           88,  27, 157,  8,  ES_AUTOHSCROLL | NOT WS_BORDER
     LTEXT       "Package Family Name:",     IDC_STATIC,                       7,  39,  78,  8
@@ -51,7 +51,7 @@ BEGIN
     AUTOCHECKBOX  "&Force",                     IDC_FORCE,                  120, 152,  42, 10
     AUTOCHECKBOX  "&Limit to existing packages",IDC_LIMITTOEXISTINGPACKAGES,  7, 164, 110, 10
     AUTOCHECKBOX  "Re&tain files on failure",   IDC_RETAINFILESONFAILURE,   120, 164,  98, 10
-    AUTOCHECKBOX  "&External Location",         IDC_EXTERNAL,                 7, 177,  80, 10
+    AUTOCHECKBOX  "&External Location",         IDC_EXTERNAL,                 7, 178,  80, 10
     EDITTEXT                                    IDC_EXTERNAL_PATH,           90, 176, 155, 14,  ES_AUTOHSCROLL | WS_TABSTOP
     LTEXT         "&Priority:",                 IDC_PRIORITY_LABEL,           7, 194,  26,  8
     COMBOBOX                                    IDC_PRIORITY,                37, 192,  50, 60,  CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
@@ -110,24 +110,28 @@ BEGIN
     IDC_ADDCERTIFICATE                  "Add the certificate to the Trusted People certificate store"
 END
 
-IDD_MSIX_CERTIFICATE DIALOGEX 0, 0, 400, 150
+IDD_MSIX_CERTIFICATE DIALOGEX 0, 0, 325, 150
 STYLE DS_MODALFRAME | DS_SETFONT | DS_FIXEDSYS | DS_CENTER | WS_POPUP | WS_CAPTION | WS_SYSMENU
 CAPTION "MSIX Signing"
 FONT 8, "MS Shell Dlg", 400, 0, 0x1
 BEGIN
     // Identity
     LTEXT       "File:",                    IDC_STATIC,                       7,   9,  78,  8
-    EDITTEXT                                IDC_FILE_PATH,                   88,   7, 157, 14,  ES_AUTOHSCROLL | ES_READONLY | WS_TABSTOP
+    EDITTEXT                                IDC_FILE_PATH,                   88,   7, 230, 14,  ES_AUTOHSCROLL | ES_READONLY | WS_TABSTOP
     LTEXT       "Package Full Name:",       IDC_STATIC,                       7,  27,  78,  8
-    EDITTEXT                                IDC_PACKAGE_FULL_NAME,           88,  27, 157,  8,  ES_AUTOHSCROLL | NOT WS_BORDER
+    EDITTEXT                                IDC_PACKAGE_FULL_NAME,           88,  27, 230,  8,  ES_AUTOHSCROLL | NOT WS_BORDER
     LTEXT       "Package Family Name:",     IDC_STATIC,                       7,  39,  78,  8
-    EDITTEXT                                IDC_PACKAGE_FAMILY_NAME,         88,  39, 157,  8,  ES_AUTOHSCROLL | NOT WS_BORDER
+    EDITTEXT                                IDC_PACKAGE_FAMILY_NAME,         88,  39, 230,  8,  ES_AUTOHSCROLL | NOT WS_BORDER
 
-    CONTROL     "", IDC_STATIC, "Static", SS_ETCHEDHORZ,                      0,  51, 250,  1
+    CONTROL     "", IDC_STATIC, "Static", SS_ETCHEDHORZ,                      0,  51, 320,  1
 
-    LTEXT       "Thumbprint:",              IDC_STATIC,                       7,  39,  78,  8
-    EDITTEXT                                IDC_CERTIFICATE_THUMBPRINT,      88,  39, 157,  8,  ES_AUTOHSCROLL | NOT WS_BORDER
+    LTEXT       "Signature Origin:",        IDC_STATIC,                       7,  56,  78,  8
+    EDITTEXT                                IDC_SIGNATURE_ORIGIN,            88,  56, 230,  8,  ES_AUTOHSCROLL | NOT WS_BORDER
+    LTEXT       "Subject:",                 IDC_STATIC,                       7,  70,  78,  8
+    EDITTEXT                                IDC_CERTIFICATE_SUBJECT,         88,  70, 230, 14,  ES_AUTOHSCROLL | NOT WS_BORDER
+    LTEXT       "Thumbprint:",              IDC_STATIC,                       7,  84,  78,  8
+    EDITTEXT                                IDC_CERTIFICATE_THUMBPRINT,      88,  84, 230, 14,  ES_AUTOHSCROLL | NOT WS_BORDER
 
-    PUSHBUTTON    "&Add Certificate",       IDC_ADDCERTIFICATE,            220, 129,  70, 14,  WS_TABSTOP
-    PUSHBUTTON    "OK",                     IDC_OK,                         300, 129,  20, 14,  BS_DEFPUSHBUTTON | WS_TABSTOP
+    PUSHBUTTON  "&Add Certificate",         IDC_ADDCERTIFICATE,             220, 129,  70, 14,  WS_TABSTOP
+    PUSHBUTTON  "OK",                       IDC_OK,                         300, 129,  20, 14,  BS_DEFPUSHBUTTON | WS_TABSTOP
 END

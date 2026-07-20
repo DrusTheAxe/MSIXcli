@@ -16,6 +16,8 @@ private:
     static UINT CALLBACK PropPageCallbackProc(HWND hwnd, UINT uMsg, LPPROPSHEETPAGE ppsp);
     void ReleaseTargetVolumes(HWND hwndDlg);
 
+    void InitializeToolTips(HWND hwndDlg, HWND& hwndTip);
+
     void OnInitDialog(HWND hwndDlg);
     void OnDestroy(HWND hwndDlg);
 
@@ -100,6 +102,31 @@ private:
 
     ABI::Windows::Management::Deployment::PackageOperationPriority GetPriority(HWND hwndDlg);
 
+    PCWSTR FilePath() const
+    {
+        return m_filePath ? m_filePath.get() : L"";
+    }
+
+    PCWSTR PackageFullName() const
+    {
+        return m_package.PackageFullName() ? m_package.PackageFullName() : L"";
+    }
+
+    PCWSTR PackageFamilyName() const
+    {
+        return m_package.PackageFamilyName() ? m_package.PackageFamilyName() : L"";
+    }
+
+    MSIX::SignatureOrigin SignatureOrigin() const
+    {
+        return m_package.SignatureOrigin();
+    }
+
+    PCWSTR CertificateSubject() const
+    {
+        return m_package.CertificateSubject();
+    }
+
 private:
     wil::unique_process_heap_ptr<WCHAR[]> m_filePath{};
     MSIX::Package m_package;
@@ -118,6 +145,11 @@ private:
     // Tooltip control created in OnInitDialog; destroyed in OnDestroy. It is a top-level
     // (WS_POPUP) window, so it is not auto-destroyed with the dialog's child controls.
     HWND m_hwndTip{};
+
+    // Tooltip control for the modal certificate dialog (IDD_MSIX_CERTIFICATE); created in
+    // CertificateDialogProc's WM_INITDIALOG and destroyed in its WM_DESTROY. Kept separate
+    // from m_hwndTip so the page's and the modal dialog's tooltips don't clobber each other.
+    HWND m_certificateHwndTip{};
 
     // Scratch buffer for tooltip text supplied via TTN_GETDISPINFO. The notify
     // struct's own szText is only 80 chars, which truncates longer tooltip

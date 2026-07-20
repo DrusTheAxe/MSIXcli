@@ -49,5 +49,7 @@
 #define IDC_INSTALLACTION                   1402
 #define IDC_INSTALL                         1403
 
-#define IDC_CERTIFICATE_THUMBPRINT          2001
-#define IDC_ADDCERTIFICATE                  2002
+#define IDC_CERTIFICATE_SUBJECT             2001
+#define IDC_CERTIFICATE_THUMBPRINT          2002
+
+#define IDC_ADDCERTIFICATE                  2101

@@ -29,16 +29,41 @@ namespace
         IDC_PAYLOAD_UNCOMPRESSED_SIZE
     };
 
-    bool IsBorderlessReadOnlyEdit(int ctlId) noexcept
+    // EDIT controls that should look like static value text on the page
+    // background. Style 0x50010080 (ES_AUTOHSCROLL, NOT WS_BORDER) plus
+    // EM_SETREADONLY applied at runtime, matching Explorer's General-tab
+    // Location field. We also paint their background with the dialog face
+    // brush so they don't show up as a white editable rectangle.
+    constexpr int c_certificateReadOnlyEdits[]
     {
-        for (const int id : c_readOnlyEdits)
+        IDC_PACKAGE_FULL_NAME,
+        IDC_PACKAGE_FAMILY_NAME,
+        IDC_SIGNATURE_ORIGIN,
+        IDC_CERTIFICATE_SUBJECT,
+        IDC_CERTIFICATE_THUMBPRINT
+    };
+
+    bool IsBorderlessReadOnlyEdit(int ctlId, const int* controlIds, size_t controlIdsCount) noexcept
+    {
+        for (size_t index = 0; index < controlIdsCount; ++index)
         {
+            const int id{ controlIds[index] };
             if (id == ctlId)
             {
                 return true;
             }
         }
         return false;
+    }
+
+    bool IsBorderlessReadOnlyEdit(int ctlId) noexcept
+    {
+        return IsBorderlessReadOnlyEdit(ctlId, c_readOnlyEdits, ARRAYSIZE(c_readOnlyEdits));
+    }
+
+    bool IsCertificateBorderlessReadOnlyEdit(int ctlId) noexcept
+    {
+        return IsBorderlessReadOnlyEdit(ctlId, c_certificateReadOnlyEdits, ARRAYSIZE(c_certificateReadOnlyEdits));
     }
 
     // Status-label colors. These follow the widely recognized spreadsheet
@@ -127,10 +152,6 @@ INT_PTR CALLBACK MSIXPropertyPage::DialogProc(HWND hwndDlg, UINT uMsg, WPARAM wP
         pThis->OnInitDialog(hwndDlg);
         return TRUE;
     }
-    else
-    {
-        pThis = reinterpret_cast<MSIXPropertyPage*>(GetWindowLongPtr(hwndDlg, DWLP_USER));
-    }
 
     // WM_CTLCOLOR* doesn't depend on instance state and can arrive before
     // WM_INITDIALOG returns, so handle it outside the pThis guard.
@@ -148,6 +169,7 @@ INT_PTR CALLBACK MSIXPropertyPage::DialogProc(HWND hwndDlg, UINT uMsg, WPARAM wP
         }
     }
 
+    pThis = reinterpret_cast<MSIXPropertyPage*>(GetWindowLongPtr(hwndDlg, DWLP_USER));
     if (pThis)
     {
         switch (uMsg)
@@ -248,17 +270,17 @@ void MSIXPropertyPage::OnDestroy(HWND hwndDlg)
     }
 }
 
-void MSIXPropertyPage::OnInitDialog(HWND hwndDlg)
+void MSIXPropertyPage::InitializeToolTips(HWND hwndDlg, HWND& hwndTip)
 {
     // Initialize tooltip support: create a tooltip control owned by the dialog and
     // register every child control as a tool. The tooltip text is supplied on
     // demand via TTN_GETDISPINFO (see DialogProc), keyed by each control's ID.
-    HWND hwndTip{ CreateWindowEx(WS_EX_TOPMOST, TOOLTIPS_CLASS, nullptr, WS_POPUP | TTS_ALWAYSTIP | TTS_NOPREFIX,
+    HWND hwndTipCtrl{ CreateWindowEx(WS_EX_TOPMOST, TOOLTIPS_CLASS, nullptr, WS_POPUP | TTS_ALWAYSTIP | TTS_NOPREFIX,
         CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT, CW_USEDEFAULT, hwndDlg, nullptr, g_hInstance, nullptr) };
-    m_hwndTip = hwndTip;
-    if (hwndTip)
+    hwndTip = hwndTipCtrl;
+    if (hwndTipCtrl)
     {
-        SendMessage(hwndTip, TTM_SETMAXTIPWIDTH, 0, 400);
+        SendMessage(hwndTipCtrl, TTM_SETMAXTIPWIDTH, 0, 400);
         EnumChildWindows(hwndDlg, [](HWND hwndChild, LPARAM lParam) -> BOOL
         {
             HWND hwndTip{ reinterpret_cast<HWND>(lParam) };
@@ -273,6 +295,21 @@ void MSIXPropertyPage::OnInitDialog(HWND hwndDlg)
             SendMessage(hwndTip, TTM_ADDTOOL, 0, reinterpret_cast<LPARAM>(&ti));
             return TRUE;
         }, reinterpret_cast<LPARAM>(hwndTip));
+    }
+}
+
+void MSIXPropertyPage::OnInitDialog(HWND hwndDlg)
+{
+    InitializeToolTips(hwndDlg, m_hwndTip);
+
+    // Make the borderless-edit value fields read-only at runtime, matching the
+    // behaviour Explorer's General tab applies to its Location/Size/etc. fields.
+    // (Their design-time style is the same 0x50010080 we use here; ES_READONLY
+    // is applied via EM_SETREADONLY rather than the dialog template, so the
+    // fields look like static text but can still be selected and copied.)
+    for (const auto id : c_readOnlyEdits)
+    {
+        SendDlgItemMessage(hwndDlg, id, EM_SETREADONLY, TRUE, 0);
     }
 
     // Disable UI for functionality not supported on the current system
@@ -303,16 +340,6 @@ void MSIXPropertyPage::OnInitDialog(HWND hwndDlg)
 
     // Set the file path
     SetDlgItemText(hwndDlg, IDC_FILE_PATH, m_filePath ? m_filePath.get() : L"");
-
-    // Make the borderless-edit value fields read-only at runtime, matching the
-    // behaviour Explorer's General tab applies to its Location/Size/etc. fields.
-    // (Their design-time style is the same 0x50010080 we use here; ES_READONLY
-    // is applied via EM_SETREADONLY rather than the dialog template, so the
-    // fields look like static text but can still be selected and copied.)
-    for (const auto id : c_readOnlyEdits)
-    {
-        SendDlgItemMessage(hwndDlg, id, EM_SETREADONLY, TRUE, 0);
-    }
 
     // Populate the Priority combobox and select "Default" by default
     {
@@ -647,6 +674,26 @@ INT_PTR CALLBACK MSIXPropertyPage::CertificateDialogProc(HWND hwndDlg, UINT uMsg
 
         if (pThis)
         {
+            pThis->InitializeToolTips(hwndDlg, pThis->m_certificateHwndTip);
+
+            // Make the borderless-edit value fields read-only at runtime, matching the
+            // behaviour Explorer's General tab applies to its Location/Size/etc. fields.
+            // (Their design-time style is the same 0x50010080 we use here; ES_READONLY
+            // is applied via EM_SETREADONLY rather than the dialog template, so the
+            // fields look like static text but can still be selected and copied.)
+            for (const auto id : c_certificateReadOnlyEdits)
+            {
+                SendDlgItemMessage(hwndDlg, id, EM_SETREADONLY, TRUE, 0);
+            }
+
+            SetDlgItemText(hwndDlg, IDC_FILE_PATH, pThis->FilePath());
+            SetDlgItemText(hwndDlg, IDC_PACKAGE_FULL_NAME, pThis->PackageFullName());
+            SetDlgItemText(hwndDlg, IDC_PACKAGE_FAMILY_NAME, pThis->PackageFamilyName());
+
+            SetDlgItemText(hwndDlg, IDC_SIGNATURE_ORIGIN, MSIX::ToString(pThis->SignatureOrigin()));
+
+            SetDlgItemText(hwndDlg, IDC_CERTIFICATE_SUBJECT, pThis->CertificateSubject());
+
             size_t thumbprintSize{};
             wil::unique_cotaskmem_ptr<BYTE[]> thumbprint;
             if (SUCCEEDED_LOG(pThis->m_package.GetCertificateThumbprint(thumbprintSize, thumbprint)))
@@ -669,28 +716,87 @@ INT_PTR CALLBACK MSIXPropertyPage::CertificateDialogProc(HWND hwndDlg, UINT uMsg
         return TRUE;
     }
 
-    pThis = reinterpret_cast<MSIXPropertyPage*>(GetWindowLongPtr(hwndDlg, DWLP_USER));
-
-    if (uMsg == WM_COMMAND)
+    // WM_CTLCOLOR* doesn't depend on instance state and can arrive before
+    // WM_INITDIALOG returns, so handle it outside the pThis guard.
+    if (uMsg == WM_CTLCOLORSTATIC || uMsg == WM_CTLCOLOREDIT)
     {
-        switch (LOWORD(wParam))
+        HWND hwndCtl{ reinterpret_cast<HWND>(lParam) };
+        if (IsCertificateBorderlessReadOnlyEdit(GetDlgCtrlID(hwndCtl)))
         {
-            case IDC_ADDCERTIFICATE:
-                if (pThis)
-                {
-                    pThis->OnAddCertificate(hwndDlg);
-                }
-                return TRUE;
-
-            case IDC_OK:
-                EndDialog(hwndDlg, IDC_OK);
-                return TRUE;
-
-            case IDCANCEL:
-                EndDialog(hwndDlg, IDCANCEL);
-                return TRUE;
+            // Draw these read-only edits exactly like the static value labels
+            // beside them. Because they're read-only they send WM_CTLCOLORSTATIC,
+            // so deferring to the default dialog handling makes them pick up the
+            // same themed property-page (tab) background the labels use instead
+            // of a darker, hard-coded COLOR_BTNFACE rectangle.
+            return FALSE;
         }
     }
+
+    pThis = reinterpret_cast<MSIXPropertyPage*>(GetWindowLongPtr(hwndDlg, DWLP_USER));
+    if (pThis)
+    {
+        switch (uMsg)
+        {
+            case WM_COMMAND:
+            {
+                switch (LOWORD(wParam))
+                {
+                    case IDC_ADDCERTIFICATE:
+                        pThis->OnAddCertificate(hwndDlg);
+                        return TRUE;
+
+                    case IDC_OK:
+                        EndDialog(hwndDlg, IDC_OK);
+                        return TRUE;
+
+                    case IDCANCEL:
+                        EndDialog(hwndDlg, IDCANCEL);
+                        return TRUE;
+                }
+                break;
+            }
+            case WM_NOTIFY:
+            {
+                LPNMHDR pnmh{ reinterpret_cast<LPNMHDR>(lParam) };
+                if (pnmh && (pnmh->code == TTN_GETDISPINFO))
+                {
+                    NMTTDISPINFO* pdi{ reinterpret_cast<NMTTDISPINFO*>(lParam) };
+                    // With TTF_IDISHWND the tool's idFrom is the control's HWND;
+                    // map it back to the control ID and load the matching tooltip
+                    // string from the resource string table.
+                    const UINT controlId{ static_cast<UINT>(GetDlgCtrlID(reinterpret_cast<HWND>(pdi->hdr.idFrom))) };
+                    pdi->szText[0] = L'\0';
+                    if (controlId == IDC_PACKAGE_FULL_NAME)
+                    {
+                        pdi->lpszText = const_cast<PWSTR>(pThis->PackageFullName());
+                    }
+                    else if (controlId == IDC_PACKAGE_FAMILY_NAME)
+                    {
+                        pdi->lpszText = const_cast<PWSTR>(pThis->PackageFamilyName());
+                    }
+                    else
+                    {
+                        LoadStringW(g_hInstance, controlId, pThis->m_tooltipText, ARRAYSIZE(pThis->m_tooltipText));
+                        pdi->lpszText = pThis->m_tooltipText;
+                    }
+                }
+                break;
+            }
+            case WM_DESTROY:
+            {
+                // The tooltip control is a top-level WS_POPUP window, so it isn't
+                // destroyed automatically with the dialog's child controls; tear it
+                // down explicitly (mirrors the property page's OnDestroy).
+                if (pThis->m_certificateHwndTip)
+                {
+                    DestroyWindow(pThis->m_certificateHwndTip);
+                    pThis->m_certificateHwndTip = nullptr;
+                }
+                break;
+            }
+        }
+    }
+
     return FALSE;
 }
 
