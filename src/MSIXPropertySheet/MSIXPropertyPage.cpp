@@ -26,8 +26,7 @@ namespace
         IDC_FOOTPRINT_COMPRESSED_SIZE,
         IDC_FOOTPRINT_UNCOMPRESSED_SIZE,
         IDC_PAYLOAD_COMPRESSED_SIZE,
-        IDC_PAYLOAD_UNCOMPRESSED_SIZE,
-        IDC_CERTIFICATE_STATUS,
+        IDC_PAYLOAD_UNCOMPRESSED_SIZE
     };
 
     bool IsBorderlessReadOnlyEdit(int ctlId) noexcept
@@ -437,30 +436,6 @@ void MSIXPropertyPage::OnInitDialog(HWND hwndDlg)
         }
     }
 
-    const bool isSigned{ m_package.IsSigned() };
-    if (isSigned)
-    {
-        size_t thumbprintSize{};
-        wil::unique_cotaskmem_ptr<BYTE[]> thumbprint;
-        if (SUCCEEDED_LOG(m_package.GetCertificateThumbprint(thumbprintSize, thumbprint)))
-        {
-            if ((thumbprintSize > 0) && thumbprint)
-            {
-                wil::unique_cotaskmem_string thumbprintAsString{ wil::make_cotaskmem_string_nothrow(nullptr, thumbprintSize * 2) };
-                if (thumbprintAsString)
-                {
-                    for (size_t index = 0; index < thumbprintSize; ++index)
-                    {
-                        StringCchPrintfW(thumbprintAsString.get() + (index * 2), 3, L"%02X", thumbprint[index]);
-                    }
-                    SetDlgItemText(hwndDlg, IDC_CERTIFICATE_STATUS, thumbprintAsString.get());
-                    EnableAndShowControl(GetDlgItem(hwndDlg, IDC_CERTIFICATE_STATUS), true);
-                }
-            }
-        }
-    }
-    EnableAndShowControl(GetDlgItem(hwndDlg, IDC_CERTIFICATE_STATUS), isSigned);
-
     UpdateAddCertificateButton(hwndDlg);
 }
 
@@ -607,7 +582,7 @@ void MSIXPropertyPage::OnCommand(HWND hwndDlg, WPARAM wParam, LPARAM /*lParam*/)
     switch (LOWORD(wParam))
     {
         case IDC_CERTIFICATE:
-            OnAddCertificate(hwndDlg);
+            OnShowCertificateDialog(hwndDlg);
             break;
 
         case IDC_INSTALLACTION:
@@ -648,7 +623,75 @@ void MSIXPropertyPage::OnAddCertificate(HWND hwndDlg)
 
     // Re-evaluate the package's Signature Origin
     std::ignore = LOG_IF_FAILED(m_package.DetectSignatureOrigin());
+}
+
+void MSIXPropertyPage::OnShowCertificateDialog(HWND hwndDlg)
+{
+    // Show the certificate dialog modally. It returns when the user dismisses it
+    // (OK, Cancel/Escape, or the close button).
+    std::ignore = DialogBoxParamW(g_hInstance, MAKEINTRESOURCE(IDD_MSIX_CERTIFICATE),
+                                  hwndDlg, CertificateDialogProc, reinterpret_cast<LPARAM>(this));
+
+    // Adding a certificate may have changed the package's Signature Origin, so
+    // re-evaluate whether the page's Certificate button should still be shown.
     UpdateAddCertificateButton(hwndDlg);
+}
+
+INT_PTR CALLBACK MSIXPropertyPage::CertificateDialogProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam)
+{
+    MSIXPropertyPage* pThis{};
+    if (uMsg == WM_INITDIALOG)
+    {
+        pThis = reinterpret_cast<MSIXPropertyPage*>(lParam);
+        SetWindowLongPtr(hwndDlg, DWLP_USER, reinterpret_cast<LONG_PTR>(pThis));
+
+        if (pThis)
+        {
+            size_t thumbprintSize{};
+            wil::unique_cotaskmem_ptr<BYTE[]> thumbprint;
+            if (SUCCEEDED_LOG(pThis->m_package.GetCertificateThumbprint(thumbprintSize, thumbprint)))
+            {
+                if ((thumbprintSize > 0) && thumbprint)
+                {
+                    wil::unique_cotaskmem_string thumbprintAsString{ wil::make_cotaskmem_string_nothrow(nullptr, thumbprintSize * 2) };
+                    if (thumbprintAsString)
+                    {
+                        for (size_t index = 0; index < thumbprintSize; ++index)
+                        {
+                            StringCchPrintfW(thumbprintAsString.get() + (index * 2), 3, L"%02X", thumbprint[index]);
+                        }
+                        SetDlgItemText(hwndDlg, IDC_CERTIFICATE_THUMBPRINT, thumbprintAsString.get());
+                    }
+                }
+            }
+        }
+
+        return TRUE;
+    }
+
+    pThis = reinterpret_cast<MSIXPropertyPage*>(GetWindowLongPtr(hwndDlg, DWLP_USER));
+
+    if (uMsg == WM_COMMAND)
+    {
+        switch (LOWORD(wParam))
+        {
+            case IDC_ADDCERTIFICATE:
+                if (pThis)
+                {
+                    pThis->OnAddCertificate(hwndDlg);
+                }
+                return TRUE;
+
+            case IDC_OK:
+                EndDialog(hwndDlg, IDC_OK);
+                return TRUE;
+
+            case IDCANCEL:
+                EndDialog(hwndDlg, IDCANCEL);
+                return TRUE;
+        }
+    }
+    return FALSE;
 }
 
 void MSIXPropertyPage::OnInstallDropDown(HWND hwndDlg)

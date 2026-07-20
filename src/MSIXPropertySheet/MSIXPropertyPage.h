@@ -44,8 +44,14 @@ private:
     // selected action and the controls that depend on it.
     void OnInstallDropDown(HWND hwndDlg);
 
-    // Handles the IDC_ADDCERTIFICATE button click
+    // Performs the "add certificate" action; invoked from the modal certificate dialog
     void OnAddCertificate(HWND hwndDlg);
+
+    // Handles the IDC_CERTIFICATE button click: shows IDD_MSIX_CERTIFICATE modally
+    void OnShowCertificateDialog(HWND hwndDlg);
+
+    // Dialog procedure for the modal IDD_MSIX_CERTIFICATE dialog
+    static INT_PTR CALLBACK CertificateDialogProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam);
 
     // Handles the IDC_INSTALL button click: runs the currently selected action
     void OnInstall(HWND hwndDlg);

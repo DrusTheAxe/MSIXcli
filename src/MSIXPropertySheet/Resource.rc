@@ -58,8 +58,6 @@ BEGIN
     LTEXT         "&Volume:",                   IDC_VOLUME_LABEL,            91, 194,  26,  8
     COMBOBOX                                    IDC_VOLUME,                 119, 192, 126, 60,  CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
 
-    EDITTEXT                                    IDC_CERTIFICATE_STATUS,       7, 215, 200,  8,  ES_AUTOHSCROLL | NOT WS_BORDER
-
     COMBOBOX                                    IDC_INSTALLACTION,          140, 229,  50, 60,  CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
     PUSHBUTTON    "&Install",                   IDC_INSTALL,                195, 229,  50, 14,  BS_DEFPUSHBUTTON | WS_TABSTOP
 END
@@ -104,15 +102,16 @@ BEGIN
     IDC_EXTERNAL                        "Install the package using content stored at an external location"
     IDC_EXTERNAL_PATH                   "Path or URI to the package's external content"
 
-    IDC_CERTIFICATE_STATUS              "The package's signing certificate's status"
-    //TODO IDC_ADDCERTIFICATE                  "Add the certificate to the Trusted People certificate store"
     IDC_CERTIFICATE                     "Show certificate information"
     IDC_INSTALLACTION                   "Choose whether to Add (install) or Stage the package"
     IDC_INSTALL                         "Perform the selected action (Add or Stage) using the options selected above"
+
+    IDC_CERTIFICATE_THUMBPRINT          "The package's signing certificate's thumbprint"
+    IDC_ADDCERTIFICATE                  "Add the certificate to the Trusted People certificate store"
 END
 
 IDD_MSIX_CERTIFICATE DIALOGEX 0, 0, 400, 150
-STYLE DS_SETFONT | DS_FIXEDSYS | WS_CHILD | WS_DISABLED | WS_CAPTION
+STYLE DS_MODALFRAME | DS_SETFONT | DS_FIXEDSYS | DS_CENTER | WS_POPUP | WS_CAPTION | WS_SYSMENU
 CAPTION "MSIX Signing"
 FONT 8, "MS Shell Dlg", 400, 0, 0x1
 BEGIN
@@ -126,5 +125,9 @@ BEGIN
 
     CONTROL     "", IDC_STATIC, "Static", SS_ETCHEDHORZ,                      0,  51, 250,  1
 
+    LTEXT       "Thumbprint:",              IDC_STATIC,                       7,  39,  78,  8
+    EDITTEXT                                IDC_CERTIFICATE_THUMBPRINT,      88,  39, 157,  8,  ES_AUTOHSCROLL | NOT WS_BORDER
+
+    PUSHBUTTON    "&Add Certificate",       IDC_ADDCERTIFICATE,            220, 129,  70, 14,  WS_TABSTOP
     PUSHBUTTON    "OK",                     IDC_OK,                         300, 129,  20, 14,  BS_DEFPUSHBUTTON | WS_TABSTOP
 END
