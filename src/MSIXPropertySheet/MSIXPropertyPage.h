@@ -55,6 +55,9 @@ private:
     // Dialog procedure for the modal IDD_MSIX_CERTIFICATE dialog
     static INT_PTR CALLBACK CertificateDialogProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam);
 
+    // Centers hwndDlg over hwndParent (clamped to the parent monitor's work area)
+    static void CenterDialog(HWND hwndDlg, HWND hwndParent);
+
     // Handles the IDC_INSTALL button click: runs the currently selected action
     void OnInstall(HWND hwndDlg);
 

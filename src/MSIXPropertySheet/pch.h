@@ -30,6 +30,7 @@
 #include <MSIXDeployment.h>
 #include <MSIXPackaging.h>
 #include <MSIXSigning.h>
+#include <msixcli.h>
 #include <wil_extension.h>
 
 #include "MSIXPackage.h"

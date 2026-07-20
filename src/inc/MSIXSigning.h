@@ -70,10 +70,10 @@ public:
     //      12. Close all windows.
     static HRESULT AddCertificate(IAppxPackageReader* packageReader, AddResult& result)
     {
-        // Writing to the LocalMachine store requires administrator rights
-        // Fail if we're not elevated
-        RETURN_HR_IF(E_ACCESSDENIED, !IsRunningAsAdmin());
         RETURN_HR_IF_NULL(E_POINTER, packageReader);
+
+        // Writing to the LocalMachine store requires we're running with admin privilege (aka elevated)
+        RETURN_HR_IF(E_ACCESSDENIED, !IsRunningAsAdmin());
 
         // Skip packages signed by Windows or the Store
         // Those roots are already trusted, so there is nothing to add
@@ -329,7 +329,7 @@ public:
     // Determines the signature origin of an opened package
     static HRESULT DetectSignatureOrigin(IAppxPackageReader* packageReader, SignatureOrigin& signatureOrigin)
     {
-        RETURN_IF_FAILED(_DetectSignatureOrigin(packageReader, signatureOrigin, nullptr, nullptr));
+        RETURN_IF_FAILED(_DetectSignatureOrigin(packageReader, signatureOrigin, nullptr, nullptr, nullptr));
         return S_OK;
     }
 
@@ -338,14 +338,25 @@ public:
     // @param thumbprint The certificate's SHA-1 hash (thumbprint) bytes, or null if no certificate.
     static HRESULT DetectSignatureOrigin(IAppxPackageReader* packageReader, SignatureOrigin& signatureOrigin, size_t& thumbprintSize, wil::unique_cotaskmem_ptr<BYTE[]>& thumbprint)
     {
-        RETURN_IF_FAILED(_DetectSignatureOrigin(packageReader, signatureOrigin, &thumbprintSize, wil::out_param(thumbprint)));
+        RETURN_IF_FAILED(_DetectSignatureOrigin(packageReader, signatureOrigin, &thumbprintSize, wil::out_param(thumbprint), nullptr));
+        return S_OK;
+    }
+
+    // Determines the signature origin of an opened package
+    // @param thumbprintSize Number of bytes in the thumbprint (20 for a SHA-1 hash), or zero if no certificate.
+    // @param thumbprint The certificate's SHA-1 hash (thumbprint) bytes, or null if no certificate.
+    // @param certificateSubject The signing certificate's Subject (X.500 distinguished name), or null if no certificate.
+    static HRESULT DetectSignatureOrigin(IAppxPackageReader* packageReader, SignatureOrigin& signatureOrigin, size_t& thumbprintSize, wil::unique_cotaskmem_ptr<BYTE[]>& thumbprint, wil::unique_cotaskmem_ptr<WCHAR[]>& certificateSubject)
+    {
+        RETURN_IF_FAILED(_DetectSignatureOrigin(packageReader, signatureOrigin, &thumbprintSize, wil::out_param(thumbprint), wil::out_param(certificateSubject)));
         return S_OK;
     }
 
 private:
     // Determines the signature origin of an opened package
     // @note thumbprint is allocated via CoTaskMemAlloc()
-    static HRESULT _DetectSignatureOrigin(IAppxPackageReader* packageReader, SignatureOrigin& signatureOrigin, size_t* thumbprintSize, BYTE** thumbprint)
+    // @note certificateSubject is allocated via CoTaskMemAlloc()
+    static HRESULT _DetectSignatureOrigin(IAppxPackageReader* packageReader, SignatureOrigin& signatureOrigin, size_t* thumbprintSize, BYTE** thumbprint, PWSTR* certificateSubject)
     {
         signatureOrigin = SignatureOrigin::Unsigned;
         if (thumbprintSize)
@@ -355,6 +366,10 @@ private:
         if (thumbprint)
         {
             *thumbprint = nullptr;
+        }
+        if (certificateSubject)
+        {
+            *certificateSubject = nullptr;
         }
         RETURN_HR_IF_NULL(E_POINTER, packageReader);
 
@@ -371,24 +386,27 @@ private:
         RETURN_IF_FAILED(DetectSignatureOriginFromBlob(signatureBlob.get(), signatureSize, signatureOrigin));
 
         // If the package is signed and the caller asked for it, extract the leaf
-        // (signing) certificate's SHA-1 hash (thumbprint) from the same blob
-        if ((signatureOrigin != SignatureOrigin::Unsigned) && thumbprintSize && thumbprint)
+        // (signing) certificate's SHA-1 hash (thumbprint) and/or Subject from the same blob
+        if ((signatureOrigin != SignatureOrigin::Unsigned) && ((thumbprintSize && thumbprint) || certificateSubject))
         {
             wil::unique_cert_context signingCertificate;
             const HRESULT signerHr{ GetSignerCertificateFromBlob(signatureBlob.get(), signatureSize, signingCertificate) };
             RETURN_IF_FAILED(signerHr);
             if (signerHr == S_OK)
             {
-                size_t hashSize{};
-                wil::unique_cotaskmem_ptr<BYTE[]> hash;
-                RETURN_IF_FAILED(GetCertificateThumbprintFromContext(signingCertificate.get(), hashSize, hash));
-                if (thumbprintSize)
+                if (thumbprintSize && thumbprint)
                 {
+                    size_t hashSize{};
+                    wil::unique_cotaskmem_ptr<BYTE[]> hash;
+                    RETURN_IF_FAILED(GetCertificateThumbprintFromContext(signingCertificate.get(), hashSize, hash));
                     *thumbprintSize = hashSize;
-                }
-                if (thumbprint)
-                {
                     *thumbprint = hash.release();
+                }
+                if (certificateSubject)
+                {
+                    wil::unique_cotaskmem_ptr<WCHAR[]> subject;
+                    RETURN_IF_FAILED(GetCertificateSubjectFromContext(signingCertificate.get(), subject));
+                    *certificateSubject = subject.release();
                 }
             }
         }
@@ -414,6 +432,27 @@ private:
 
         thumbprintSize = hashSize;
         thumbprint = wistd::move(buffer);
+        return S_OK;
+    }
+
+    // Extracts the certificate's Subject as an X.500 distinguished name string
+    // @param subject The certificate's Subject, allocated via CoTaskMemAlloc()
+    static HRESULT GetCertificateSubjectFromContext(PCCERT_CONTEXT certificate, wil::unique_cotaskmem_ptr<WCHAR[]>& subject)
+    {
+        subject.reset();
+
+        RETURN_HR_IF_NULL(E_POINTER, certificate);
+
+        // CertNameToStrW returns the character count including the terminating null;
+        // a value of 1 means an empty name (just the null terminator).
+        const DWORD length{ CertNameToStrW(certificate->dwCertEncodingType, &certificate->pCertInfo->Subject, CERT_X500_NAME_STR, nullptr, 0) };
+        RETURN_HR_IF(E_UNEXPECTED, length <= 1);
+
+        auto buffer{ wil::make_unique_cotaskmem_nothrow<WCHAR[]>(length) };
+        RETURN_IF_NULL_ALLOC(buffer);
+        RETURN_HR_IF(E_UNEXPECTED, CertNameToStrW(certificate->dwCertEncodingType, &certificate->pCertInfo->Subject, CERT_X500_NAME_STR, buffer.get(), length) <= 1);
+
+        subject = wistd::move(buffer);
         return S_OK;
     }
 

@@ -50,7 +50,7 @@ public:
     {
         RETURN_HR_IF(E_NOT_VALID_STATE, !m_packageReader);
 
-        RETURN_IF_FAILED(MSIX::Signing::DetectSignatureOrigin(m_packageReader.get(), m_signatureOrigin, m_certificateThumbprintSize, m_certificateThumbprint));
+        RETURN_IF_FAILED(MSIX::Signing::DetectSignatureOrigin(m_packageReader.get(), m_signatureOrigin, m_certificateThumbprintSize, m_certificateThumbprint, m_certificateSubject));
         return S_OK;
     }
 
@@ -391,46 +391,6 @@ public:
     std::uint64_t PayloadTotalSizeUncompressed() const
     {
         return m_packagePayloadFilesSizeUncompressed;
-    }
-
-private:
-    static HRESULT ExecuteMsixAdmin(PCWSTR command)
-    {
-        wil::unique_cotaskmem_string msixAdmin;
-        RETURN_IF_FAILED(FindMsixAdmin(msixAdmin));
-
-        wil::unique_cotaskmem_string commandLine;
-        RETURN_IF_FAILED(wil::str_printf_nothrow<wil::unique_cotaskmem_string>(commandLine, L"%s %s", command));
-        return S_OK;
-    }
-
-private:
-    static HRESULT FindMsixAdmin(wil::unique_cotaskmem_string& filename)
-    {
-        filename.reset();
-
-        // Absolute path of the current module (this DLL), e.g. ...\MSIXPropertySheet.dll
-        extern HINSTANCE g_hInstance;
-        wil::unique_cotaskmem_string modulePath;
-        RETURN_IF_FAILED(wil::GetModuleFileNameW(g_hInstance, modulePath));
-
-        // Replace the file name with "msixadmin.exe" to make an absolute filename
-        // for the sibling executable.
-        PWSTR lastSlash{ wcsrchr(modulePath.get(), L'\\') };
-        if (lastSlash)
-        {
-            *(lastSlash + 1) = L'\0';
-        }
-        wil::unique_cotaskmem_string candidate;
-        RETURN_IF_FAILED(wil::str_printf_nothrow<wil::unique_cotaskmem_string>(candidate, L"%smsixadmin.exe", modulePath.get()));
-
-        // Only hand back the path if the file actually exists; otherwise leave
-        // filename null and still report success.
-        if (GetFileAttributesW(candidate.get()) != INVALID_FILE_ATTRIBUTES)
-        {
-            filename = wistd::move(candidate);
-        }
-        return S_OK;
     }
 
 private:

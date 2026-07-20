@@ -631,6 +631,13 @@ void MSIXPropertyPage::OnCommand(HWND hwndDlg, WPARAM wParam, LPARAM /*lParam*/)
 
 void MSIXPropertyPage::OnAddCertificate(HWND hwndDlg)
 {
+    //TODO OnAddCertificate ExecuteMsixAdmin
+    {
+        wil::unique_cotaskmem_string command;
+        std::ignore = LOG_IF_FAILED(wil::str_printf_nothrow<wil::unique_cotaskmem_string>(command, L"certificate add \"%ls\"", m_filePath.get()));
+        std::ignore = LOG_IF_FAILED(::msixcli::ExecuteMsixAdmin(g_hInstance, command.get()));
+    }
+
     // The Add Certificate button was clicked
     MSIX::Signing::AddResult result{};
     const HRESULT hr{ LOG_IF_FAILED(MSIX::Signing::AddCertificate(m_package.PackageReader(), result)) };
@@ -664,6 +671,38 @@ void MSIXPropertyPage::OnShowCertificateDialog(HWND hwndDlg)
     UpdateAddCertificateButton(hwndDlg);
 }
 
+void MSIXPropertyPage::CenterDialog(HWND hwndDlg, HWND hwndParent)
+{
+    // Center hwndDlg over hwndParent, clamped to the parent monitor's work area so
+    // the dialog is never pushed partly off-screen for an odd parent placement.
+    RECT dialogRect{};
+    if (!hwndParent || !GetWindowRect(hwndDlg, &dialogRect))
+    {
+        return;
+    }
+    const int dialogWidth{ dialogRect.right - dialogRect.left };
+    const int dialogHeight{ dialogRect.bottom - dialogRect.top };
+
+    RECT parentRect{};
+    if (!GetWindowRect(hwndParent, &parentRect))
+    {
+        return;
+    }
+
+    int x{ parentRect.left + ((parentRect.right - parentRect.left) - dialogWidth) / 2 };
+    int y{ parentRect.top + ((parentRect.bottom - parentRect.top) - dialogHeight) / 2 };
+
+    MONITORINFO monitorInfo{ sizeof(monitorInfo) };
+    if (GetMonitorInfo(MonitorFromWindow(hwndParent, MONITOR_DEFAULTTONEAREST), &monitorInfo))
+    {
+        const RECT& work{ monitorInfo.rcWork };
+        x = max(work.left, min(x, work.right - dialogWidth));
+        y = max(work.top, min(y, work.bottom - dialogHeight));
+    }
+
+    SetWindowPos(hwndDlg, nullptr, x, y, 0, 0, SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE);
+}
+
 INT_PTR CALLBACK MSIXPropertyPage::CertificateDialogProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
     MSIXPropertyPage* pThis{};
@@ -671,6 +710,8 @@ INT_PTR CALLBACK MSIXPropertyPage::CertificateDialogProc(HWND hwndDlg, UINT uMsg
     {
         pThis = reinterpret_cast<MSIXPropertyPage*>(lParam);
         SetWindowLongPtr(hwndDlg, DWLP_USER, reinterpret_cast<LONG_PTR>(pThis));
+
+        CenterDialog(hwndDlg, GetParent(hwndDlg));
 
         if (pThis)
         {

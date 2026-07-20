@@ -24,7 +24,7 @@ BEGIN
     CONTROL     "", IDC_STATIC, "Static", SS_ETCHEDHORZ,                      0,  51, 250,  1
 
     LTEXT       "Package Origin:",          IDC_PACKAGEORIGIN_LABEL,          7,  56,  78,  8
-    EDITTEXT                                IDC_PACKAGEORIGIN,               88,  56, 157,  8,  ES_AUTOHSCROLL | NOT WS_BORDER
+    EDITTEXT                                IDC_PACKAGEORIGIN,               88,  56, 100,  8,  ES_AUTOHSCROLL | NOT WS_BORDER
     PUSHBUTTON  "&Certificate...",          IDC_CERTIFICATE,                195,  53,  50, 14,  BS_DEFPUSHBUTTON | WS_TABSTOP
     LTEXT       "Staged",                   IDC_IS_STAGED,                    7,  70,  38, 10,  SS_OWNERDRAW
     LTEXT       "Registered",               IDC_IS_REGISTERED,               49,  70,  54, 10,  SS_OWNERDRAW
@@ -111,7 +111,7 @@ BEGIN
 END
 
 IDD_MSIX_CERTIFICATE DIALOGEX 0, 0, 325, 150
-STYLE DS_MODALFRAME | DS_SETFONT | DS_FIXEDSYS | DS_CENTER | WS_POPUP | WS_CAPTION | WS_SYSMENU
+STYLE DS_MODALFRAME | DS_SETFONT | DS_FIXEDSYS | WS_POPUP | WS_CAPTION | WS_SYSMENU
 CAPTION "MSIX Signing"
 FONT 8, "MS Shell Dlg", 400, 0, 0x1
 BEGIN
@@ -132,6 +132,6 @@ BEGIN
     LTEXT       "Thumbprint:",              IDC_STATIC,                       7,  84,  78,  8
     EDITTEXT                                IDC_CERTIFICATE_THUMBPRINT,      88,  84, 230, 14,  ES_AUTOHSCROLL | NOT WS_BORDER
 
-    PUSHBUTTON  "&Add Certificate",         IDC_ADDCERTIFICATE,             220, 129,  70, 14,  WS_TABSTOP
-    PUSHBUTTON  "OK",                       IDC_OK,                         300, 129,  20, 14,  BS_DEFPUSHBUTTON | WS_TABSTOP
+    PUSHBUTTON  "&Add Certificate",         IDC_ADDCERTIFICATE,             193, 129,  70, 14,  WS_TABSTOP
+    PUSHBUTTON  "OK",                       IDC_OK,                         268, 129,  50, 14,  BS_DEFPUSHBUTTON | WS_TABSTOP
 END
