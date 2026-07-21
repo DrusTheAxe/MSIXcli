@@ -51,5 +51,8 @@
 
 #define IDC_CERTIFICATE_SUBJECT             2001
 #define IDC_CERTIFICATE_THUMBPRINT          2002
+#define IDC_CERTIFICATE_STATUS              2003
 
-#define IDC_ADDCERTIFICATE                  2101
+#define IDC_CERTIFICATE_CHECK_STATUS        2101
+#define IDC_CERTIFICATE_ADD                 2102
+#define IDC_CERTIFICATE_REMOVE              2103

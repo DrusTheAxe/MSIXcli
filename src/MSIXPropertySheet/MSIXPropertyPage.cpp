@@ -40,7 +40,8 @@ namespace
         IDC_PACKAGE_FAMILY_NAME,
         IDC_SIGNATURE_ORIGIN,
         IDC_CERTIFICATE_SUBJECT,
-        IDC_CERTIFICATE_THUMBPRINT
+        IDC_CERTIFICATE_THUMBPRINT,
+        IDC_CERTIFICATE_STATUS
     };
 
     bool IsBorderlessReadOnlyEdit(int ctlId, const int* controlIds, size_t controlIdsCount) noexcept
@@ -629,21 +630,24 @@ void MSIXPropertyPage::OnCommand(HWND hwndDlg, WPARAM wParam, LPARAM /*lParam*/)
     }
 }
 
-void MSIXPropertyPage::OnAddCertificate(HWND hwndDlg)
+void MSIXPropertyPage::OnAddOrRemoveCertificate(HWND hwndDlg, const bool add)
 {
-    //TODO OnAddCertificate ExecuteMsixAdmin
+    //TODO OnAddOrRemoveCertificate ExecuteMsixAdmin
     {
         wil::unique_cotaskmem_string command;
-        std::ignore = LOG_IF_FAILED(wil::str_printf_nothrow<wil::unique_cotaskmem_string>(command, L"certificate add \"%ls\"", m_filePath.get()));
+        std::ignore = LOG_IF_FAILED(wil::str_printf_nothrow<wil::unique_cotaskmem_string>(command, L"certificate %ls \"%ls\"", add ? L"add" : L"remove", m_filePath.get()));
         std::ignore = LOG_IF_FAILED(::msixcli::ExecuteMsixAdmin(g_hInstance, command.get()));
     }
 
     // The Add Certificate button was clicked
     MSIX::Signing::AddResult result{};
-    const HRESULT hr{ LOG_IF_FAILED(MSIX::Signing::AddCertificate(m_package.PackageReader(), result)) };
+    const HRESULT hr{ add ?
+        LOG_IF_FAILED(MSIX::Signing::AddCertificate(m_package.PackageReader(), result)) :
+        LOG_IF_FAILED(MSIX::Signing::RemoveCertificate(m_package.PackageReader()))
+    };
     if (FAILED(hr))
     {
-        PCWSTR verb{ L"adding certificate" };
+        PCWSTR verb{ add ? L"adding certificate" : L"removing certificate" };
         wil::unique_cotaskmem_string caption;
         std::ignore = LOG_IF_FAILED(wil::str_printf_nothrow<wil::unique_cotaskmem_string>(caption,
             L"MSIX Property Page: Error %ls", verb));
@@ -657,6 +661,38 @@ void MSIXPropertyPage::OnAddCertificate(HWND hwndDlg)
 
     // Re-evaluate the package's Signature Origin
     std::ignore = LOG_IF_FAILED(m_package.DetectSignatureOrigin());
+}
+
+void MSIXPropertyPage::OnCheckCertificateStatus(HWND hwndDlg)
+{
+    //TODO OnCheckCertificateStatus
+    {
+        wil::unique_cotaskmem_string command;
+        std::ignore = LOG_IF_FAILED(wil::str_printf_nothrow<wil::unique_cotaskmem_string>(command, L"certificate exists \"%ls\"", m_filePath.get()));
+        std::ignore = LOG_IF_FAILED(::msixcli::ExecuteMsixAdmin(g_hInstance, command.get()));
+    }
+
+    // The Add Certificate button was clicked
+    bool isInstalled{};
+    const HRESULT hr{ LOG_IF_FAILED(MSIX::Signing::IsCertificateInstalled(m_package.PackageReader(), isInstalled)) };
+    if (FAILED(hr))
+    {
+        SetDlgItemText(hwndDlg, IDC_CERTIFICATE_STATUS, L"?" );
+
+        PCWSTR verb{ L"checking certificate status" };
+        wil::unique_cotaskmem_string caption;
+        std::ignore = LOG_IF_FAILED(wil::str_printf_nothrow<wil::unique_cotaskmem_string>(caption,
+            L"MSIX Property Page: Error %ls", verb));
+        wil::unique_hlocal_string message{ wil::format_message_nothrow(hr) };
+        wil::unique_cotaskmem_string text;
+        PCWSTR formatter{ L"Error 0x%08X %ls %ls\n\n%ls" };
+        std::ignore = LOG_IF_FAILED(wil::str_printf_nothrow<wil::unique_cotaskmem_string>(text, formatter,
+            hr, verb, m_filePath.get(), text ? text.get() : L"<null>"));
+        MessageBoxW(hwndDlg, text ? text.get() : L"<null>", caption ? caption.get() : L"MSIX Property Page", MB_OK | MB_ICONERROR);
+        return;
+    }
+
+    SetDlgItemText(hwndDlg, IDC_CERTIFICATE_STATUS, isInstalled ? L"Installed" : L"Not installed");
 }
 
 void MSIXPropertyPage::OnShowCertificateDialog(HWND hwndDlg)
@@ -731,9 +767,11 @@ INT_PTR CALLBACK MSIXPropertyPage::CertificateDialogProc(HWND hwndDlg, UINT uMsg
             SetDlgItemText(hwndDlg, IDC_PACKAGE_FULL_NAME, pThis->PackageFullName());
             SetDlgItemText(hwndDlg, IDC_PACKAGE_FAMILY_NAME, pThis->PackageFamilyName());
 
-            SetDlgItemText(hwndDlg, IDC_SIGNATURE_ORIGIN, MSIX::ToString(pThis->SignatureOrigin()));
+            const auto signatureOrigin{ pThis->SignatureOrigin() };
+            SetDlgItemText(hwndDlg, IDC_SIGNATURE_ORIGIN, MSIX::ToString(signatureOrigin));
 
             SetDlgItemText(hwndDlg, IDC_CERTIFICATE_SUBJECT, pThis->CertificateSubject());
+            SetDlgItemText(hwndDlg, IDC_CERTIFICATE_STATUS, L"?");
 
             size_t thumbprintSize{};
             wil::unique_cotaskmem_ptr<BYTE[]> thumbprint;
@@ -752,6 +790,25 @@ INT_PTR CALLBACK MSIXPropertyPage::CertificateDialogProc(HWND hwndDlg, UINT uMsg
                     }
                 }
             }
+
+            const bool installable{
+                (signatureOrigin == MSIX::SignatureOrigin::LineOfBusiness) ||
+                (signatureOrigin == MSIX::SignatureOrigin::Unknown)
+            };
+            if (installable)
+            {
+                bool isElevated{};
+                if (SUCCEEDED_LOG( wil::security::is_elevated(isElevated)))
+                {
+                    const BOOL elevationRequiredState{ isElevated ? FALSE : TRUE };
+                    Button_SetElevationRequiredState(GetDlgItem(hwndDlg, IDC_CERTIFICATE_CHECK_STATUS), elevationRequiredState);
+                    Button_SetElevationRequiredState(GetDlgItem(hwndDlg, IDC_CERTIFICATE_ADD), elevationRequiredState);
+                    Button_SetElevationRequiredState(GetDlgItem(hwndDlg, IDC_CERTIFICATE_REMOVE), elevationRequiredState);
+                }
+            }
+            EnableAndShowControl(GetDlgItem(hwndDlg, IDC_CERTIFICATE_CHECK_STATUS), installable);
+            EnableAndShowControl(GetDlgItem(hwndDlg, IDC_CERTIFICATE_ADD), installable);
+            EnableAndShowControl(GetDlgItem(hwndDlg, IDC_CERTIFICATE_REMOVE), installable);
         }
 
         return TRUE;
@@ -782,8 +839,16 @@ INT_PTR CALLBACK MSIXPropertyPage::CertificateDialogProc(HWND hwndDlg, UINT uMsg
             {
                 switch (LOWORD(wParam))
                 {
-                    case IDC_ADDCERTIFICATE:
-                        pThis->OnAddCertificate(hwndDlg);
+                    case IDC_CERTIFICATE_ADD:
+                        pThis->OnAddOrRemoveCertificate(hwndDlg, true);
+                        return TRUE;
+
+                    case IDC_CERTIFICATE_REMOVE:
+                        pThis->OnAddOrRemoveCertificate(hwndDlg, false);
+                        return TRUE;
+
+                    case IDC_CERTIFICATE_CHECK_STATUS:
+                        pThis->OnCheckCertificateStatus(hwndDlg);
                         return TRUE;
 
                     case IDC_OK:

@@ -106,8 +106,12 @@ BEGIN
     IDC_INSTALLACTION                   "Choose whether to Add (install) or Stage the package"
     IDC_INSTALL                         "Perform the selected action (Add or Stage) using the options selected above"
 
+    IDC_CERTIFICATE_SUBJECT             "The package's signing certificate's Subject"
     IDC_CERTIFICATE_THUMBPRINT          "The package's signing certificate's thumbprint"
-    IDC_ADDCERTIFICATE                  "Add the certificate to the Trusted People certificate store"
+
+    IDC_CERTIFICATE_CHECK_STATUS        "Check if the certificate is in the Trusted People certificate store"
+    IDC_CERTIFICATE_ADD                 "Add the certificate to the Trusted People certificate store"
+    IDC_CERTIFICATE_REMOVE              "Remove the certificate from the Trusted People certificate store"
 END
 
 IDD_MSIX_CERTIFICATE DIALOGEX 0, 0, 325, 150
@@ -131,7 +135,11 @@ BEGIN
     EDITTEXT                                IDC_CERTIFICATE_SUBJECT,         88,  70, 230, 14,  ES_AUTOHSCROLL | NOT WS_BORDER
     LTEXT       "Thumbprint:",              IDC_STATIC,                       7,  84,  78,  8
     EDITTEXT                                IDC_CERTIFICATE_THUMBPRINT,      88,  84, 230, 14,  ES_AUTOHSCROLL | NOT WS_BORDER
+    LTEXT       "Status:",                  IDC_STATIC,                       7,  98,  78,  8
+    EDITTEXT                                IDC_CERTIFICATE_STATUS,          88,  98, 230, 14,  ES_AUTOHSCROLL | NOT WS_BORDER
 
-    PUSHBUTTON  "&Add Certificate",         IDC_ADDCERTIFICATE,             193, 129,  70, 14,  WS_TABSTOP
+    PUSHBUTTON  "&Status",                  IDC_CERTIFICATE_CHECK_STATUS,    43, 129,  50, 14,  WS_TABSTOP
+    PUSHBUTTON  "&Add Certificate",         IDC_CERTIFICATE_ADD,             98, 129,  80, 14,  WS_TABSTOP
+    PUSHBUTTON  "&Remove Certificate",      IDC_CERTIFICATE_REMOVE,         183, 129,  80, 14,  WS_TABSTOP
     PUSHBUTTON  "OK",                       IDC_OK,                         268, 129,  50, 14,  BS_DEFPUSHBUTTON | WS_TABSTOP
 END

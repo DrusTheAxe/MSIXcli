@@ -3,6 +3,8 @@
 
 #pragma once
 
+#include <wil/token_helpers.h>
+
 namespace wil
 {
 /// @return null if an error occurred.
@@ -192,5 +194,49 @@ namespace reg
         }
         return hr;
     }
+}
+
+namespace security
+{
+inline HRESULT get_integrity_level(DWORD& integrityLevel, HANDLE token = nullptr)
+{
+    wil::unique_tokeninfo_ptr<TOKEN_MANDATORY_LABEL> tokenMandatoryLabel;
+    RETURN_IF_FAILED(wil::get_token_information_nothrow<TOKEN_MANDATORY_LABEL>(
+            tokenMandatoryLabel, !token ? GetCurrentThreadEffectiveToken() : token));
+    auto sid{ (*tokenMandatoryLabel).Label.Sid };
+    auto subAuthorityCount{ *::GetSidSubAuthorityCount(sid) - 1 };
+    integrityLevel = *::GetSidSubAuthority(sid, static_cast<DWORD>(static_cast<UCHAR>(subAuthorityCount)));
+    return S_OK;
+}
+
+inline bool is_integrity_level_elevated(const DWORD integrityLevel)
+{
+    return integrityLevel >= SECURITY_MANDATORY_HIGH_RID;
+}
+
+inline HRESULT is_elevated(bool& isElevated, HANDLE token = nullptr)
+{
+    isElevated = false;
+
+    DWORD integrityLevel{};
+    RETURN_IF_FAILED(get_integrity_level(integrityLevel, token));
+    isElevated = is_integrity_level_elevated(integrityLevel);
+    return S_OK;
+}
+
+inline PCWSTR integrity_level_to_string(const DWORD integrityLevel)
+{
+    switch (integrityLevel)
+    {
+        case SECURITY_MANDATORY_UNTRUSTED_RID:          return L"Untrusted";    // 0x00000000 Untrusted.
+        case SECURITY_MANDATORY_LOW_RID:                return L"Low";          // 0x00001000 Low integrity.
+        case SECURITY_MANDATORY_MEDIUM_RID:             return L"Medium";       // 0x00002000 Medium integrity.
+        case SECURITY_MANDATORY_MEDIUM_PLUS_RID:        return L"MediumPlus";   // SECURITY_MANDATORY_MEDIUM_RID + 0x100 Medium high integrity.
+        case SECURITY_MANDATORY_HIGH_RID:               return L"High";         // 0X00003000 High integrity.
+        case SECURITY_MANDATORY_SYSTEM_RID:             return L"System";       // 0x00004000 System integrity.
+        case SECURITY_MANDATORY_PROTECTED_PROCESS_RID:  return L"ProtectedProcess";
+        default:                                        return L"???";
+    }
+}
 }
 }

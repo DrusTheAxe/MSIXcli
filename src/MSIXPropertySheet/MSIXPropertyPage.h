@@ -46,8 +46,11 @@ private:
     // selected action and the controls that depend on it.
     void OnInstallDropDown(HWND hwndDlg);
 
-    // Performs the "add certificate" action; invoked from the modal certificate dialog
-    void OnAddCertificate(HWND hwndDlg);
+    // Performs the "add certificate" and "remove certificate" actions; invoked from the modal certificate dialog
+    void OnAddOrRemoveCertificate(HWND hwndDlg, const bool add);
+
+    // Performs the "(check) status" action; invoked from the modal certificate dialog
+    void OnCheckCertificateStatus(HWND hwndDlg);
 
     // Handles the IDC_CERTIFICATE button click: shows IDD_MSIX_CERTIFICATE modally
     void OnShowCertificateDialog(HWND hwndDlg);
@@ -89,9 +92,9 @@ private:
 
     HRESULT AddToList(HWND hList, PCWSTR key, PCWSTR value);
 
-    void EnableAndShowControl(HWND hControl, bool enable);
-    void EnableControl(HWND hControl, bool enable);
-    void ShowControl(HWND hControl, bool show);
+    static void EnableAndShowControl(HWND hControl, bool enable);
+    static void EnableControl(HWND hControl, bool enable);
+    static void ShowControl(HWND hControl, bool show);
 
     void FormatSize(std::uint64_t bytes, PWSTR buffer, size_t cch) noexcept;
     void SetDlgItemText_Format(HWND hwndDlg, int nIDDlgItem, std::uint64_t value, PCWSTR suffix = nullptr);
