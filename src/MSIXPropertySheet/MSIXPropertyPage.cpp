@@ -632,67 +632,35 @@ void MSIXPropertyPage::OnCommand(HWND hwndDlg, WPARAM wParam, LPARAM /*lParam*/)
 
 void MSIXPropertyPage::OnAddOrRemoveCertificate(HWND hwndDlg, const bool add)
 {
-    //TODO OnAddOrRemoveCertificate ExecuteMsixAdmin
+    wil::unique_cotaskmem_string command;
+    std::ignore = LOG_IF_FAILED(wil::str_printf_nothrow<wil::unique_cotaskmem_string>(command, L"certificate %ls \"%ls\"", add ? L"add" : L"remove", m_filePath.get()));
+    HRESULT exitCode{};
+    PCWSTR verb{ add ? L"adding certificate" : L"removing certificate" };
+    const HRESULT hr{ LOG_IF_FAILED(::msixcli::ExecuteMsixAdminUI(g_hInstance, command.get(), exitCode, hwndDlg, verb)) };
+    if (SUCCEEDED(hr))
     {
-        wil::unique_cotaskmem_string command;
-        std::ignore = LOG_IF_FAILED(wil::str_printf_nothrow<wil::unique_cotaskmem_string>(command, L"certificate %ls \"%ls\"", add ? L"add" : L"remove", m_filePath.get()));
-        std::ignore = LOG_IF_FAILED(::msixcli::ExecuteMsixAdmin(g_hInstance, command.get()));
-    }
-
-    // The Add Certificate button was clicked
-    MSIX::Signing::AddResult result{};
-    const HRESULT hr{ add ?
-        LOG_IF_FAILED(MSIX::Signing::AddCertificate(m_package.PackageReader(), result)) :
-        LOG_IF_FAILED(MSIX::Signing::RemoveCertificate(m_package.PackageReader()))
-    };
-    if (FAILED(hr))
-    {
-        PCWSTR verb{ add ? L"adding certificate" : L"removing certificate" };
-        wil::unique_cotaskmem_string caption;
-        std::ignore = LOG_IF_FAILED(wil::str_printf_nothrow<wil::unique_cotaskmem_string>(caption,
-            L"MSIX Property Page: Error %ls", verb));
-        wil::unique_hlocal_string message{ wil::format_message_nothrow(hr) };
-        wil::unique_cotaskmem_string text;
-        PCWSTR formatter{ L"Error 0x%08X %ls %ls\n\n%ls" };
-        std::ignore = LOG_IF_FAILED(wil::str_printf_nothrow<wil::unique_cotaskmem_string>(text, formatter,
-            hr, verb, m_filePath.get(), text ? text.get() : L"<null>"));
-        MessageBoxW(hwndDlg, text ? text.get() : L"<null>", caption ? caption.get() : L"MSIX Property Page", MB_OK | MB_ICONERROR);
+        SetDlgItemText(hwndDlg, IDC_CERTIFICATE_STATUS, add ? L"Installed" : L"Not installed");
     }
 
     // Re-evaluate the package's Signature Origin
     std::ignore = LOG_IF_FAILED(m_package.DetectSignatureOrigin());
+    SetDlgItemText(hwndDlg, IDC_SIGNATURE_ORIGIN, MSIX::ToString(m_package.SignatureOrigin()));
 }
 
 void MSIXPropertyPage::OnCheckCertificateStatus(HWND hwndDlg)
 {
-    //TODO OnCheckCertificateStatus
+    SetDlgItemText(hwndDlg, IDC_CERTIFICATE_STATUS, L"?" );
+
+    wil::unique_cotaskmem_string command;
+    std::ignore = LOG_IF_FAILED(wil::str_printf_nothrow<wil::unique_cotaskmem_string>(command, L"certificate exists \"%ls\"", m_filePath.get()));
+    HRESULT exitCode{};
+    PCWSTR verb{ L"checking certificate status" };
+    const HRESULT hr{ LOG_IF_FAILED(::msixcli::ExecuteMsixAdminUI(g_hInstance, command.get(), exitCode, hwndDlg, verb)) };
+    if (SUCCEEDED(hr))
     {
-        wil::unique_cotaskmem_string command;
-        std::ignore = LOG_IF_FAILED(wil::str_printf_nothrow<wil::unique_cotaskmem_string>(command, L"certificate exists \"%ls\"", m_filePath.get()));
-        std::ignore = LOG_IF_FAILED(::msixcli::ExecuteMsixAdmin(g_hInstance, command.get()));
+        const bool isInstalled{ exitCode == S_OK };
+        SetDlgItemText(hwndDlg, IDC_CERTIFICATE_STATUS, isInstalled ? L"Installed" : L"Not installed");
     }
-
-    // The Add Certificate button was clicked
-    bool isInstalled{};
-    const HRESULT hr{ LOG_IF_FAILED(MSIX::Signing::IsCertificateInstalled(m_package.PackageReader(), isInstalled)) };
-    if (FAILED(hr))
-    {
-        SetDlgItemText(hwndDlg, IDC_CERTIFICATE_STATUS, L"?" );
-
-        PCWSTR verb{ L"checking certificate status" };
-        wil::unique_cotaskmem_string caption;
-        std::ignore = LOG_IF_FAILED(wil::str_printf_nothrow<wil::unique_cotaskmem_string>(caption,
-            L"MSIX Property Page: Error %ls", verb));
-        wil::unique_hlocal_string message{ wil::format_message_nothrow(hr) };
-        wil::unique_cotaskmem_string text;
-        PCWSTR formatter{ L"Error 0x%08X %ls %ls\n\n%ls" };
-        std::ignore = LOG_IF_FAILED(wil::str_printf_nothrow<wil::unique_cotaskmem_string>(text, formatter,
-            hr, verb, m_filePath.get(), text ? text.get() : L"<null>"));
-        MessageBoxW(hwndDlg, text ? text.get() : L"<null>", caption ? caption.get() : L"MSIX Property Page", MB_OK | MB_ICONERROR);
-        return;
-    }
-
-    SetDlgItemText(hwndDlg, IDC_CERTIFICATE_STATUS, isInstalled ? L"Installed" : L"Not installed");
 }
 
 void MSIXPropertyPage::OnShowCertificateDialog(HWND hwndDlg)
