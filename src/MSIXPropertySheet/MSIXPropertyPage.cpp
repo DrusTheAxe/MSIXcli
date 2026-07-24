@@ -187,6 +187,17 @@ INT_PTR CALLBACK MSIXPropertyPage::DialogProc(HWND hwndDlg, UINT uMsg, WPARAM wP
                 pThis->DrawStatusBadge(*reinterpret_cast<const DRAWITEMSTRUCT*>(lParam));
                 return TRUE;
             }
+            case WM_SETCURSOR:
+            {
+                // (HWND)wParam is the window under the cursor; LOWORD(lParam) is the hit-test
+                if (wil::ui::is_busy(hwndDlg) && reinterpret_cast<HWND>(wParam) == hwndDlg)
+                {
+                    SetCursor(LoadCursorW(nullptr, IDC_WAIT));
+                    SetWindowLongPtrW(hwndDlg, DWLP_MSGRESULT, TRUE);
+                    return TRUE;
+                }
+                break; // not busy -> default arrow
+            }
             case WM_DESTROY:
             {
                 pThis->OnDestroy(hwndDlg);
@@ -635,6 +646,8 @@ void MSIXPropertyPage::OnCommand(HWND hwndDlg, WPARAM wParam, LPARAM /*lParam*/)
 
 void MSIXPropertyPage::OnAddOrRemoveCertificate(HWND hwndDlg, const bool add)
 {
+    auto wait = wil::ui::scoped_wait_cursor(hwndDlg);
+
     wil::unique_cotaskmem_string command;
     std::ignore = LOG_IF_FAILED(wil::str_printf_nothrow<wil::unique_cotaskmem_string>(command, L"certificate %ls \"%ls\"", add ? L"add" : L"remove", m_filePath.get()));
     HRESULT exitCode{};
@@ -652,6 +665,8 @@ void MSIXPropertyPage::OnAddOrRemoveCertificate(HWND hwndDlg, const bool add)
 
 void MSIXPropertyPage::OnCheckCertificateStatus(HWND hwndDlg)
 {
+    auto wait = wil::ui::scoped_wait_cursor(hwndDlg);
+
     SetDlgItemText(hwndDlg, IDC_CERTIFICATE_STATUS, L"?" );
 
     wil::unique_cotaskmem_string command;
@@ -864,6 +879,17 @@ INT_PTR CALLBACK MSIXPropertyPage::CertificateDialogProc(HWND hwndDlg, UINT uMsg
                 pThis->DrawStatusBadge(*reinterpret_cast<const DRAWITEMSTRUCT*>(lParam));
                 return TRUE;
             }
+            case WM_SETCURSOR:
+            {
+                // (HWND)wParam is the window under the cursor; LOWORD(lParam) is the hit-test
+                if (wil::ui::is_busy(hwndDlg) && reinterpret_cast<HWND>(wParam) == hwndDlg)
+                {
+                    SetCursor(LoadCursorW(nullptr, IDC_WAIT));
+                    SetWindowLongPtrW(hwndDlg, DWLP_MSGRESULT, TRUE);
+                    return TRUE;
+                }
+                break; // not busy -> default arrow
+            }
             case WM_NOTIFY:
             {
                 LPNMHDR pnmh{ reinterpret_cast<LPNMHDR>(lParam) };
@@ -927,6 +953,8 @@ void MSIXPropertyPage::OnInstallDropDown(HWND hwndDlg)
 
 void MSIXPropertyPage::OnInstall(HWND hwndDlg)
 {
+    auto wait = wil::ui::scoped_wait_cursor(hwndDlg);
+
     ExecuteInstall(hwndDlg, m_installAction);
     RefreshPackageStatus(hwndDlg, m_packageManager12.get());
 }
@@ -1077,6 +1105,8 @@ HRESULT MSIXPropertyPage::OnInstall(
 
 void MSIXPropertyPage::OnUninstall(HWND hwndDlg)
 {
+    auto wait = wil::ui::scoped_wait_cursor(hwndDlg);
+
     ExecuteUninstall(hwndDlg);
     RefreshPackageStatus(hwndDlg, m_packageManager12.get());
 }

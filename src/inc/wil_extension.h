@@ -172,6 +172,47 @@ inline HRESULT set_property_store_value(wil::com_ptr_nothrow<IPropertyStore>& pr
 }
 #endif // (defined(_INC_SHIDFACT) && !defined(__WIL_SHIDFACT_H__)) || defined(WIL_DOXYGEN)
 
+namespace ui
+{
+    inline void set_busy(HWND hwnd, bool busy)
+    {
+        ::SetPropW(hwnd, L"msixcli.busy", busy ? reinterpret_cast<HANDLE>(1) : nullptr);
+    }
+
+    inline bool is_busy(HWND hwnd)
+    {
+        return ::GetPropW(hwnd, L"msixcli.busy") != nullptr;
+    }
+
+    inline void refresh_cursor(HWND hwnd)
+    {
+        POINT pt{};
+        GetCursorPos(&pt);
+
+        HWND under{ WindowFromPoint(pt) };
+        if (under == hwnd)
+        {
+            SendMessageW(hwnd, WM_SETCURSOR, reinterpret_cast<WPARAM>(hwnd), MAKELPARAM(HTCLIENT, WM_MOUSEMOVE));
+        }
+    }
+
+    [[nodiscard]] inline auto scoped_wait_cursor(HWND hwnd)
+    {
+        set_busy(hwnd, true);
+        refresh_cursor(hwnd);
+        return wil::scope_exit([hwnd]() noexcept {
+            set_busy(hwnd, false);
+            refresh_cursor(hwnd);
+        });
+    }
+
+    [[nodiscard]] inline auto scoped_wait_cursor()
+    {
+        HCURSOR previousCursor{ SetCursor(LoadCursorW(nullptr, IDC_WAIT)) };
+        return wil::scope_exit([previousCursor]() noexcept { SetCursor(previousCursor); });
+    }
+}
+
 namespace reg
 {
     /**
