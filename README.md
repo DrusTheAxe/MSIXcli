@@ -16,7 +16,7 @@ TBD
 
 # msixadmin.exe
 
-This command line executable provides access to MSIX functionality required admin privilege.
+This command line executable provides access to MSIX functionality requiring admin privilege.
 
 If not launched elevated you'll see a UAC prompt to allow elevation, or process creation will fail.
 Nothing magical, just the usual Fusion manifest games (OK, perhaps that is a bit magical... :P).
