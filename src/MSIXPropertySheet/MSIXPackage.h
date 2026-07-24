@@ -50,7 +50,9 @@ public:
     {
         RETURN_HR_IF(E_NOT_VALID_STATE, !m_packageReader);
 
-        RETURN_IF_FAILED(MSIX::Signing::DetectSignatureOrigin(m_packageReader.get(), m_signatureOrigin, m_certificateThumbprintSize, m_certificateThumbprint, m_certificateSubject));
+        RETURN_IF_FAILED(MSIX::Signing::DetectSignatureOrigin(m_packageReader.get(), m_signatureOrigin,
+            m_certificateThumbprintSize, m_certificateThumbprint, m_certificateSubject, m_certificateIssuer,
+            m_certificateValidFrom, m_certificateValidTo, m_certificateValid));
         return S_OK;
     }
 
@@ -280,6 +282,11 @@ public:
         return m_certificateSubject.get();
     }
 
+    PCWSTR CertificateIssuer() const
+    {
+        return m_certificateIssuer.get();
+    }
+
     HRESULT GetCertificateThumbprint(size_t& thumbprintSize, wil::unique_cotaskmem_ptr<BYTE[]>& thumbprint)
     {
         thumbprintSize = 0;
@@ -294,6 +301,21 @@ public:
             thumbprintSize = m_certificateThumbprintSize;
         }
         return S_OK;
+    }
+
+    FILETIME CertificateValidFrom() const
+    {
+        return m_certificateValidFrom;
+    }
+
+    FILETIME CertificateValidTo() const
+    {
+        return m_certificateValidTo;
+    }
+
+    MSIX::Signing::CertificateValid CertificateValid() const
+    {
+        return m_certificateValid;
     }
 
     MSIX::SignatureOrigin SignatureOrigin() const
@@ -427,8 +449,12 @@ private:
     bool m_isRemovalPending{};
     MSIX::SignatureOrigin m_signatureOrigin{ MSIX::SignatureOrigin::Unsigned };
     wil::unique_cotaskmem_ptr<WCHAR[]> m_certificateSubject;
+    wil::unique_cotaskmem_ptr<WCHAR[]> m_certificateIssuer;
     size_t m_certificateThumbprintSize{};
     wil::unique_cotaskmem_ptr<BYTE[]> m_certificateThumbprint;
+    FILETIME m_certificateValidFrom{};
+    FILETIME m_certificateValidTo{};
+    MSIX::Signing::CertificateValid m_certificateValid{ MSIX::Signing::CertificateValid::Unknown };
     std::uint64_t m_footprintFileSize[10]{};
     std::uint64_t m_packagePayloadFilesCount{};
     std::uint64_t m_packagePayloadFilesSizeCompressed{};

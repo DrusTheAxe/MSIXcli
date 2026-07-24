@@ -628,27 +628,28 @@ HRESULT Command_Certificate(int argc, wchar_t* argv[])
         ShowLogo();
     }
 
+    HRESULT exitCode{};
     if (CompareStringOrdinal(action, -1, L"add", -1, FALSE) == CSTR_EQUAL)
     {
-        RETURN_IF_FAILED(Command_Certificate_Add(filename));
+        RETURN_IF_FAILED(exitCode = Command_Certificate_Add(filename));
     }
     else if (CompareStringOrdinal(action, -1, L"exists", -1, FALSE) == CSTR_EQUAL)
     {
-        RETURN_IF_FAILED(Command_Certificate_Exists(filename));
+        RETURN_IF_FAILED(exitCode = Command_Certificate_Exists(filename));
     }
     else if (CompareStringOrdinal(action, -1, L"list", -1, FALSE) == CSTR_EQUAL)
     {
-        RETURN_IF_FAILED(Command_Certificate_List(filename));
+        RETURN_IF_FAILED(exitCode = Command_Certificate_List(filename));
     }
     else if (CompareStringOrdinal(action, -1, L"remove", -1, FALSE) == CSTR_EQUAL)
     {
-        RETURN_IF_FAILED(Command_Certificate_Remove(filename));
+        RETURN_IF_FAILED(exitCode = Command_Certificate_Remove(filename));
     }
     else
     {
         FAIL_FAST_HR(E_UNEXPECTED);
     }
-    return S_OK;
+    return exitCode;
 }
 
 HRESULT Command_Provision_Add(int argc, wchar_t* argv[])

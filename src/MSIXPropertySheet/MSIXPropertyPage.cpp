@@ -40,7 +40,9 @@ namespace
         IDC_PACKAGE_FAMILY_NAME,
         IDC_SIGNATURE_ORIGIN,
         IDC_CERTIFICATE_SUBJECT,
+        IDC_CERTIFICATE_ISSUER,
         IDC_CERTIFICATE_THUMBPRINT,
+        IDC_CERTIFICATE_VALID,
         IDC_CERTIFICATE_STATUS
     };
 
@@ -519,9 +521,10 @@ void MSIXPropertyPage::DrawStatusBadge(const DRAWITEMSTRUCT& dis)
     StatusColor color{ StatusColor::None };
     switch (dis.CtlID)
     {
-        case IDC_IS_STAGED:         color = StatusColor::Ok; break;
-        case IDC_IS_REGISTERED:     color = m_registeredStatusColor; break;
-        case IDC_IS_REMOVE_PENDING: color = m_removalPendingStatusColor; break;
+        case IDC_IS_STAGED:                 color = StatusColor::Ok; break;
+        case IDC_IS_REGISTERED:             color = m_registeredStatusColor; break;
+        case IDC_IS_REMOVE_PENDING:         color = m_removalPendingStatusColor; break;
+        case IDC_CERTIFICATE_VALID_STATUS:  color = m_certificateStatusColor; break;
     }
 
     HDC hdc{ dis.hDC };
@@ -739,6 +742,27 @@ INT_PTR CALLBACK MSIXPropertyPage::CertificateDialogProc(HWND hwndDlg, UINT uMsg
             SetDlgItemText(hwndDlg, IDC_SIGNATURE_ORIGIN, MSIX::ToString(signatureOrigin));
 
             SetDlgItemText(hwndDlg, IDC_CERTIFICATE_SUBJECT, pThis->CertificateSubject());
+            SetDlgItemText(hwndDlg, IDC_CERTIFICATE_ISSUER, pThis->CertificateIssuer());
+            {
+                bool enable{};
+                switch (pThis->CertificateValidStatus())
+                {
+                    case MSIX::Signing::CertificateValid::Unknown:     break;
+                    case MSIX::Signing::CertificateValid::NotYetValid: enable = true; pThis->m_certificateStatusColor = StatusColor::Warning; break;
+                    case MSIX::Signing::CertificateValid::Valid:       break;
+                    case MSIX::Signing::CertificateValid::Expired:     enable = true; pThis->m_certificateStatusColor = StatusColor::Error; break;
+                }
+                EnableAndShowControl(GetDlgItem(hwndDlg, IDC_CERTIFICATE_VALID_STATUS), enable);
+            }
+            {
+                wil::unique_cotaskmem_string validFrom;
+                std::ignore = LOG_IF_FAILED(FormatFileTime(pThis->CertificateValidFrom(), true, validFrom));
+                wil::unique_cotaskmem_string validTo;
+                std::ignore = LOG_IF_FAILED(FormatFileTime(pThis->CertificateValidTo(), true, validTo));
+                wil::unique_cotaskmem_string valid;
+                std::ignore = LOG_IF_FAILED(wil::str_printf_nothrow<wil::unique_cotaskmem_string>(valid, L"%ls  to  %ls", validFrom.get(), validTo.get()));
+                SetDlgItemText(hwndDlg, IDC_CERTIFICATE_VALID, valid ? valid.get() : L"???  to  ???");
+            }
             SetDlgItemText(hwndDlg, IDC_CERTIFICATE_STATUS, L"?");
 
             size_t thumbprintSize{};
@@ -777,6 +801,12 @@ INT_PTR CALLBACK MSIXPropertyPage::CertificateDialogProc(HWND hwndDlg, UINT uMsg
             EnableAndShowControl(GetDlgItem(hwndDlg, IDC_CERTIFICATE_CHECK_STATUS), installable);
             EnableAndShowControl(GetDlgItem(hwndDlg, IDC_CERTIFICATE_ADD), installable);
             EnableAndShowControl(GetDlgItem(hwndDlg, IDC_CERTIFICATE_REMOVE), installable);
+        }
+
+        // Repaint the owner-drawn status badges to reflect their current colors
+        if (HWND hwndStaged{ GetDlgItem(hwndDlg, IDC_CERTIFICATE_VALID_STATUS) })
+        {
+            InvalidateRect(hwndStaged, nullptr, TRUE);
         }
 
         return TRUE;
@@ -828,6 +858,11 @@ INT_PTR CALLBACK MSIXPropertyPage::CertificateDialogProc(HWND hwndDlg, UINT uMsg
                         return TRUE;
                 }
                 break;
+            }
+            case WM_DRAWITEM:
+            {
+                pThis->DrawStatusBadge(*reinterpret_cast<const DRAWITEMSTRUCT*>(lParam));
+                return TRUE;
             }
             case WM_NOTIFY:
             {

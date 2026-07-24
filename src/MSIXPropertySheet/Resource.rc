@@ -21,7 +21,7 @@ BEGIN
     LTEXT       "Package Family Name:",     IDC_STATIC,                       7,  39,  78,  8
     EDITTEXT                                IDC_PACKAGE_FAMILY_NAME,         88,  39, 157,  8,  ES_AUTOHSCROLL | NOT WS_BORDER
 
-    CONTROL     "", IDC_STATIC, "Static", SS_ETCHEDHORZ,                      0,  51, 250,  1
+    CONTROL     "", IDC_STATIC, "Static", SS_ETCHEDHORZ,                      7,  51, 238,  1
 
     LTEXT       "Package Origin:",          IDC_PACKAGEORIGIN_LABEL,          7,  56,  78,  8
     EDITTEXT                                IDC_PACKAGEORIGIN,               88,  56, 100,  8,  ES_AUTOHSCROLL | NOT WS_BORDER
@@ -31,7 +31,7 @@ BEGIN
     LTEXT       "Remove[Pending]",          IDC_IS_REMOVE_PENDING,          107,  70,  82, 10,  SS_OWNERDRAW
     PUSHBUTTON  "Remove",                   IDC_UNINSTALL,                  195,  68,  50, 14,  WS_TABSTOP
 
-    CONTROL     "", IDC_STATIC, "Static", SS_ETCHEDHORZ,                      0,  84, 250,  1
+    CONTROL     "", IDC_STATIC, "Static", SS_ETCHEDHORZ,                      7,  84, 238,  1
 
     // Package information
     LTEXT       "Signature Origin:",        IDC_STATIC,                       7,  89,  78,  8
@@ -43,7 +43,7 @@ BEGIN
     LTEXT       "Compressed Payload:",      IDC_STATIC,                       7, 125,  78,  8
     EDITTEXT                                IDC_PAYLOAD_COMPRESSED_SIZE,     88, 125, 157,  8,  ES_AUTOHSCROLL | NOT WS_BORDER
 
-    CONTROL     "", IDC_STATIC, "Static", SS_ETCHEDHORZ,                      0, 137, 250,  1
+    CONTROL     "", IDC_STATIC, "Static", SS_ETCHEDHORZ,                      7, 137, 238,  1
 
     AUTOCHECKBOX  "&Allow unsigned",            IDC_ALLOWUNSIGNED,            7, 140,  70, 10
     AUTOCHECKBOX  "&Defer while in use",        IDC_DEFERWHILEINUSE,        120, 140,  80, 10
@@ -114,32 +114,39 @@ BEGIN
     IDC_CERTIFICATE_REMOVE              "Remove the certificate from the Trusted People certificate store"
 END
 
-IDD_MSIX_CERTIFICATE DIALOGEX 0, 0, 325, 150
+IDD_MSIX_CERTIFICATE DIALOGEX 0, 0, 425, 200
 STYLE DS_MODALFRAME | DS_SETFONT | DS_FIXEDSYS | WS_POPUP | WS_CAPTION | WS_SYSMENU
 CAPTION "MSIX Signing"
 FONT 8, "MS Shell Dlg", 400, 0, 0x1
 BEGIN
     // Identity
     LTEXT       "File:",                    IDC_STATIC,                       7,   9,  78,  8
-    EDITTEXT                                IDC_FILE_PATH,                   88,   7, 230, 14,  ES_AUTOHSCROLL | ES_READONLY | WS_TABSTOP
+    EDITTEXT                                IDC_FILE_PATH,                   88,   7, 320, 14,  ES_AUTOHSCROLL | ES_READONLY | WS_TABSTOP
     LTEXT       "Package Full Name:",       IDC_STATIC,                       7,  27,  78,  8
-    EDITTEXT                                IDC_PACKAGE_FULL_NAME,           88,  27, 230,  8,  ES_AUTOHSCROLL | NOT WS_BORDER
+    EDITTEXT                                IDC_PACKAGE_FULL_NAME,           88,  27, 320,  8,  ES_AUTOHSCROLL | NOT WS_BORDER
     LTEXT       "Package Family Name:",     IDC_STATIC,                       7,  39,  78,  8
-    EDITTEXT                                IDC_PACKAGE_FAMILY_NAME,         88,  39, 230,  8,  ES_AUTOHSCROLL | NOT WS_BORDER
+    EDITTEXT                                IDC_PACKAGE_FAMILY_NAME,         88,  39, 320,  8,  ES_AUTOHSCROLL | NOT WS_BORDER
 
-    CONTROL     "", IDC_STATIC, "Static", SS_ETCHEDHORZ,                      0,  51, 320,  1
+    CONTROL     "", IDC_STATIC, "Static", SS_ETCHEDHORZ,                      7,  51, 411,  1
 
     LTEXT       "Signature Origin:",        IDC_STATIC,                       7,  56,  78,  8
-    EDITTEXT                                IDC_SIGNATURE_ORIGIN,            88,  56, 230,  8,  ES_AUTOHSCROLL | NOT WS_BORDER
+    EDITTEXT                                IDC_SIGNATURE_ORIGIN,            88,  56, 330,  8,  ES_AUTOHSCROLL | NOT WS_BORDER
     LTEXT       "Subject:",                 IDC_STATIC,                       7,  70,  78,  8
-    EDITTEXT                                IDC_CERTIFICATE_SUBJECT,         88,  70, 230, 14,  ES_AUTOHSCROLL | NOT WS_BORDER
-    LTEXT       "Thumbprint:",              IDC_STATIC,                       7,  84,  78,  8
-    EDITTEXT                                IDC_CERTIFICATE_THUMBPRINT,      88,  84, 230, 14,  ES_AUTOHSCROLL | NOT WS_BORDER
-    LTEXT       "Status:",                  IDC_STATIC,                       7,  98,  78,  8
-    EDITTEXT                                IDC_CERTIFICATE_STATUS,          88,  98, 230, 14,  ES_AUTOHSCROLL | NOT WS_BORDER
+    EDITTEXT                                IDC_CERTIFICATE_SUBJECT,         88,  70, 330, 14,  ES_AUTOHSCROLL | NOT WS_BORDER
+    LTEXT       "Issuer:",                  IDC_STATIC,                       7,  84,  78,  8
+    EDITTEXT                                IDC_CERTIFICATE_ISSUER,          88,  84, 330, 14,  ES_AUTOHSCROLL | NOT WS_BORDER
+    LTEXT       "Thumbprint:",              IDC_STATIC,                       7,  98,  78,  8
+    EDITTEXT                                IDC_CERTIFICATE_THUMBPRINT,      88,  98, 330, 14,  ES_AUTOHSCROLL | NOT WS_BORDER
+    LTEXT       "Valid:",                   IDC_STATIC,                       7, 112,  30,  8
+    LTEXT       "Expired",                  IDC_CERTIFICATE_VALID_STATUS,    34, 112,  50, 10,  SS_OWNERDRAW
+    EDITTEXT                                IDC_CERTIFICATE_VALID,           88, 112, 330, 14,  ES_AUTOHSCROLL | NOT WS_BORDER
+    LTEXT       "Status:",                  IDC_STATIC,                       7, 126,  78,  8
+    EDITTEXT                                IDC_CERTIFICATE_STATUS,          88, 126, 330, 14,  ES_AUTOHSCROLL | NOT WS_BORDER
 
-    PUSHBUTTON  "&Status",                  IDC_CERTIFICATE_CHECK_STATUS,    43, 129,  50, 14,  WS_TABSTOP
-    PUSHBUTTON  "&Add Certificate",         IDC_CERTIFICATE_ADD,             98, 129,  80, 14,  WS_TABSTOP
-    PUSHBUTTON  "&Remove Certificate",      IDC_CERTIFICATE_REMOVE,         183, 129,  80, 14,  WS_TABSTOP
-    PUSHBUTTON  "OK",                       IDC_OK,                         268, 129,  50, 14,  BS_DEFPUSHBUTTON | WS_TABSTOP
+    CONTROL     "", IDC_STATIC, "Static", SS_ETCHEDHORZ,                      7, 174, 411,  1
+
+    PUSHBUTTON  "&Status",                  IDC_CERTIFICATE_CHECK_STATUS,   143, 179,  50, 14,  WS_TABSTOP
+    PUSHBUTTON  "&Add Certificate",         IDC_CERTIFICATE_ADD,            198, 179,  80, 14,  WS_TABSTOP
+    PUSHBUTTON  "&Remove Certificate",      IDC_CERTIFICATE_REMOVE,         283, 179,  80, 14,  WS_TABSTOP
+    PUSHBUTTON  "OK",                       IDC_OK,                         368, 179,  50, 14,  BS_DEFPUSHBUTTON | WS_TABSTOP
 END

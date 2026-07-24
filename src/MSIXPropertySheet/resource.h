@@ -50,8 +50,11 @@
 #define IDC_INSTALL                         1403
 
 #define IDC_CERTIFICATE_SUBJECT             2001
-#define IDC_CERTIFICATE_THUMBPRINT          2002
-#define IDC_CERTIFICATE_STATUS              2003
+#define IDC_CERTIFICATE_ISSUER              2002
+#define IDC_CERTIFICATE_THUMBPRINT          2003
+#define IDC_CERTIFICATE_VALID_STATUS        2004
+#define IDC_CERTIFICATE_VALID               2005
+#define IDC_CERTIFICATE_STATUS              2006
 
 #define IDC_CERTIFICATE_CHECK_STATUS        2101
 #define IDC_CERTIFICATE_ADD                 2102
