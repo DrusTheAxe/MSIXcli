@@ -145,7 +145,7 @@ BEGIN
 
     CONTROL     "", IDC_STATIC, "Static", SS_ETCHEDHORZ,                      7, 174, 411,  1
 
-    PUSHBUTTON  "&Status",                  IDC_CERTIFICATE_CHECK_STATUS,   143, 179,  50, 14,  WS_TABSTOP
+    PUSHBUTTON  "&Update Status",           IDC_CERTIFICATE_CHECK_STATUS,   113, 179,  80, 14,  WS_TABSTOP
     PUSHBUTTON  "&Add Certificate",         IDC_CERTIFICATE_ADD,            198, 179,  80, 14,  WS_TABSTOP
     PUSHBUTTON  "&Remove Certificate",      IDC_CERTIFICATE_REMOVE,         283, 179,  80, 14,  WS_TABSTOP
     PUSHBUTTON  "OK",                       IDC_OK,                         368, 179,  50, 14,  BS_DEFPUSHBUTTON | WS_TABSTOP

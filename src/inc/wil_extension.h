@@ -40,6 +40,24 @@ inline bool string_ends_with(PCWSTR haystack, PCWSTR needle, bool noCase = false
     return CompareStringOrdinal(haystack + offset, static_cast<int>(needleLength), needle, static_cast<int>(needleLength), noCase ? TRUE : FALSE) == CSTR_EQUAL;
 }
 
+inline HRESULT glob(PCWSTR string, PCWSTR pattern, bool& match)
+{
+    match = false;
+
+    // PathMatchSpecEx() isn't technically GLOB, but given strings like PackageFamilyName
+    // content restrictions its wildcard matching fits the data correctly.
+    //
+    // We'll use our poor-man's GLOB, as the alternatives (std::regex, VBScript.RegExp, etc)
+    // require C++ Exceptions or heavyweight dependencies.
+    //
+    // @see https://learn.microsoft.com/windows/apps/desktop/modernize/package-identity-overview#package-identity-fields-limits
+    // @see https://learn.microsoft.com/windows/win32/api/shlwapi/nf-shlwapi-pathmatchspecexw
+    const HRESULT hr{ ::PathMatchSpecEx(string, pattern, 0) };
+    RETURN_IF_FAILED_MSG(hr, "glob('%ls', '%ls')", string, pattern);
+    match = (hr == S_OK);
+    return S_OK;
+}
+
 inline HRESULT to_hstring_reference(PCWSTR string, HSTRING_HEADER& hstringHeader, HSTRING& hstring)
 {
     RETURN_IF_FAILED(::WindowsCreateStringReference(string ? string : L"<null>", static_cast<std::uint32_t>(wcslen(string)), &hstringHeader, &hstring));

@@ -48,6 +48,452 @@ HRESULT GetExeVersion(std::uint16_t& major, std::uint16_t& minor, std::uint16_t&
     return S_OK;
 }
 
+class PackageX
+{
+public:
+    PackageX() = default;
+
+public:
+    static HRESULT Make(ABI::Windows::ApplicationModel::IPackage* package, PackageX& packageX)
+    {
+        packageX.m_package = package;
+        RETURN_IF_FAILED(package->QueryInterface(IID_PPV_ARGS(packageX.m_package2.put())));
+        RETURN_IF_FAILED(package->QueryInterface(IID_PPV_ARGS(packageX.m_package3.put())));
+        RETURN_IF_FAILED(package->QueryInterface(IID_PPV_ARGS(packageX.m_package4.put())));
+        RETURN_IF_FAILED(package->QueryInterface(IID_PPV_ARGS(packageX.m_package8.put())));
+        RETURN_IF_FAILED(package->QueryInterface(IID_PPV_ARGS(packageX.m_package9.put())));
+        return S_OK;
+    }
+
+    ABI::Windows::ApplicationModel::IPackage* operator->()
+    {
+        return m_package.get();
+    }
+
+    ABI::Windows::ApplicationModel::IPackage2* package2()
+    {
+        return m_package2.get();
+    }
+
+    ABI::Windows::ApplicationModel::IPackage3* package3()
+    {
+        return m_package3.get();
+    }
+
+    ABI::Windows::ApplicationModel::IPackage4* package4()
+    {
+        return m_package4.get();
+    }
+
+    ABI::Windows::ApplicationModel::IPackage8* package8()
+    {
+        return m_package8.get();
+    }
+
+    ABI::Windows::ApplicationModel::IPackage9* package9()
+    {
+        return m_package9.get();
+    }
+
+private:
+    wil::com_ptr_nothrow<ABI::Windows::ApplicationModel::IPackage> m_package;
+    wil::com_ptr_nothrow<ABI::Windows::ApplicationModel::IPackage2> m_package2;
+    wil::com_ptr_nothrow<ABI::Windows::ApplicationModel::IPackage3> m_package3;
+    wil::com_ptr_nothrow<ABI::Windows::ApplicationModel::IPackage4> m_package4;
+    wil::com_ptr_nothrow<ABI::Windows::ApplicationModel::IPackage8> m_package8;
+    wil::com_ptr_nothrow<ABI::Windows::ApplicationModel::IPackage9> m_package9;
+};
+
+void PrintPackageKeyValueError(PCWSTR key, HRESULT hr)
+{
+    wil::unique_hlocal_string message{ wil::format_message_nothrow(hr) };
+    wprintf(L"%-40ls : ***ERROR 0x%08X %ls", key, hr, message.get());
+}
+
+void PrintPackageValue(PCWSTR key, const wil::unique_hstring& value, HRESULT hr)
+{
+    if (FAILED(hr))
+    {
+        PrintPackageKeyValueError(key, hr);
+    }
+    else
+    {
+        wprintf(L"%-40ls : %ls\n", key, WindowsGetStringRawBuffer(value.get(), nullptr));
+    }
+}
+
+void PrintPackageValue(PCWSTR key, const ABI::Windows::ApplicationModel::PackageVersion value, HRESULT hr)
+{
+    if (FAILED(hr))
+    {
+        PrintPackageKeyValueError(key, hr);
+    }
+    else
+    {
+        const std::uint64_t version{ (static_cast<std::uint64_t>(value.Major) << 48) |
+                                     (static_cast<std::uint64_t>(value.Minor) << 32) |
+                                     (static_cast<std::uint64_t>(value.Build) << 16) |
+                                     static_cast<std::uint64_t>(value.Revision) };
+        wprintf(L"%-40ls : %hu.%hu.%hu.%hu  (0x%llX)\n", key, value.Major, value.Minor, value.Build, value.Revision, version);
+    }
+}
+
+constexpr PCWSTR ToString(const ABI::Windows::System::ProcessorArchitecture architecture)
+{
+    switch (architecture)
+    {
+        case ABI::Windows::System::ProcessorArchitecture_X86:        return L"X86";
+        case ABI::Windows::System::ProcessorArchitecture_Arm:        return L"ARM";
+        case ABI::Windows::System::ProcessorArchitecture_X64:        return L"X64";
+        case ABI::Windows::System::ProcessorArchitecture_Neutral:    return L"Neutral";
+        case ABI::Windows::System::ProcessorArchitecture_Arm64:      return L"ARM64";
+        case ABI::Windows::System::ProcessorArchitecture_X86OnArm64: return L"x86 on ARM64 (CHPE)";
+        case ABI::Windows::System::ProcessorArchitecture_Unknown:    return L"Unknown";
+        default: return nullptr;
+    }
+}
+
+void PrintPackageValue(PCWSTR key, const ABI::Windows::System::ProcessorArchitecture value, HRESULT hr)
+{
+    if (FAILED(hr))
+    {
+        PrintPackageKeyValueError(key, hr);
+    }
+    else
+    {
+        PCWSTR architecture{ ToString(value) };
+        if (architecture)
+        {
+            wprintf(L"%-40ls : %ls\n", key, architecture);
+        }
+        else
+        {
+            wprintf(L"%-40ls : ??? (%d)\n", key, value);
+        }
+    }
+}
+
+constexpr PCWSTR ToString(const ABI::Windows::Management::Deployment::PackageTypes packageType)
+{
+    switch (packageType)
+    {
+        case ABI::Windows::Management::Deployment::PackageTypes_Framework: return L"Framework";
+        case ABI::Windows::Management::Deployment::PackageTypes_Resource:  return L"Resource";
+        case ABI::Windows::Management::Deployment::PackageTypes_Optional:  return L"Optional";
+        case ABI::Windows::Management::Deployment::PackageTypes_Bundle:    return L"Bundle";
+        case ABI::Windows::Management::Deployment::PackageTypes_Main:      return L"Main";
+        default: FAIL_FAST_HR_MSG(E_UNEXPECTED, "Unknown PackageType: %u", static_cast<std::uint32_t>(packageType));
+    }
+}
+
+void PrintPackageValue(PCWSTR key, const ABI::Windows::Management::Deployment::PackageTypes& value, HRESULT hr)
+{
+    if (FAILED(hr))
+    {
+        PrintPackageKeyValueError(key, hr);
+    }
+    else
+    {
+        PCWSTR packageType{ ToString(value) };
+        wprintf(L"%-40ls : %ls\n", key, packageType);
+    }
+}
+
+HRESULT ToPackageType(
+    PackageX& package,
+    ABI::Windows::Management::Deployment::PackageTypes& packageType)
+{
+    boolean value{};
+    RETURN_IF_FAILED(package->get_IsFramework(&value));
+    if (value)
+    {
+        packageType = ABI::Windows::Management::Deployment::PackageTypes_Framework;
+    }
+
+    RETURN_IF_FAILED(package.package2()->get_IsResourcePackage(&value));
+    if (value)
+    {
+        packageType = ABI::Windows::Management::Deployment::PackageTypes_Resource;
+    }
+
+    RETURN_IF_FAILED(package.package4()->get_IsOptional(&value));
+    if (value)
+    {
+        packageType = ABI::Windows::Management::Deployment::PackageTypes_Optional;
+    }
+
+    RETURN_IF_FAILED(package.package2()->get_IsBundle(&value));
+    if (value)
+    {
+        packageType = ABI::Windows::Management::Deployment::PackageTypes_Bundle;
+    }
+
+    packageType = ABI::Windows::Management::Deployment::PackageTypes_Main;
+    return S_OK;
+}
+
+enum class Status
+{
+    Unknown = -1,
+
+    Ok = 0,
+
+    NeedsRemediation     = 0x00010000,
+    DependencyIssue      = 0x00010001,
+    LicenseIssue         = 0x00010002,
+    Modified             = 0x00010004,
+    Tampered             = 0x00010008,
+
+    NotAvailable         = 0x00020000,
+    Disabled             = 0x00020001,
+    DataOffline          = 0x00020002,
+    PackageOffline       = 0x00020004,
+
+    Servicing            = 0x00040000,
+    DeploymentInProgress = 0x00040001,
+
+    IsPartiallyStaged    = 0x00100000,
+};
+DEFINE_ENUM_FLAG_OPERATORS(Status)
+
+void PrintPackageValue(PCWSTR key, wil::com_ptr_nothrow<ABI::Windows::ApplicationModel::IPackageStatus>& packageStatus, HRESULT hr)
+{
+    if (FAILED(hr))
+    {
+        PrintPackageKeyValueError(key, hr);
+    }
+    else
+    {
+        boolean value{};
+        if (FAILED_LOG(hr = packageStatus->VerifyIsOK(&value)))
+        {
+            PrintPackageKeyValueError(key, hr);
+        }
+        else if (value)
+        {
+            wprintf(L"%-40ls : OK\n", key);
+        }
+        else
+        {
+            Status status{ Status::Ok };
+            if (FAILED_LOG(hr = packageStatus->get_NeedsRemediation(&value)))
+            {
+                PrintPackageKeyValueError(key, hr);
+            }
+            if (value)
+            {
+                status |= Status::NeedsRemediation;
+                if (FAILED_LOG(hr = packageStatus->get_DependencyIssue(&value)))
+                {
+                    PrintPackageKeyValueError(key, hr);
+                }
+                status |= Status::DependencyIssue;
+                if (FAILED_LOG(hr = packageStatus->get_LicenseIssue(&value)))
+                {
+                    PrintPackageKeyValueError(key, hr);
+                }
+                status |= Status::LicenseIssue;
+                if (FAILED_LOG(hr = packageStatus->get_Modified(&value)))
+                {
+                    PrintPackageKeyValueError(key, hr);
+                }
+                status |= Status::Modified;
+                if (FAILED_LOG(hr = packageStatus->get_Tampered(&value)))
+                {
+                    PrintPackageKeyValueError(key, hr);
+                }
+                status |= Status::Tampered;
+            }
+
+            if (FAILED_LOG(hr = packageStatus->get_NotAvailable(&value)))
+            {
+                PrintPackageKeyValueError(key, hr);
+            }
+            if (value)
+            {
+                status |= Status::NotAvailable;
+                if (FAILED_LOG(hr = packageStatus->get_Disabled(&value)))
+                {
+                    PrintPackageKeyValueError(key, hr);
+                }
+                status |= Status::Disabled;
+                if (FAILED_LOG(hr = packageStatus->get_DataOffline(&value)))
+                {
+                    PrintPackageKeyValueError(key, hr);
+                }
+                status |= Status::DataOffline;
+                if (FAILED_LOG(hr = packageStatus->get_PackageOffline(&value)))
+                {
+                    PrintPackageKeyValueError(key, hr);
+                }
+                status |= Status::PackageOffline;
+            }
+
+            if (FAILED_LOG(hr = packageStatus->get_Servicing(&value)))
+            {
+                PrintPackageKeyValueError(key, hr);
+            }
+            if (value)
+            {
+                status |= Status::Servicing;
+                if (FAILED_LOG(hr = packageStatus->get_DeploymentInProgress(&value)))
+                {
+                    PrintPackageKeyValueError(key, hr);
+                }
+                status |= Status::DeploymentInProgress;
+            }
+
+            wil::com_ptr_nothrow<ABI::Windows::ApplicationModel::IPackageStatus2> packageStatus2;
+            if (FAILED_LOG(hr = packageStatus->QueryInterface(IID_PPV_ARGS(packageStatus2.put()))))
+            {
+                PrintPackageKeyValueError(key, hr);
+            }
+            if (FAILED_LOG(hr = packageStatus2->get_IsPartiallyStaged(&value)))
+            {
+                PrintPackageKeyValueError(key, hr);
+            }
+            status |= Status::IsPartiallyStaged;
+
+            wprintf(L"%-40ls :", key);
+
+            if (WI_IsFlagSet(status, Status::NeedsRemediation))
+            {
+                wprintf(L" NeedsRemediation[");
+                bool needDelimiter{};
+                if (WI_AreAllFlagsSet(status, Status::DependencyIssue))
+                {
+                    wprintf(L"DependencyIssue");
+                    needDelimiter = true;
+                }
+                if (WI_AreAllFlagsSet(status, Status::LicenseIssue))
+                {
+                    if (needDelimiter)
+                    {
+                        wprintf(L"','");
+                    }
+                    wprintf(L"LicenseIssue");
+                    needDelimiter = true;
+                }
+                if (WI_AreAllFlagsSet(status, Status::Modified))
+                {
+                    if (needDelimiter)
+                    {
+                        wprintf(L"','");
+                    }
+                    wprintf(L"Modified");
+                    needDelimiter = true;
+                }
+                if (WI_AreAllFlagsSet(status, Status::Tampered))
+                {
+                    if (needDelimiter)
+                    {
+                        wprintf(L"','");
+                    }
+                    wprintf(L"Tampered");
+                }
+                wprintf(L"]");
+            }
+
+            if (WI_IsFlagSet(status, Status::NotAvailable))
+            {
+                wprintf(L" NotAvailable[");
+                bool needDelimiter{};
+                if (WI_AreAllFlagsSet(status, Status::Disabled))
+                {
+                    wprintf(L"Disabled");
+                    needDelimiter = true;
+                }
+                if (WI_AreAllFlagsSet(status, Status::DataOffline))
+                {
+                    if (needDelimiter)
+                    {
+                        wprintf(L"','");
+                    }
+                    wprintf(L"DataOffline");
+                    needDelimiter = true;
+                }
+                if (WI_AreAllFlagsSet(status, Status::PackageOffline))
+                {
+                    if (needDelimiter)
+                    {
+                        wprintf(L"','");
+                    }
+                    wprintf(L"PackageOffline");
+                }
+                wprintf(L"]");
+            }
+
+            if (WI_IsFlagSet(status, Status::Servicing))
+            {
+                wprintf(L" Servicing[");
+                if (WI_AreAllFlagsSet(status, Status::DeploymentInProgress))
+                {
+                    wprintf(L"DeploymentInProgress");
+                }
+                wprintf(L"]");
+            }
+
+            if (WI_IsFlagSet(status, Status::IsPartiallyStaged))
+            {
+                wprintf(L" IsPartiallyStaged");
+            }
+        }
+    }
+}
+
+void PrintPackageValue(PCWSTR key, const boolean& value, HRESULT hr)
+{
+    if (FAILED(hr))
+    {
+        PrintPackageKeyValueError(key, hr);
+    }
+    else
+    {
+        wprintf(L"%-40ls : %ls\n", key, value ? L"Yes" : L"No");
+    }
+}
+
+void PrintPackage(
+    PackageX& package,
+    ABI::Windows::ApplicationModel::IPackageId* packageId)
+{
+    wil::unique_hstring string;
+    PrintPackageValue(L"PackageFullName", string, LOG_IF_FAILED(packageId->get_FullName(wil::out_param(string))));
+    PrintPackageValue(L"PackageFamilyName", string, LOG_IF_FAILED(packageId->get_FamilyName(wil::out_param(string))));
+    PrintPackageValue(L"Name", string, LOG_IF_FAILED(packageId->get_Name(wil::out_param(string))));
+    ABI::Windows::ApplicationModel::PackageVersion version{};
+    PrintPackageValue(L"Version", version, LOG_IF_FAILED(packageId->get_Version(&version)));
+    ABI::Windows::System::ProcessorArchitecture architecture{ ABI::Windows::System::ProcessorArchitecture_Unknown };
+    PrintPackageValue(L"Architecture", architecture, LOG_IF_FAILED(packageId->get_Architecture(&architecture)));
+    PrintPackageValue(L"ResourceId", string, LOG_IF_FAILED(packageId->get_ResourceId(wil::out_param(string))));
+    PrintPackageValue(L"Publisher", string, LOG_IF_FAILED(packageId->get_Publisher(wil::out_param(string))));
+    PrintPackageValue(L"PublisherId", string, LOG_IF_FAILED(packageId->get_PublisherId(wil::out_param(string))));
+
+    ABI::Windows::Management::Deployment::PackageTypes packageType{};
+    PrintPackageValue(L"PackageType", packageType, LOG_IF_FAILED(ToPackageType(package, packageType)));
+    wil::com_ptr_nothrow<ABI::Windows::ApplicationModel::IPackageStatus> status;
+    PrintPackageValue(L"Status", status, LOG_IF_FAILED(package.package3()->get_Status(status.put())));
+
+    PrintPackageValue(L"DisplayName", string, LOG_IF_FAILED(package.package2()->get_DisplayName(wil::out_param(string))));
+    PrintPackageValue(L"PublisherDisplayName", string, LOG_IF_FAILED(package.package2()->get_PublisherDisplayName(wil::out_param(string))));
+    PrintPackageValue(L"Description", string, LOG_IF_FAILED(package.package2()->get_Description(wil::out_param(string))));
+    PrintPackageValue(L"EffectivePath", string, LOG_IF_FAILED(package.package8()->get_EffectivePath(wil::out_param(string))));
+    PrintPackageValue(L"EffectiveExternalPath", string, LOG_IF_FAILED(package.package8()->get_EffectiveExternalPath(wil::out_param(string))));
+    PrintPackageValue(L"InstalledPath", string, LOG_IF_FAILED(package.package8()->get_InstalledPath(wil::out_param(string))));
+    PrintPackageValue(L"MutablePath", string, LOG_IF_FAILED(package.package8()->get_MutablePath(wil::out_param(string))));
+    PrintPackageValue(L"MachineExternalPath", string, LOG_IF_FAILED(package.package8()->get_MachineExternalPath(wil::out_param(string))));
+    PrintPackageValue(L"UserExternalPath", string, LOG_IF_FAILED(package.package8()->get_UserExternalPath(wil::out_param(string))));
+    //TODO PrintPackageValue(L"InstalledDate
+    //TODO PrintPackageValue(L"Dependencies
+    boolean boolean{};
+    PrintPackageValue(L"IsDevelopmentMode", boolean, LOG_IF_FAILED(package.package2()->get_IsDevelopmentMode(&boolean)));
+    //TODO PrintPackageValue(L"IsSigned
+    //TODO PrintPackageValue(L"SignatureKind
+    //TODO PrintPackageValue(L"PackageOrigin
+    PrintPackageValue(L"IsStub", boolean, LOG_IF_FAILED(package.package8()->get_IsStub(&boolean)));
+    PrintPackageValue(L"SourceUriSchemeName", string, LOG_IF_FAILED(package.package9()->get_SourceUriSchemeName(wil::out_param(string))));
+}
+
 HRESULT ShowLogo()
 {
     std::uint16_t major{};
@@ -66,259 +512,232 @@ HRESULT ShowLogo()
     return S_OK;
 }
 
-[[noreturn]] void Help()
+[[noreturn]] void Help(PCWSTR help = nullptr)
 {
     ShowLogo();
-    wprintf(L"Usage:\n"
-            L"  msixadmin <command> [arguments]\n"
-            L"\n"
-            L"Commands:\n"
-            L"  certificate  Certificate management\n"
-            L"  provision    Provision management\n"
-            L"  shortcut     Shortcut operations\n"
-            L"  tool         Install or manage tools that extend the MSIX experience\n"
-            L"  version      Display version\n"
-            L"\n"
-            L"Run 'MSIXAdmin [command] --help' for more information on a command\n");
+    if (help)
+    {
+        wprintf(help);
+    }
+    else
+    {
+        wprintf(L"Usage:\n"
+                L"  msixadmin <command> [arguments]\n"
+                L"\n"
+                L"Commands:\n"
+                L"  certificate  Certificate management\n"
+                L"  provision    Provision management\n"
+                L"  shortcut     Shortcut operations\n"
+                L"  tool         Install or manage tools that extend the MSIX experience\n"
+                L"  version      Display version\n"
+                L"\n"
+                L"Run 'MSIXAdmin [command] --help' for more information on a command\n");
+    }
     ::ExitProcess(1);
 }
 
-[[noreturn]] void Command_Certificate_Help()
-{
-    ShowLogo();
-    wprintf(L"Description:\n"
-            L"  MSIX Certificate Management\n"
-            L"\n"
-            L"Usage:\n"
-            L"  msixadmin certificate [command] [options]\n"
-            L"\n"
-            L"Options:\n"
-            L"  -nologo, --no-logo  Do not display startup banner or copyright message\n"
-            L"  -?, -h, --help      Show command line help\n"
-            L"\n"
-            L"Commands:\n"
-            L"  add <FILE>      Add the certificate from the signed package file\n"
-            L"  exists <FILE*>  Check if the certificate from the signed package file exists\n"
-            L"  list <FILE>     List the certificate from the signed package file\n"
-            L"  remove <FILE*>  Remove the certificate per the signed package file\n"
-            L"\n"
-            L"NOTE: <FILE*> can be '0x<HEX>' to specify a certificate by its SHA-256 thumbprint\n");
-    ::ExitProcess(1);
-}
+constexpr PCWSTR help_Command_Certificate{
+    L"Description:\n"
+    L"  MSIX Certificate Management\n"
+    L"\n"
+    L"Usage:\n"
+    L"  msixadmin certificate [command] [options]\n"
+    L"\n"
+    L"Options:\n"
+    L"  -nologo, --no-logo  Do not display startup banner or copyright message\n"
+    L"  -?, -h, --help      Show command line help\n"
+    L"\n"
+    L"Commands:\n"
+    L"  add <FILE>      Add the certificate from the signed package file\n"
+    L"  exists <FILE*>  Check if the certificate from the signed package file exists\n"
+    L"  list <FILE>     List the certificate from the signed package file\n"
+    L"  remove <FILE*>  Remove the certificate per the signed package file\n"
+    L"\n"
+    L"NOTE: <FILE*> can be '0x<HEX>' to specify a certificate by its SHA-256 thumbprint\n"
+};
 
-[[noreturn]] void Command_Provision_Help()
-{
-    ShowLogo();
-    wprintf(L"Description:\n"
-            L"  View or modify the provisioned list\n"
-            L"\n"
-            L"Usage:\n"
-            L"  msixadmin provision <command> [options]\n"
-            L"\n"
-            L"Options:\n"
-            L"  -nologo, --no-logo    Do not display startup banner or copyright message\n"
-            L"  -?, -h, --help        Show command line help\n"
-            L"\n"
-            L"Commands:\n"
-            L"  add <PACKAGEFAMILYNAME>     Add a package family to the provisioning list\n"
-            L"  list                        Display the currently provisioned package families\n"
-            L"  remove <PACKAGEFAMILYNAME>  Remove a package family from the provisioning list\n");
-    ::ExitProcess(1);
-}
+constexpr PCWSTR help_Command_Provision{
+    L"Description:\n"
+    L"  View or modify the provisioned list\n"
+    L"\n"
+    L"Usage:\n"
+    L"  msixadmin provision <command> [options]\n"
+    L"\n"
+    L"Options:\n"
+    L"  -nologo, --no-logo    Do not display startup banner or copyright message\n"
+    L"  -?, -h, --help        Show command line help\n"
+    L"\n"
+    L"Commands:\n"
+    L"  add <PACKAGEFAMILYNAME>     Add a package family to the provisioning list\n"
+    L"  list                        Display the currently provisioned package families\n"
+    L"  remove <PACKAGEFAMILYNAME>  Remove a package family from the provisioning list\n"
+};
 
-[[noreturn]] void Command_Provision_Add_Help()
-{
-    ShowLogo();
-    wprintf(L"Description:\n"
-            L"  Add a package family to the provisioning list\n"
-            L"\n"
-            L"Usage:\n"
-            L"  msixadmin provision add <PACKAGEFAMILYNAME> [options]\n"
-            L"\n"
-            L"Options:\n"
-            L"  --defer-registration  Defer automatic registration\n"
-            L"  -nologo, --no-logo    Do not display startup banner or copyright message\n"
-            L"  -?, -h, --help        Show command line help\n");
-    ::ExitProcess(1);
-}
+constexpr PCWSTR help_Command_Provision_Add{
+    L"Description:\n"
+    L"  Add a package family to the provisioning list\n"
+    L"\n"
+    L"Usage:\n"
+    L"  msixadmin provision add <PACKAGEFAMILYNAME> [options]\n"
+    L"\n"
+    L"Options:\n"
+    L"  --defer-registration  Defer automatic registration\n"
+    L"  -nologo, --no-logo    Do not display startup banner or copyright message\n"
+    L"  -?, -h, --help        Show command line help\n"
+};
 
-[[noreturn]] void Command_Provision_List_Help()
-{
-    ShowLogo();
-    wprintf(L"Description:\n"
-            L"  Display the currently provisioned package families\n"
-            L"\n"
-            L"Usage:\n"
-            L"  msixadmin provision list [options]\n"
-            L"\n"
-            L"Options:\n"
-            L"  --glob=<PATTERN>      Display package families matching PATTERN (*,? wildcards)\n"
-            L"  --no-summary          Do not display summary information\n"
-            L"  -nologo, --no-logo    Do not display startup banner or copyright message\n"
-            L"  -?, -h, --help        Show command line help\n");
-    ::ExitProcess(1);
-}
+constexpr PCWSTR help_Command_Provision_List{
+    L"Description:\n"
+    L"  Display the currently provisioned package families\n"
+    L"\n"
+    L"Usage:\n"
+    L"  msixadmin provision list [options]\n"
+    L"\n"
+    L"Options:\n"
+    L"  --format=<FORMAT>     Display package format (default=packagefamilyname)\n"
+    L"  --glob=<PATTERN>      Display package families matching PATTERN (*,? wildcards)\n"
+    L"  --no-summary          Do not display summary information\n"
+    L"  -nologo, --no-logo    Do not display startup banner or copyright message\n"
+    L"  -?, -h, --help        Show command line help\n"
+    L""
+    L"FORMAT Values:\n"
+    L"  full                  Display the full package information\n"
+    L"  packagefamilyname     Display the package family name\n"
+};
 
-[[noreturn]] void Command_Provision_Remove_Help()
-{
-    ShowLogo();
-    wprintf(L"Description:\n"
-            L"  Remove a package family from the provisioning list\n"
-            L"\n"
-            L"Usage:\n"
-            L"  msixadmin provision remove <PACKAGEFAMILYNAME> [options]\n"
-            L"\n"
-            L"Options:\n"
-            L"  -nologo, --no-logo    Do not display startup banner or copyright message\n"
-            L"  -?, -h, --help        Show command line help\n");
-    ::ExitProcess(1);
-}
+constexpr PCWSTR help_Command_Provision_Remove{
+    L"Description:\n"
+    L"  Remove a package family from the provisioning list\n"
+    L"\n"
+    L"Usage:\n"
+    L"  msixadmin provision remove <PACKAGEFAMILYNAME> [options]\n"
+    L"\n"
+    L"Options:\n"
+    L"  -nologo, --no-logo    Do not display startup banner or copyright message\n"
+    L"  -?, -h, --help        Show command line help\n"
+};
 
-[[noreturn]] void Command_Shortcut_Add_Help()
-{
-    ShowLogo();
-    wprintf(L"Description:\n"
-            L"  Create a shortcut (.LNK file) to run a target command\n"
-            L"\n"
-            L"Usage:\n"
-            L"  msixadmin shortcut add <FILE> <TARGET> [options]\n"
-            L"\n"
-            L"Arguments:\n"
-            L"  <FILE>    The shortcut file (*.url for an Internet shortcut)\n"
-            L"  <TARGET>  The target of the shortcut (file, appUserModelID or URL)\n"
-            L"\n"
-            L"Options:\n"
-            L"  --arguments=<ARGUMENTS>      Set the arguments\n"
-            L"  --description=<DESCRIPTION>  Set the description\n"
-            L"  --icon=<FILE>[,INDEX]        Set the icon (INDEX default = 0)\n"
-            L"  --run-as-administrator       Run as administrator\n"
-            L"  --show=<normal|min|max>      Set the initial window show state\n"
-            L"  --target=<app|file|url>      TARGET is an application (ApplicationUserModelID), file or URL\n"
-            L"  --working-directory=<PATH>   Set the working directory\n"
-            L"  -nologo, --no-logo           Do not display startup banner or copyright message\n"
-            L"  -?, -h, --help               Show command line help\n"
-            L"\n"
-            L"NOTE: URLs only support the --icon\n");
-    ::ExitProcess(1);
-}
+constexpr PCWSTR help_Command_Shortcut_Add{
+    L"Description:\n"
+    L"  Create a shortcut (.LNK file) to run a target command\n"
+    L"\n"
+    L"Usage:\n"
+    L"  msixadmin shortcut add <FILE> <TARGET> [options]\n"
+    L"\n"
+    L"Arguments:\n"
+    L"  <FILE>    The shortcut file (*.url for an Internet shortcut)\n"
+    L"  <TARGET>  The target of the shortcut (file, appUserModelID or URL)\n"
+    L"\n"
+    L"Options:\n"
+    L"  --arguments=<ARGUMENTS>      Set the arguments\n"
+    L"  --description=<DESCRIPTION>  Set the description\n"
+    L"  --icon=<FILE>[,INDEX]        Set the icon (INDEX default = 0)\n"
+    L"  --run-as-administrator       Run as administrator\n"
+    L"  --show=<normal|min|max>      Set the initial window show state\n"
+    L"  --target=<app|file|url>      TARGET is an application (ApplicationUserModelID), file or URL\n"
+    L"  --working-directory=<PATH>   Set the working directory\n"
+    L"  -nologo, --no-logo           Do not display startup banner or copyright message\n"
+    L"  -?, -h, --help               Show command line help\n"
+    L"\n"
+    L"NOTE: URLs only support the --icon\n"
+};
 
-[[noreturn]] void Command_Shortcut_Help()
-{
-    ShowLogo();
-    wprintf(L"Description:\n"
-            L"  Manage Shortcut\n"
-            L"\n"
-            L"Usage:\n"
-            L"  msixadmin shortcut <command> [options]\n"
-            L"\n"
-            L"Options:\n"
-            L"  -nologo, --no-logo    Do not display startup banner or copyright message\n"
-            L"  -?, -h, --help        Show command line help\n"
-            L"\n"
-            L"Commands:\n"
-            L"  add  Create a shortcut (.LNK file)\n");
-    ::ExitProcess(1);
-}
+constexpr PCWSTR help_Command_Shortcut{
+    L"Description:\n"
+    L"  Manage Shortcut\n"
+    L"\n"
+    L"Usage:\n"
+    L"  msixadmin shortcut <command> [options]\n"
+    L"\n"
+    L"Options:\n"
+    L"  -nologo, --no-logo    Do not display startup banner or copyright message\n"
+    L"  -?, -h, --help        Show command line help\n"
+    L"\n"
+    L"Commands:\n"
+    L"  add  Create a shortcut (.LNK file)\n"
+};
 
-[[noreturn]] void Command_Tool_Help()
-{
-    ShowLogo();
-    wprintf(L"Description:\n"
-            L"  Install or manage tools that extend the MSIX experience\n"
-            L"\n"
-            L"Usage:\n"
-            L"  msixadmin tool <command> [options]\n"
-            L"\n"
-            L"Options:\n"
-            L"  -nologo, --no-logo    Do not display startup banner or copyright message\n"
-            L"  -?, -h, --help        Show command line help\n"
-            L"\n"
-            L"Commands:\n"
-            L"  propertysheet  Manage the MSIX property sheet extension\n");
-    ::ExitProcess(1);
-}
+constexpr PCWSTR help_Command_Tool{
+    L"Description:\n"
+    L"  Install or manage tools that extend the MSIX experience\n"
+    L"\n"
+    L"Usage:\n"
+    L"  msixadmin tool <command> [options]\n"
+    L"\n"
+    L"Options:\n"
+    L"  -nologo, --no-logo    Do not display startup banner or copyright message\n"
+    L"  -?, -h, --help        Show command line help\n"
+    L"\n"
+    L"Commands:\n"
+    L"  propertysheet  Manage the MSIX property sheet extension\n"
+};
 
-[[noreturn]] void Command_Tool_PropertySheet_Help()
-{
-    ShowLogo();
-    wprintf(L"Description:\n"
-            L"  Manage the MSIX property sheet extension\n"
-            L"\n"
-            L"Usage:\n"
-            L"  msixadmin tool propertysheet <command> [options]\n"
-            L"\n"
-            L"Options:\n"
-            L"  -nologo, --no-logo    Do not display startup banner or copyright message\n"
-            L"  -?, -h, --help        Show command line help\n"
-            L"\n"
-            L"Commands:\n"
-            L"  install    Install the MSIX property sheet extension\n"
-            L"  list       Display the currently installed MSIX property sheet extension\n"
-            L"  uninstall  Uninstall the MSIX property sheet extension\n");
-    ::ExitProcess(1);
-}
+constexpr PCWSTR help_Command_Tool_PropertySheet{
+    L"Description:\n"
+    L"  Manage the MSIX property sheet extension\n"
+    L"\n"
+    L"Usage:\n"
+    L"  msixadmin tool propertysheet <command> [options]\n"
+    L"\n"
+    L"Options:\n"
+    L"  -nologo, --no-logo    Do not display startup banner or copyright message\n"
+    L"  -?, -h, --help        Show command line help\n"
+    L"\n"
+    L"Commands:\n"
+    L"  install    Install the MSIX property sheet extension\n"
+    L"  list       Display the currently installed MSIX property sheet extension\n"
+    L"  uninstall  Uninstall the MSIX property sheet extension\n"
+};
 
-[[noreturn]] void Command_Tool_PropertySheet_Install_Help()
-{
-    ShowLogo();
-    wprintf(L"Description:\n"
-            L"  Install the MSIX property sheet extension\n"
-            L"\n"
-            L"Usage:\n"
-            L"  msixadmin tool propertysheet install [options]\n"
-            L"\n"
-            L"Options:\n"
-            L"  --path=<FILE>         The path to the MSIX property sheet DLL (default = GetPath(msixadmin.exe) + \\MSIXPropertySheet.dll)\n"
-            L"  -nologo, --no-logo    Do not display startup banner or copyright message\n"
-            L"  -?, -h, --help        Show command line help\n");
-    ::ExitProcess(1);
-}
+constexpr PCWSTR help_Command_Tool_PropertySheet_Install{
+    L"Description:\n"
+    L"  Install the MSIX property sheet extension\n"
+    L"\n"
+    L"Usage:\n"
+    L"  msixadmin tool propertysheet install [options]\n"
+    L"\n"
+    L"Options:\n"
+    L"  --path=<FILE>         The path to the MSIX property sheet DLL (default = GetPath(msixadmin.exe) + \\MSIXPropertySheet.dll)\n"
+    L"  -nologo, --no-logo    Do not display startup banner or copyright message\n"
+    L"  -?, -h, --help        Show command line help\n"
+};
 
-[[noreturn]] void Command_Tool_PropertySheet_List_Help()
-{
-    ShowLogo();
-    wprintf(L"Description:\n"
-            L"  Display the installed MSIX property sheet extension\n"
-            L"\n"
-            L"Usage:\n"
-            L"  msixadmin tool propertysheet list [options]\n"
-            L"\n"
-            L"Options:\n"
-            L"  -nologo, --no-logo    Do not display startup banner or copyright message\n"
-            L"  -?, -h, --help        Show command line help\n");
-    ::ExitProcess(1);
-}
+constexpr PCWSTR help_Command_Tool_PropertySheet_List{
+    L"Description:\n"
+    L"  Display the installed MSIX property sheet extension\n"
+    L"\n"
+    L"Usage:\n"
+    L"  msixadmin tool propertysheet list [options]\n"
+    L"\n"
+    L"Options:\n"
+    L"  -nologo, --no-logo    Do not display startup banner or copyright message\n"
+    L"  -?, -h, --help        Show command line help\n"
+};
 
-[[noreturn]] void Command_Tool_PropertySheet_Uninstall_Help()
-{
-    ShowLogo();
-    wprintf(L"Description:\n"
-            L"  Uninstall the MSIX property sheet extension\n"
-            L"\n"
-            L"Usage:\n"
-            L"  msixadmin tool propertysheet uninstall [options]\n"
-            L"\n"
-            L"Options:\n"
-            L"  --path=<FILE>         The path to the MSIX property sheet DLL (default = GetPath(msixadmin.exe) + \\MSIXPropertySheet.dll)\n"
-            L"  -nologo, --no-logo    Do not display startup banner or copyright message\n"
-            L"  -?, -h, --help        Show command line help\n");
-    ::ExitProcess(1);
-}
+constexpr PCWSTR help_Command_Tool_PropertySheet_Uninstall{
+    L"Description:\n"
+    L"  Uninstall the MSIX property sheet extension\n"
+    L"\n"
+    L"Usage:\n"
+    L"  msixadmin tool propertysheet uninstall [options]\n"
+    L"\n"
+    L"Options:\n"
+    L"  --path=<FILE>         The path to the MSIX property sheet DLL (default = GetPath(msixadmin.exe) + \\MSIXPropertySheet.dll)\n"
+    L"  -nologo, --no-logo    Do not display startup banner or copyright message\n"
+    L"  -?, -h, --help        Show command line help\n"
+};
 
-[[noreturn]] void Command_Version_Help()
-{
-    ShowLogo();
-    wprintf(L"Description:\n"
-            L"  Version information\n"
-            L"\n"
-            L"Usage:\n"
-            L"  msixadmin version [options]\n"
-            L"\n"
-            L"Options:\n"
-            L"  -nologo, --no-logo  Do not display startup banner or copyright message\n"
-            L"  -?, -h, --help      Show command line help\n");
-    ::ExitProcess(1);
-}
+constexpr PCWSTR help_Command_Version{
+    L"Description:\n"
+    L"  Version information\n"
+    L"\n"
+    L"Usage:\n"
+    L"  msixadmin version [options]\n"
+    L"\n"
+    L"Options:\n"
+    L"  -nologo, --no-logo  Do not display startup banner or copyright message\n"
+    L"  -?, -h, --help      Show command line help\n"
+};
 
 HRESULT Command_Certificate_Add(PCWSTR filename)
 {
@@ -583,7 +1002,7 @@ HRESULT Command_Certificate(int argc, wchar_t* argv[])
 {
     if (argc < 4)
     {
-        Command_Certificate_Help();
+        Help(help_Command_Certificate);
     }
 
     PCWSTR action{ argv[2] };
@@ -606,7 +1025,7 @@ HRESULT Command_Certificate(int argc, wchar_t* argv[])
             (CompareStringOrdinal(arg, -1, L"-h", -1, FALSE) == CSTR_EQUAL) ||
             (CompareStringOrdinal(arg, -1, L"--help", -1, FALSE) == CSTR_EQUAL))
         {
-            Command_Certificate_Help();
+            Help(help_Command_Certificate);
         }
         else if ((CompareStringOrdinal(arg, -1, L"-nologo", -1, FALSE) == CSTR_EQUAL) ||
                  (CompareStringOrdinal(arg, -1, L"--no-logo", -1, FALSE) == CSTR_EQUAL))
@@ -656,7 +1075,7 @@ HRESULT Command_Provision_Add(int argc, wchar_t* argv[])
 {
     if (argc < 4)
     {
-        Command_Provision_Add_Help();
+        Help(help_Command_Provision_Add);
     }
 
     PCWSTR packageFamilyName{ argv[3] };
@@ -672,7 +1091,7 @@ HRESULT Command_Provision_Add(int argc, wchar_t* argv[])
             (CompareStringOrdinal(arg, -1, L"-h", -1, FALSE) == CSTR_EQUAL) ||
             (CompareStringOrdinal(arg, -1, L"--help", -1, FALSE) == CSTR_EQUAL))
         {
-            Command_Provision_Add_Help();
+            Help(help_Command_Provision_Add);
         }
         else if (CompareStringOrdinal(arg, -1, L"--defer-registration", -1, FALSE) == CSTR_EQUAL)
         {
@@ -762,9 +1181,12 @@ HRESULT Command_Provision_Add(int argc, wchar_t* argv[])
 
 HRESULT Command_Provision_List(int argc, wchar_t* argv[])
 {
+    enum class PackageDisplayFormat { PackageFamilyName = 0, Full = 1 };
+
     bool logo{ true };
     PCWSTR glob{};
     bool summary{ true };
+    PackageDisplayFormat format{};
 
     int argn{ 3 };
     for (; argn < argc; ++argn)
@@ -774,7 +1196,15 @@ HRESULT Command_Provision_List(int argc, wchar_t* argv[])
             (CompareStringOrdinal(arg, -1, L"-h", -1, FALSE) == CSTR_EQUAL) ||
             (CompareStringOrdinal(arg, -1, L"--help", -1, FALSE) == CSTR_EQUAL))
         {
-            Command_Provision_List_Help();
+            Help(help_Command_Provision_List);
+        }
+        else if (CompareStringOrdinal(arg, -1, L"--format=full", -1, FALSE) == CSTR_EQUAL)
+        {
+            format = PackageDisplayFormat::Full;
+        }
+        else if (CompareStringOrdinal(arg, -1, L"--format=packagefamilyname", -1, FALSE) == CSTR_EQUAL)
+        {
+            format = PackageDisplayFormat::PackageFamilyName;
         }
         else if (wil::string_starts_with(arg, L"--glob="))
         {
@@ -833,22 +1263,28 @@ HRESULT Command_Provision_List(int argc, wchar_t* argv[])
         PCWSTR familyName{ WindowsGetStringRawBuffer(packageFamilyName.get(), nullptr) };
         if (glob)
         {
-            // PathMatchSpecEx() isn't technically GLOB, but given PackageFamilyName
-            // content restrictions its wildcard matching fits the data correctly.
-            // We'll use our poor-man's GLOB, as the alternatives (std::regex, VBScript.RegExp, etc)
-            // require C++ Exceptions or heavyweight dependencies.
-            //
-            // @see https://learn.microsoft.com/windows/apps/desktop/modernize/package-identity-overview#package-identity-fields-limits
-            // @see https://learn.microsoft.com/windows/win32/api/shlwapi/nf-shlwapi-pathmatchspecexw
-            const HRESULT hr{ ::PathMatchSpecEx(familyName, glob, 0) };
-            RETURN_IF_FAILED_MSG(hr, "PackageFamilyName=%ls --glob=%ls", familyName, glob);
-            if (hr == S_FALSE)
+            bool match{};
+            RETURN_IF_FAILED(wil::glob(familyName, glob, match));
+            if (!match)
             {
                 continue;
             }
         }
+
         ++countDisplayed;
-        wprintf(L"%ls\n", familyName);
+
+        if (format == PackageDisplayFormat::Full)
+        {
+            wprintf(L"#%u\n", countDisplayed);
+            PackageX packageX;
+            RETURN_IF_FAILED(PackageX::Make(package.get(), packageX));
+            PrintPackage(packageX, packageId.get());
+            wprintf(L"\n");
+        }
+        else
+        {
+            wprintf(L"%ls\n", familyName);
+        }
     }
 
     if (summary)
@@ -864,7 +1300,7 @@ HRESULT Command_Provision_Remove(int argc, wchar_t* argv[])
 {
     if (argc < 4)
     {
-        Command_Provision_Remove_Help();
+        Help(help_Command_Provision_Remove);
     }
 
     PCWSTR packageFamilyName{ argv[3] };
@@ -879,7 +1315,7 @@ HRESULT Command_Provision_Remove(int argc, wchar_t* argv[])
             (CompareStringOrdinal(arg, -1, L"-h", -1, FALSE) == CSTR_EQUAL) ||
             (CompareStringOrdinal(arg, -1, L"--help", -1, FALSE) == CSTR_EQUAL))
         {
-            Command_Provision_Remove_Help();
+            Help(help_Command_Provision_Remove);
         }
         else if ((CompareStringOrdinal(arg, -1, L"-nologo", -1, FALSE) == CSTR_EQUAL) ||
                  (CompareStringOrdinal(arg, -1, L"--no-logo", -1, FALSE) == CSTR_EQUAL))
@@ -933,7 +1369,7 @@ HRESULT Command_Provision(int argc, wchar_t* argv[])
 {
     if (argc < 3)
     {
-        Command_Provision_Help();
+        Help(help_Command_Provision);
     }
 
     PCWSTR command{ argv[2] };
@@ -951,7 +1387,7 @@ HRESULT Command_Provision(int argc, wchar_t* argv[])
     }
     else
     {
-        Command_Provision_Help();
+        Help(help_Command_Provision);
     }
     return S_OK;
 }
@@ -969,7 +1405,7 @@ HRESULT Command_Shortcut_Add(int argc, wchar_t* argv[])
 {
     if (argc < 5)
     {
-        Command_Shortcut_Add_Help();
+        Help(help_Command_Shortcut_Add);
     }
 
     bool logo{ true };
@@ -994,7 +1430,7 @@ HRESULT Command_Shortcut_Add(int argc, wchar_t* argv[])
             (CompareStringOrdinal(arg, -1, L"-h", -1, FALSE) == CSTR_EQUAL) ||
             (CompareStringOrdinal(arg, -1, L"--help", -1, FALSE) == CSTR_EQUAL))
         {
-            Command_Provision_Add_Help();
+            Help(help_Command_Provision_Add);
         }
         else if (wil::string_starts_with(arg, L"--arguments="))
         {
@@ -1098,7 +1534,7 @@ HRESULT Command_Shortcut_Add(int argc, wchar_t* argv[])
     {
         if (arguments || description || runAsAdministrator || showCommand || workingDirectory)
         {
-            Command_Shortcut_Add_Help();
+            Help(help_Command_Shortcut_Add);
         }
     }
 
@@ -1221,7 +1657,7 @@ HRESULT Command_Shortcut(int argc, wchar_t* argv[])
 {
     if (argc < 3)
     {
-        Command_Shortcut_Help();
+        Help(help_Command_Shortcut);
     }
 
     PCWSTR command{ argv[2] };
@@ -1231,7 +1667,7 @@ HRESULT Command_Shortcut(int argc, wchar_t* argv[])
     }
     else
     {
-        Command_Shortcut_Help();
+        Help(help_Command_Shortcut);
     }
     return S_OK;
 }
@@ -1240,7 +1676,7 @@ HRESULT Command_Tool_PropertySheet_Install(int argc, wchar_t* argv[])
 {
     if (argc < 4)
     {
-        Command_Tool_PropertySheet_Install_Help();
+        Help(help_Command_Tool_PropertySheet_Install);
     }
 
     bool logo{ true };
@@ -1254,7 +1690,7 @@ HRESULT Command_Tool_PropertySheet_Install(int argc, wchar_t* argv[])
             (CompareStringOrdinal(arg, -1, L"-h", -1, FALSE) == CSTR_EQUAL) ||
             (CompareStringOrdinal(arg, -1, L"--help", -1, FALSE) == CSTR_EQUAL))
         {
-            Command_Provision_Add_Help();
+            Help(help_Command_Provision_Add);
         }
         else if (wil::string_starts_with(arg, L"--path="))
         {
@@ -1307,7 +1743,7 @@ HRESULT Command_Tool_PropertySheet_List(int argc, wchar_t* argv[])
 {
     if (argc < 4)
     {
-        Command_Tool_PropertySheet_List_Help();
+        Help(help_Command_Tool_PropertySheet_List);
     }
 
     bool logo{ true };
@@ -1320,7 +1756,7 @@ HRESULT Command_Tool_PropertySheet_List(int argc, wchar_t* argv[])
             (CompareStringOrdinal(arg, -1, L"-h", -1, FALSE) == CSTR_EQUAL) ||
             (CompareStringOrdinal(arg, -1, L"--help", -1, FALSE) == CSTR_EQUAL))
         {
-            Command_Provision_Add_Help();
+            Help(help_Command_Provision_Add);
         }
         else if ((CompareStringOrdinal(arg, -1, L"-nologo", -1, FALSE) == CSTR_EQUAL) ||
                  (CompareStringOrdinal(arg, -1, L"--no-logo", -1, FALSE) == CSTR_EQUAL))
@@ -1395,7 +1831,7 @@ HRESULT Command_Tool_PropertySheet_Uninstall(int argc, wchar_t* argv[])
 {
     if (argc < 4)
     {
-        Command_Tool_PropertySheet_Uninstall_Help();
+        Help(help_Command_Tool_PropertySheet_Uninstall);
     }
 
     bool logo{ true };
@@ -1409,7 +1845,7 @@ HRESULT Command_Tool_PropertySheet_Uninstall(int argc, wchar_t* argv[])
             (CompareStringOrdinal(arg, -1, L"-h", -1, FALSE) == CSTR_EQUAL) ||
             (CompareStringOrdinal(arg, -1, L"--help", -1, FALSE) == CSTR_EQUAL))
         {
-            Command_Provision_Add_Help();
+            Help(help_Command_Provision_Add);
         }
         else if (wil::string_starts_with(arg, L"--path="))
         {
@@ -1462,7 +1898,7 @@ HRESULT Command_Tool_PropertySheet(int argc, wchar_t* argv[])
 {
     if (argc < 4)
     {
-        Command_Tool_PropertySheet_Help();
+        Help(help_Command_Tool_PropertySheet);
     }
 
     PCWSTR command{ argv[3] };
@@ -1480,7 +1916,7 @@ HRESULT Command_Tool_PropertySheet(int argc, wchar_t* argv[])
     }
     else
     {
-        Command_Tool_PropertySheet_Help();
+        Help(help_Command_Tool_PropertySheet);
     }
     return S_OK;
 }
@@ -1489,7 +1925,7 @@ HRESULT Command_Tool(int argc, wchar_t* argv[])
 {
     if (argc < 3)
     {
-        Command_Tool_Help();
+        Help(help_Command_Tool);
     }
 
     PCWSTR command{ argv[2] };
@@ -1499,7 +1935,7 @@ HRESULT Command_Tool(int argc, wchar_t* argv[])
     }
     else
     {
-        Command_Tool_Help();
+        Help(help_Command_Tool);
     }
     return S_OK;
 }
@@ -1508,7 +1944,7 @@ HRESULT Command_Version(int argc, wchar_t* argv[])
 {
     if (argc < 2)
     {
-        Command_Version_Help();
+        Help(help_Command_Version);
     }
 
     bool logo{ true };
@@ -1521,7 +1957,7 @@ HRESULT Command_Version(int argc, wchar_t* argv[])
             (CompareStringOrdinal(arg, -1, L"-h", -1, FALSE) == CSTR_EQUAL) ||
             (CompareStringOrdinal(arg, -1, L"--help", -1, FALSE) == CSTR_EQUAL))
         {
-            Command_Version_Help();
+            Help(help_Command_Version);
         }
         else if ((CompareStringOrdinal(arg, -1, L"-nologo", -1, FALSE) == CSTR_EQUAL) ||
                  (CompareStringOrdinal(arg, -1, L"--no-logo", -1, FALSE) == CSTR_EQUAL))
