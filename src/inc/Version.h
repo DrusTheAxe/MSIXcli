@@ -1,0 +1,91 @@
+// Copyright (c) Howard Kapustein
+// Licensed under the MIT License. See LICENSE in the project root for license information.
+
+#define MSIXCLI_RELEASE_MAJOR   0
+#define MSIXCLI_RELEASE_MINOR   9
+#define MSIXCLI_RELEASE_PATCH   0
+
+#define STR1(x) #x
+#define DELIM STR1(.)
+#define STR3(a,b,c)     STR1(a) DELIM STR1(b) DELIM STR1(c)
+
+#ifndef MSIXCLI_RELEASE_MAJOR
+#define MSIXCLI_RELEASE_MAJOR   0
+#endif
+
+#ifndef MSIXCLI_RELEASE_MINOR
+#define MSIXCLI_RELEASE_MINOR   0
+#endif
+
+#ifndef MSIXCLI_RELEASE_PATCH
+#define MSIXCLI_RELEASE_PATCH   0
+#endif
+
+#ifndef MSIXCLI_FILENAME
+#error "MSIXCLI_FILENAME not defined"
+#endif
+#ifndef MSIXCLI_PRODUCT_NAME
+#error "MSIXCLI_PRODUCT_NAME not defined"
+#endif
+
+#define MSIXCLI_COMPANY_NAME              "Howard Kapustein"
+#define MSIXCLI_LEGAL_COPYRIGHT           "Copyright (c) Howard Kapustein. Licensed under the MIT License. See LICENSE for license information."
+#define MSIXCLI_PRODUCT_VERSION           MSIXCLI_RELEASE_MAJOR, MSIXCLI_RELEASE_MINOR, MSIXCLI_RELEASE_PATCH
+#define MSIXCLI_PRODUCT_VERSION_STRING    STR3(MSIXCLI_RELEASE_MAJOR, MSIXCLI_RELEASE_MINOR, MSIXCLI_RELEASE_PATCH)
+
+#if defined(RC_INVOKED)
+
+#ifndef VERSIONINFO_FILEVERSION
+#define VERSIONINFO_FILEVERSION MSIXCLI_PRODUCT_VERSION
+#endif
+
+#ifndef VERSIONINFO_FILEVERSION_STRING
+#define VERSIONINFO_FILEVERSION_STRING  MSIXCLI_PRODUCT_VERSION_STRING
+#endif
+
+#ifndef VERSIONINFO_FILETYPE
+#define VERSIONINFO_FILETYPE  VFT_APP
+#endif
+
+#ifndef VERSIONINFO_FILEFLAGS
+#ifdef _DEBUG
+#define VERSIONINFO_FILEFLAGS VS_FF_DEBUG
+#else
+#define VERSIONINFO_FILEFLAGS 0
+#endif
+#endif
+
+// Define the version info resource
+
+LANGUAGE LANG_ENGLISH, SUBLANG_ENGLISH_US
+
+VS_VERSION_INFO VERSIONINFO
+PRODUCTVERSION MSIXCLI_PRODUCT_VERSION
+FILEVERSION VERSIONINFO_FILEVERSION
+FILETYPE VERSIONINFO_FILETYPE
+FILEFLAGSMASK 0x3fl;
+FILEFLAGS VERSIONINFO_FILEFLAGS
+FILEOS VOS_NT_WINDOWS32
+
+BEGIN
+    BLOCK "StringFileInfo"
+    BEGIN
+        BLOCK "040904B0"
+        BEGIN
+            VALUE "CompanyName",        MSIXCLI_COMPANY_NAME
+            VALUE "FileDescription",    MSIXCLI_FILENAME
+            VALUE "FileVersion",        VERSIONINFO_FILEVERSION_STRING
+            VALUE "InternalName",       MSIXCLI_FILENAME
+            VALUE "LegalCopyright",     MSIXCLI_LEGAL_COPYRIGHT
+            VALUE "OriginalFilename",   MSIXCLI_FILENAME
+            VALUE "ProductName",        MSIXCLI_PRODUCT_NAME
+            VALUE "ProductVersion",     MSIXCLI_PRODUCT_VERSION_STRING
+        END
+    END
+    BLOCK "VarFileInfo"
+    BEGIN
+        VALUE "Translation", 0x409, 1200
+    END
+END
+
+#endif // defined(RC_INVOKED)

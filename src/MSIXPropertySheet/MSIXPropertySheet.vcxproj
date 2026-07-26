@@ -174,7 +174,9 @@
     <Manifest Include="MSIXPropertySheet.manifest" />
   </ItemGroup>
   <ItemGroup>
-    <ResourceCompile Include="Resource.rc" />
+    <ResourceCompile Include="Resource.rc">
+      <AdditionalIncludeDirectories>%(AdditionalIncludeDirectories);$(RepoRoot)\src\inc</AdditionalIncludeDirectories>
+    </ResourceCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="resource.h" />

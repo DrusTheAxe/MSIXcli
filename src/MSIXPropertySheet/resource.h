@@ -46,8 +46,13 @@
 #define IDC_EXTERNAL_PATH                   1312
 
 #define IDC_CERTIFICATE                     1401
-#define IDC_INSTALLACTION                   1402
-#define IDC_INSTALL                         1403
+#define IDC_HOME                            1402
+#define IDC_INSTALLACTION                   1403
+#define IDC_INSTALL                         1404
+
+#if defined(RC_INVOKED)
+#define IDC_HOME_LABEL  "<a href=""https://github.com/drustheaxe/MSIXcli"">MSIXcli home</a>"
+#endif
 
 #define IDC_CERTIFICATE_SUBJECT             2001
 #define IDC_CERTIFICATE_ISSUER              2002
