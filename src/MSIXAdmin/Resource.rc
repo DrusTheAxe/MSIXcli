@@ -5,4 +5,4 @@
 
 #define MSIXCLI_FILENAME        "MSIXAdmin.exe"
 #define MSIXCLI_PRODUCT_NAME    "MSIX Admin"
-#include "Version.h"
+#include "VersionInfo.ver"

@@ -8,7 +8,7 @@
 
 #define MSIXCLI_FILENAME        "MSIXPropertySheet.dll"
 #define MSIXCLI_PRODUCT_NAME    "MSIX Property Sheet"
-#include "Version.h"
+#include "VersionInfo.ver"
 
 LANGUAGE LANG_ENGLISH, SUBLANG_ENGLISH_US
 
