@@ -771,9 +771,9 @@ INT_PTR CALLBACK MSIXPropertyPage::CertificateDialogProc(HWND hwndDlg, UINT uMsg
             }
             {
                 wil::unique_cotaskmem_string validFrom;
-                std::ignore = LOG_IF_FAILED(FormatFileTime(pThis->CertificateValidFrom(), true, validFrom));
+                std::ignore = LOG_IF_FAILED(wil::filetime::format_filetime(pThis->CertificateValidFrom(), true, validFrom));
                 wil::unique_cotaskmem_string validTo;
-                std::ignore = LOG_IF_FAILED(FormatFileTime(pThis->CertificateValidTo(), true, validTo));
+                std::ignore = LOG_IF_FAILED(wil::filetime::format_filetime(pThis->CertificateValidTo(), true, validTo));
                 wil::unique_cotaskmem_string valid;
                 std::ignore = LOG_IF_FAILED(wil::str_printf_nothrow<wil::unique_cotaskmem_string>(valid, L"%ls  to  %ls", validFrom.get(), validTo.get()));
                 SetDlgItemText(hwndDlg, IDC_CERTIFICATE_VALID, valid ? valid.get() : L"???  to  ???");

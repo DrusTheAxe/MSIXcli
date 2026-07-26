@@ -298,4 +298,49 @@ inline PCWSTR integrity_level_to_string(const DWORD integrityLevel)
     }
 }
 }
+
+namespace filetime
+{
+    inline HRESULT to_systemtime(const FILETIME fileTime, const bool toLocalTime, SYSTEMTIME& systemTime)
+    {
+        systemTime = SYSTEMTIME{};
+
+        SYSTEMTIME st{};
+        RETURN_IF_WIN32_BOOL_FALSE(::FileTimeToSystemTime(&fileTime, &st));
+        if (toLocalTime)
+        {
+            RETURN_IF_WIN32_BOOL_FALSE(::TzSpecificLocalTimeToSystemTime(nullptr, &st, &systemTime));
+        }
+        else
+        {
+            systemTime = st;
+        }
+        return S_OK;
+    }
+
+    inline HRESULT format_filetime(FILETIME fileTime, bool toLocalTime, wil::unique_cotaskmem_string& formatted)
+    {
+        formatted.reset();
+
+        SYSTEMTIME systemTime{};
+        const auto hr{ LOG_IF_FAILED(wil::filetime::to_systemtime(fileTime, toLocalTime, systemTime)) };
+        if (FAILED(hr))
+        {
+            formatted = wil::make_cotaskmem_string_nothrow(L"????/??/?? ??:??:??");
+            RETURN_HR(hr);
+        }
+        WCHAR date[128]{};
+        const auto rcDate{ ::GetDateFormatEx(LOCALE_NAME_USER_DEFAULT, 0, &systemTime, L"yyyy'/'MM'/'dd", date, ARRAYSIZE(date), nullptr) };
+        if ((wil::filetime::to_int64(fileTime) % wil::filetime_duration::one_day) == 0)
+        {
+            formatted = wil::make_cotaskmem_string_nothrow(rcDate ? date : L"????/??/??");
+            RETURN_IF_NULL_ALLOC(formatted);
+            return S_OK;
+        }
+        WCHAR time[128]{};
+        const auto rcTime{ ::GetTimeFormatEx(LOCALE_NAME_USER_DEFAULT, 0, &systemTime, L"HH':'mm':'ss", time, ARRAYSIZE(time)) };
+        RETURN_IF_FAILED(wil::str_printf_nothrow<wil::unique_cotaskmem_string>(formatted, L"%ls %ls", rcDate ? date : L"????/??/??", rcTime ? time : L"??:??:??"));
+        return S_OK;
+    }
+}
 }

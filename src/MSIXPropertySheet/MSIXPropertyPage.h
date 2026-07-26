@@ -153,48 +153,6 @@ private:
         return m_package.CertificateValid();
     }
 
-    static HRESULT ToSystemTime(FILETIME fileTime, bool toLocalTime, SYSTEMTIME& systemTime)
-    {
-        systemTime = SYSTEMTIME{};
-
-        SYSTEMTIME st{};
-        RETURN_IF_WIN32_BOOL_FALSE(::FileTimeToSystemTime(&fileTime, &st));
-        if (toLocalTime)
-        {
-            RETURN_IF_WIN32_BOOL_FALSE(::TzSpecificLocalTimeToSystemTime(nullptr, &st, &systemTime));
-        }
-        else
-        {
-            systemTime = st;
-        }
-        return S_OK;
-    }
-
-    static HRESULT FormatFileTime(FILETIME fileTime, bool toLocalTime, wil::unique_cotaskmem_string& formatted)
-    {
-        formatted.reset();
-
-        SYSTEMTIME systemTime{};
-        const auto hr{ LOG_IF_FAILED(ToSystemTime(fileTime, toLocalTime, systemTime)) };
-        if (FAILED(hr))
-        {
-            formatted = wil::make_cotaskmem_string_nothrow(L"????/??/?? ??:??:??");
-            RETURN_HR(hr);
-        }
-        WCHAR date[128]{};
-        const auto rcDate{ ::GetDateFormatEx(LOCALE_NAME_USER_DEFAULT, 0, &systemTime, L"yyyy'/'MM'/'dd", date, ARRAYSIZE(date), nullptr) };
-        if ((wil::filetime::to_int64(fileTime) % wil::filetime_duration::one_day) == 0)
-        {
-            formatted = wil::make_cotaskmem_string_nothrow(rcDate ? date : L"????/??/??");
-            RETURN_IF_NULL_ALLOC(formatted);
-            return S_OK;
-        }
-        WCHAR time[128]{};
-        const auto rcTime{ ::GetTimeFormatEx(LOCALE_NAME_USER_DEFAULT, 0, &systemTime, L"HH':'mm':'ss", time, ARRAYSIZE(time)) };
-        RETURN_IF_FAILED(wil::str_printf_nothrow<wil::unique_cotaskmem_string>(formatted, L"%ls %ls", rcDate ? date : L"????/??/??", rcTime ? time : L"??:??:??"));
-        return S_OK;
-    }
-
 private:
     wil::unique_process_heap_ptr<WCHAR[]> m_filePath{};
     MSIX::Package m_package;

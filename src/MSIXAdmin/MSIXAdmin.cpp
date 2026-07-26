@@ -107,10 +107,10 @@ private:
 void PrintPackageKeyValueError(PCWSTR key, HRESULT hr)
 {
     wil::unique_hlocal_string message{ wil::format_message_nothrow(hr) };
-    wprintf(L"%-40ls : ***ERROR 0x%08X %ls", key, hr, message.get());
+    wprintf(L"%-30ls : ***ERROR 0x%08X %ls", key, hr, message.get());
 }
 
-void PrintPackageValue(PCWSTR key, const wil::unique_hstring& value, HRESULT hr)
+void PrintPackageValue(PCWSTR key, HRESULT hr, PCWSTR value)
 {
     if (FAILED(hr))
     {
@@ -118,11 +118,23 @@ void PrintPackageValue(PCWSTR key, const wil::unique_hstring& value, HRESULT hr)
     }
     else
     {
-        wprintf(L"%-40ls : %ls\n", key, WindowsGetStringRawBuffer(value.get(), nullptr));
+        wprintf(L"%-30ls : %ls\n", key, value);
     }
 }
 
-void PrintPackageValue(PCWSTR key, const ABI::Windows::ApplicationModel::PackageVersion value, HRESULT hr)
+void PrintPackageValue(PCWSTR key, HRESULT hr, const wil::unique_hstring& value)
+{
+    if (FAILED(hr))
+    {
+        PrintPackageKeyValueError(key, hr);
+    }
+    else
+    {
+        PrintPackageValue(key, hr, WindowsGetStringRawBuffer(value.get(), nullptr));
+    }
+}
+
+void PrintPackageValue(PCWSTR key, HRESULT hr, const ABI::Windows::ApplicationModel::PackageVersion& value)
 {
     if (FAILED(hr))
     {
@@ -134,7 +146,7 @@ void PrintPackageValue(PCWSTR key, const ABI::Windows::ApplicationModel::Package
                                      (static_cast<std::uint64_t>(value.Minor) << 32) |
                                      (static_cast<std::uint64_t>(value.Build) << 16) |
                                      static_cast<std::uint64_t>(value.Revision) };
-        wprintf(L"%-40ls : %hu.%hu.%hu.%hu  (0x%llX)\n", key, value.Major, value.Minor, value.Build, value.Revision, version);
+        wprintf(L"%-30ls : %hu.%hu.%hu.%hu  (0x%llX)\n", key, value.Major, value.Minor, value.Build, value.Revision, version);
     }
 }
 
@@ -153,7 +165,7 @@ constexpr PCWSTR ToString(const ABI::Windows::System::ProcessorArchitecture arch
     }
 }
 
-void PrintPackageValue(PCWSTR key, const ABI::Windows::System::ProcessorArchitecture value, HRESULT hr)
+void PrintPackageValue(PCWSTR key, HRESULT hr, const ABI::Windows::System::ProcessorArchitecture& value)
 {
     if (FAILED(hr))
     {
@@ -164,11 +176,11 @@ void PrintPackageValue(PCWSTR key, const ABI::Windows::System::ProcessorArchitec
         PCWSTR architecture{ ToString(value) };
         if (architecture)
         {
-            wprintf(L"%-40ls : %ls\n", key, architecture);
+            wprintf(L"%-30ls : %ls\n", key, architecture);
         }
         else
         {
-            wprintf(L"%-40ls : ??? (%d)\n", key, value);
+            wprintf(L"%-30ls : ??? (%d)\n", key, value);
         }
     }
 }
@@ -186,7 +198,7 @@ constexpr PCWSTR ToString(const ABI::Windows::Management::Deployment::PackageTyp
     }
 }
 
-void PrintPackageValue(PCWSTR key, const ABI::Windows::Management::Deployment::PackageTypes& value, HRESULT hr)
+void PrintPackageValue(PCWSTR key, HRESULT hr, const ABI::Windows::Management::Deployment::PackageTypes& value)
 {
     if (FAILED(hr))
     {
@@ -195,7 +207,7 @@ void PrintPackageValue(PCWSTR key, const ABI::Windows::Management::Deployment::P
     else
     {
         PCWSTR packageType{ ToString(value) };
-        wprintf(L"%-40ls : %ls\n", key, packageType);
+        wprintf(L"%-30ls : %ls\n", key, packageType);
     }
 }
 
@@ -256,7 +268,7 @@ enum class Status
 };
 DEFINE_ENUM_FLAG_OPERATORS(Status)
 
-void PrintPackageValue(PCWSTR key, wil::com_ptr_nothrow<ABI::Windows::ApplicationModel::IPackageStatus>& packageStatus, HRESULT hr)
+void PrintPackageValue(PCWSTR key, HRESULT hr, wil::com_ptr_nothrow<ABI::Windows::ApplicationModel::IPackageStatus>& packageStatus)
 {
     if (FAILED(hr))
     {
@@ -271,7 +283,7 @@ void PrintPackageValue(PCWSTR key, wil::com_ptr_nothrow<ABI::Windows::Applicatio
         }
         else if (value)
         {
-            wprintf(L"%-40ls : OK\n", key);
+            wprintf(L"%-30ls : OK\n", key);
         }
         else
         {
@@ -354,7 +366,7 @@ void PrintPackageValue(PCWSTR key, wil::com_ptr_nothrow<ABI::Windows::Applicatio
             }
             status |= Status::IsPartiallyStaged;
 
-            wprintf(L"%-40ls :", key);
+            wprintf(L"%-30ls :", key);
 
             if (WI_IsFlagSet(status, Status::NeedsRemediation))
             {
@@ -441,7 +453,22 @@ void PrintPackageValue(PCWSTR key, wil::com_ptr_nothrow<ABI::Windows::Applicatio
     }
 }
 
-void PrintPackageValue(PCWSTR key, const boolean& value, HRESULT hr)
+constexpr PCWSTR ToString(const ::PackageOrigin packageOrigin)
+{
+    switch (packageOrigin)
+    {
+        case ::PackageOrigin_Unknown:           return L"Unknown";
+        case ::PackageOrigin_Unsigned:          return L"Unsigned";
+        case ::PackageOrigin_Inbox:             return L"Inbox";
+        case ::PackageOrigin_Store:             return L"Store";
+        case ::PackageOrigin_DeveloperUnsigned: return L"DeveloperUnsigned";
+        case ::PackageOrigin_DeveloperSigned:   return L"DeveloperSigned";
+        case ::PackageOrigin_LineOfBusiness:    return L"LineOfBusiness";
+        default: return nullptr;
+    }
+}
+
+void PrintPackageValue(PCWSTR key, HRESULT hr, const ::PackageOrigin value)
 {
     if (FAILED(hr))
     {
@@ -449,49 +476,150 @@ void PrintPackageValue(PCWSTR key, const boolean& value, HRESULT hr)
     }
     else
     {
-        wprintf(L"%-40ls : %ls\n", key, value ? L"Yes" : L"No");
+        PCWSTR packageOrigin{ ToString(value) };
+        if (!packageOrigin)
+        {
+            wprintf(L"%-30ls : ??? %d\n", key, value);
+        }
+        else
+        {
+            wprintf(L"%-30ls : %ls\n", key, packageOrigin);
+        }
+    }
+}
+
+constexpr PCWSTR ToString(const ABI::Windows::ApplicationModel::PackageSignatureKind signatureKind)
+{
+    switch (signatureKind)
+    {
+        case ABI::Windows::ApplicationModel::PackageSignatureKind_None:       return L"Unknown";
+        case ABI::Windows::ApplicationModel::PackageSignatureKind_Developer:  return L"Unsigned";
+        case ABI::Windows::ApplicationModel::PackageSignatureKind_Enterprise: return L"Inbox";
+        case ABI::Windows::ApplicationModel::PackageSignatureKind_Store:      return L"Store";
+        case ABI::Windows::ApplicationModel::PackageSignatureKind_System:     return L"DeveloperUnsigned";
+        default: return nullptr;
+    }
+}
+
+void PrintPackageValue(PCWSTR key, HRESULT hr, const ABI::Windows::ApplicationModel::PackageSignatureKind& value)
+{
+    if (FAILED(hr))
+    {
+        PrintPackageKeyValueError(key, hr);
+    }
+    else
+    {
+        PCWSTR signatureKind{ ToString(value) };
+        if (!signatureKind)
+        {
+            wprintf(L"%-30ls : ??? %d\n", key, value);
+        }
+        else
+        {
+            wprintf(L"%-30ls : %ls\n", key, signatureKind);
+        }
+    }
+}
+
+void PrintPackageValue(PCWSTR key, HRESULT hr, const ABI::Windows::Foundation::DateTime& value, const bool localTimeZone)
+{
+    if (FAILED(hr))
+    {
+        PrintPackageKeyValueError(key, hr);
+    }
+    else
+    {
+        wil::unique_cotaskmem_string dateTime;
+        hr = wil::filetime::format_filetime(wil::filetime::from_int64(value.UniversalTime), localTimeZone, dateTime);
+        wprintf(L"%-30ls : %ls\n", key, dateTime.get());
+    }
+}
+
+void PrintPackageValue(PCWSTR key, HRESULT hr, const boolean& value)
+{
+    if (FAILED(hr))
+    {
+        PrintPackageKeyValueError(key, hr);
+    }
+    else
+    {
+        wprintf(L"%-30ls : %ls\n", key, value ? L"Yes" : L"No");
     }
 }
 
 void PrintPackage(
     PackageX& package,
-    ABI::Windows::ApplicationModel::IPackageId* packageId)
+    ABI::Windows::ApplicationModel::IPackageId* packageId,
+    const bool localTimeZone)
 {
     wil::unique_hstring string;
-    PrintPackageValue(L"PackageFullName", string, LOG_IF_FAILED(packageId->get_FullName(wil::out_param(string))));
-    PrintPackageValue(L"PackageFamilyName", string, LOG_IF_FAILED(packageId->get_FamilyName(wil::out_param(string))));
-    PrintPackageValue(L"Name", string, LOG_IF_FAILED(packageId->get_Name(wil::out_param(string))));
+    HRESULT hr{ LOG_IF_FAILED(packageId->get_FullName(wil::out_param(string))) };
+    PCWSTR packageFullName{ WindowsGetStringRawBuffer(string.get(), nullptr) };
+    PrintPackageValue(L"PackageFullName", hr, packageFullName);
+    hr = LOG_IF_FAILED(packageId->get_FamilyName(wil::out_param(string)));
+    PrintPackageValue(L"PackageFamilyName", hr, string);
+    hr = LOG_IF_FAILED(packageId->get_Name(wil::out_param(string)));
+    PrintPackageValue(L"Name", hr, string);
     ABI::Windows::ApplicationModel::PackageVersion version{};
-    PrintPackageValue(L"Version", version, LOG_IF_FAILED(packageId->get_Version(&version)));
+    PrintPackageValue(L"Version", LOG_IF_FAILED(packageId->get_Version(&version)), version);
     ABI::Windows::System::ProcessorArchitecture architecture{ ABI::Windows::System::ProcessorArchitecture_Unknown };
-    PrintPackageValue(L"Architecture", architecture, LOG_IF_FAILED(packageId->get_Architecture(&architecture)));
-    PrintPackageValue(L"ResourceId", string, LOG_IF_FAILED(packageId->get_ResourceId(wil::out_param(string))));
-    PrintPackageValue(L"Publisher", string, LOG_IF_FAILED(packageId->get_Publisher(wil::out_param(string))));
-    PrintPackageValue(L"PublisherId", string, LOG_IF_FAILED(packageId->get_PublisherId(wil::out_param(string))));
+    PrintPackageValue(L"Architecture", LOG_IF_FAILED(packageId->get_Architecture(&architecture)), architecture);
+    hr = LOG_IF_FAILED(packageId->get_ResourceId(wil::out_param(string)));
+    PrintPackageValue(L"ResourceId", hr, string);
+    hr = LOG_IF_FAILED(packageId->get_Publisher(wil::out_param(string)));
+    PrintPackageValue(L"Publisher", hr, string);
+    hr = LOG_IF_FAILED(packageId->get_PublisherId(wil::out_param(string)));
+    PrintPackageValue(L"PublisherId", hr, string);
 
     ABI::Windows::Management::Deployment::PackageTypes packageType{};
-    PrintPackageValue(L"PackageType", packageType, LOG_IF_FAILED(ToPackageType(package, packageType)));
+    PrintPackageValue(L"PackageType", LOG_IF_FAILED(ToPackageType(package, packageType)), packageType);
     wil::com_ptr_nothrow<ABI::Windows::ApplicationModel::IPackageStatus> status;
-    PrintPackageValue(L"Status", status, LOG_IF_FAILED(package.package3()->get_Status(status.put())));
+    PrintPackageValue(L"Status", LOG_IF_FAILED(package.package3()->get_Status(status.put())), status);
 
-    PrintPackageValue(L"DisplayName", string, LOG_IF_FAILED(package.package2()->get_DisplayName(wil::out_param(string))));
-    PrintPackageValue(L"PublisherDisplayName", string, LOG_IF_FAILED(package.package2()->get_PublisherDisplayName(wil::out_param(string))));
-    PrintPackageValue(L"Description", string, LOG_IF_FAILED(package.package2()->get_Description(wil::out_param(string))));
-    PrintPackageValue(L"EffectivePath", string, LOG_IF_FAILED(package.package8()->get_EffectivePath(wil::out_param(string))));
-    PrintPackageValue(L"EffectiveExternalPath", string, LOG_IF_FAILED(package.package8()->get_EffectiveExternalPath(wil::out_param(string))));
-    PrintPackageValue(L"InstalledPath", string, LOG_IF_FAILED(package.package8()->get_InstalledPath(wil::out_param(string))));
-    PrintPackageValue(L"MutablePath", string, LOG_IF_FAILED(package.package8()->get_MutablePath(wil::out_param(string))));
-    PrintPackageValue(L"MachineExternalPath", string, LOG_IF_FAILED(package.package8()->get_MachineExternalPath(wil::out_param(string))));
-    PrintPackageValue(L"UserExternalPath", string, LOG_IF_FAILED(package.package8()->get_UserExternalPath(wil::out_param(string))));
-    //TODO PrintPackageValue(L"InstalledDate
+    hr = LOG_IF_FAILED(package.package2()->get_DisplayName(wil::out_param(string)));
+    PrintPackageValue(L"DisplayName", hr, string);
+    hr = LOG_IF_FAILED(package.package2()->get_PublisherDisplayName(wil::out_param(string)));
+    PrintPackageValue(L"PublisherDisplayName", hr, string);
+    hr = LOG_IF_FAILED(package.package2()->get_Description(wil::out_param(string)));
+    PrintPackageValue(L"Description", hr, string);
+    hr = LOG_IF_FAILED(package.package8()->get_EffectivePath(wil::out_param(string)));
+    PrintPackageValue(L"EffectivePath", hr, string);
+    hr = LOG_IF_FAILED(package.package8()->get_EffectiveExternalPath(wil::out_param(string)));
+    PrintPackageValue(L"EffectiveExternalPath", hr, string);
+    hr = LOG_IF_FAILED(package.package8()->get_InstalledPath(wil::out_param(string)));
+    PrintPackageValue(L"InstalledPath", hr, string);
+    hr = LOG_IF_FAILED(package.package8()->get_MutablePath(wil::out_param(string)));
+    PrintPackageValue(L"MutablePath", hr, string);
+    hr = LOG_IF_FAILED(package.package8()->get_MachineExternalPath(wil::out_param(string)));
+    PrintPackageValue(L"MachineExternalPath", hr, string);
+    hr = LOG_IF_FAILED(package.package8()->get_UserExternalPath(wil::out_param(string)));
+    PrintPackageValue(L"UserExternalPath", hr, string);
+    ABI::Windows::Foundation::DateTime dateTime{};
+    PrintPackageValue(L"InstalledDate", LOG_IF_FAILED(package.package3()->get_InstalledDate(&dateTime)), dateTime, localTimeZone);
     //TODO PrintPackageValue(L"Dependencies
     boolean boolean{};
-    PrintPackageValue(L"IsDevelopmentMode", boolean, LOG_IF_FAILED(package.package2()->get_IsDevelopmentMode(&boolean)));
-    //TODO PrintPackageValue(L"IsSigned
-    //TODO PrintPackageValue(L"SignatureKind
-    //TODO PrintPackageValue(L"PackageOrigin
-    PrintPackageValue(L"IsStub", boolean, LOG_IF_FAILED(package.package8()->get_IsStub(&boolean)));
-    PrintPackageValue(L"SourceUriSchemeName", string, LOG_IF_FAILED(package.package9()->get_SourceUriSchemeName(wil::out_param(string))));
+    PrintPackageValue(L"IsDevelopmentMode", LOG_IF_FAILED(package.package2()->get_IsDevelopmentMode(&boolean)), boolean);
+    PackageOrigin packageOrigin{};
+    hr = LOG_IF_FAILED(::GetStagedPackageOrigin(packageFullName, &packageOrigin));
+    if (FAILED(hr))
+    {
+        PrintPackageKeyValueError(L"IsSigned", hr);
+        PrintPackageKeyValueError(L"PackageOrigin", hr);
+    }
+    else
+    {
+        const auto isSigned{ (packageOrigin == ::PackageOrigin_Inbox) ||
+                             (packageOrigin == ::PackageOrigin_Store) ||
+                             (packageOrigin == ::PackageOrigin_DeveloperSigned) ||
+                             (packageOrigin == ::PackageOrigin_LineOfBusiness) };
+        PrintPackageValue(L"IsSigned", hr, isSigned);
+        PrintPackageValue(L"PackageOrigin", hr, packageOrigin);
+    }
+    ABI::Windows::ApplicationModel::PackageSignatureKind signatureKind{};
+    PrintPackageValue(L"PackageSignatureKind", LOG_IF_FAILED(package.package4()->get_SignatureKind(&signatureKind)), signatureKind);
+    PrintPackageValue(L"IsStub", LOG_IF_FAILED(package.package8()->get_IsStub(&boolean)), boolean);
+    hr = LOG_IF_FAILED(package.package9()->get_SourceUriSchemeName(wil::out_param(string)));
+    PrintPackageValue(L"SourceUriSchemeName", hr, string);
 }
 
 HRESULT ShowLogo()
@@ -594,15 +722,19 @@ constexpr PCWSTR help_Command_Provision_List{
     L"  msixadmin provision list [options]\n"
     L"\n"
     L"Options:\n"
-    L"  --format=<FORMAT>     Display package format (default=packagefamilyname)\n"
-    L"  --glob=<PATTERN>      Display package families matching PATTERN (*,? wildcards)\n"
-    L"  --no-summary          Do not display summary information\n"
-    L"  -nologo, --no-logo    Do not display startup banner or copyright message\n"
-    L"  -?, -h, --help        Show command line help\n"
+    L"  --format=<FORMAT>      Display package format (default=packagefamilyname)\n"
+    L"  --glob=<PATTERN>       Display package families matching PATTERN (*,? wildcards)\n"
+    L"  --timezone=<TIMEZONE>  Display timezone for timestamps (default=local)\n"
+    L"  --no-summary           Do not display summary information\n"
+    L"  -nologo, --no-logo     Do not display startup banner or copyright message\n"
+    L"  -?, -h, --help         Show command line help\n"
     L""
     L"FORMAT Values:\n"
-    L"  full                  Display the full package information\n"
-    L"  packagefamilyname     Display the package family name\n"
+    L"  full                   Display the full package information\n"
+    L"  packagefamilyname      Display the package family name\n"
+    L"TIMEZONE\n"
+    L"  local                  Display timestamps as local time zone\n"
+    L"  utc                    Display timestamps as UTC\n"
 };
 
 constexpr PCWSTR help_Command_Provision_Remove{
@@ -1184,9 +1316,10 @@ HRESULT Command_Provision_List(int argc, wchar_t* argv[])
     enum class PackageDisplayFormat { PackageFamilyName = 0, Full = 1 };
 
     bool logo{ true };
+    PackageDisplayFormat format{};
     PCWSTR glob{};
     bool summary{ true };
-    PackageDisplayFormat format{};
+    bool timeZoneIsLocal{ true };
 
     int argn{ 3 };
     for (; argn < argc; ++argn)
@@ -1209,6 +1342,14 @@ HRESULT Command_Provision_List(int argc, wchar_t* argv[])
         else if (wil::string_starts_with(arg, L"--glob="))
         {
             glob = arg + (ARRAYSIZE(L"--glob=") - 1);
+        }
+        else if (CompareStringOrdinal(arg, -1, L"--timezone=local", -1, FALSE) == CSTR_EQUAL)
+        {
+            timeZoneIsLocal = true;
+        }
+        else if (CompareStringOrdinal(arg, -1, L"--timezone=utc", -1, FALSE) == CSTR_EQUAL)
+        {
+            timeZoneIsLocal = false;
         }
         else if (CompareStringOrdinal(arg, -1, L"--no-summary", -1, FALSE) == CSTR_EQUAL)
         {
@@ -1278,7 +1419,7 @@ HRESULT Command_Provision_List(int argc, wchar_t* argv[])
             wprintf(L"#%u\n", countDisplayed);
             PackageX packageX;
             RETURN_IF_FAILED(PackageX::Make(package.get(), packageX));
-            PrintPackage(packageX, packageId.get());
+            PrintPackage(packageX, packageId.get(), timeZoneIsLocal);
             wprintf(L"\n");
         }
         else
