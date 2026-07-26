@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include <wil/filesystem.h>
 #include <wil/token_helpers.h>
 
 namespace wil
@@ -189,6 +190,46 @@ inline HRESULT set_property_store_value(wil::com_ptr_nothrow<IPropertyStore>& pr
     return set_property_store_value(propertyStore.get(), key, pv);
 }
 #endif // (defined(_INC_SHIDFACT) && !defined(__WIL_SHIDFACT_H__)) || defined(WIL_DOXYGEN)
+
+inline HRESULT exe_path(wil::unique_process_heap_string& path)
+{
+    RETURN_IF_FAILED(wil::GetModuleFileNameW(nullptr, path));
+    PCWSTR lastPathSegment{ wil::find_last_path_segment(path.get()) };
+    const auto offset{ lastPathSegment - path.get() };
+    path.get()[offset] = L'\0';
+    return S_OK;
+}
+
+inline HRESULT get_module_version(HMODULE module, std::uint16_t& major, std::uint16_t& minor, std::uint16_t& build, std::uint16_t& revision)
+{
+    wil::unique_process_heap_string path;
+    RETURN_IF_FAILED(wil::GetModuleFileNameW(module, path));
+
+    DWORD handle{};
+    const DWORD fviSize{ ::GetFileVersionInfoSizeW(path.get(), &handle) };
+    RETURN_LAST_ERROR_IF(fviSize == 0);
+
+    wistd::unique_ptr<BYTE[]> buffer{ new (std::nothrow) BYTE[fviSize] };
+    RETURN_IF_NULL_ALLOC(buffer);
+    RETURN_IF_WIN32_BOOL_FALSE(::GetFileVersionInfoW(path.get(), 0, fviSize, buffer.get()));
+
+    VS_FIXEDFILEINFO* ffi{};
+    UINT ffiLength{};
+    RETURN_IF_WIN32_BOOL_FALSE(::VerQueryValueW(buffer.get(), L"\\", reinterpret_cast<void**>(&ffi), &ffiLength));
+    RETURN_HR_IF_NULL(E_UNEXPECTED, ffi);
+
+    major = HIWORD(ffi->dwFileVersionMS);
+    minor = LOWORD(ffi->dwFileVersionMS);
+    build = HIWORD(ffi->dwFileVersionLS);
+    revision = LOWORD(ffi->dwFileVersionLS);
+    return S_OK;
+}
+
+inline HRESULT get_exe_version(std::uint16_t& major, std::uint16_t& minor, std::uint16_t& build, std::uint16_t& revision)
+{
+    RETURN_IF_FAILED(get_module_version(nullptr, major, minor, build, revision));
+    return S_OK;
+}
 
 namespace ui
 {

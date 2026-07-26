@@ -126,7 +126,7 @@ HPROPSHEETPAGE MSIXPropertyPage::CreatePropertyPage()
     // Register the common control classes used by the dialog template (listview, etc.).
     // Idempotent and safe to call multiple times; pairs with the v6 common-controls
     // manifest embedded at resource ID 2 (ISOLATIONAWARE_MANIFEST_RESOURCE_ID).
-    const INITCOMMONCONTROLSEX icc{ sizeof(icc), ICC_LISTVIEW_CLASSES | ICC_STANDARD_CLASSES };
+    const INITCOMMONCONTROLSEX icc{ sizeof(icc), ICC_LISTVIEW_CLASSES | ICC_LINK_CLASS | ICC_STANDARD_CLASSES };
     InitCommonControlsEx(&icc);
 
     PROPSHEETPAGE psp{ 0 };
@@ -212,6 +212,17 @@ INT_PTR CALLBACK MSIXPropertyPage::DialogProc(HWND hwndDlg, UINT uMsg, WPARAM wP
                     {
                         SetWindowLongPtr(hwndDlg, DWLP_MSGRESULT, PSNRET_NOERROR);
                         return TRUE;
+                    }
+                    case NM_CLICK:
+                        [[fallthrough]];
+                    case NM_RETURN:
+                    {
+                        if (pnmh->idFrom == IDC_HOME)
+                        {
+                            ::ShellExecuteW(hwndDlg, L"open", L"https://github.com/drustheaxe/msixcli", nullptr, nullptr, SW_SHOWNORMAL);
+                            return TRUE;
+                        }
+                        break;
                     }
                     case TTN_GETDISPINFO:
                     {
@@ -478,6 +489,30 @@ void MSIXPropertyPage::OnInitDialog(HWND hwndDlg)
     }
 
     UpdateAddCertificateButton(hwndDlg);
+
+    std::uint16_t major{};
+    std::uint16_t minor{};
+    std::uint16_t build{};
+    std::uint16_t revision{};
+    if (SUCCEEDED_LOG(wil::get_module_version(g_hInstance, major, minor, build, revision)))
+    {
+        HRESULT hr{};
+        wil::unique_cotaskmem_string link;
+        if (revision != 0)
+        {
+            PCWSTR format{ L"<a href=\"https://github.com/drustheaxe/MSIXcli\">MSIXcli v%hu.%hu.%hu.%hu home</a>" };
+            hr = LOG_IF_FAILED(wil::str_printf_nothrow<wil::unique_cotaskmem_string>(link, format, major, minor, build, revision));
+        }
+        else
+        {
+            PCWSTR format{ L"<a href=\"https://github.com/drustheaxe/MSIXcli\">MSIXcli v%hu.%hu.%hu home</a>" };
+            hr = LOG_IF_FAILED(wil::str_printf_nothrow<wil::unique_cotaskmem_string>(link, format, major, minor, build));
+        }
+        if (SUCCEEDED(hr))
+        {
+            SetDlgItemText(hwndDlg, IDC_HOME, link.get());
+        }
+    }
 }
 
 void MSIXPropertyPage::UpdatePackageStatus(HWND hwndDlg)

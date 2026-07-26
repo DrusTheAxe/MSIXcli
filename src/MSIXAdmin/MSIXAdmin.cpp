@@ -14,40 +14,6 @@
     ::ExitProcess(1);
 }
 
-HRESULT GetExePath(wil::unique_process_heap_string& path)
-{
-    RETURN_IF_FAILED(wil::GetModuleFileNameW(nullptr, path));
-    PCWSTR lastPathSegment{ wil::find_last_path_segment(path.get()) };
-    const auto offset{ lastPathSegment - path.get() };
-    path.get()[offset] = L'\0';
-    return S_OK;
-}
-
-HRESULT GetExeVersion(std::uint16_t& major, std::uint16_t& minor, std::uint16_t& build, std::uint16_t& revision)
-{
-    wil::unique_process_heap_string path;
-    RETURN_IF_FAILED(wil::GetModuleFileNameW(nullptr, path));
-
-    DWORD handle{};
-    const DWORD fviSize{ ::GetFileVersionInfoSizeW(path.get(), &handle) };
-    RETURN_LAST_ERROR_IF(fviSize == 0);
-
-    wistd::unique_ptr<BYTE[]> buffer{ new (std::nothrow) BYTE[fviSize] };
-    RETURN_IF_NULL_ALLOC(buffer);
-    RETURN_IF_WIN32_BOOL_FALSE(::GetFileVersionInfoW(path.get(), 0, fviSize, buffer.get()));
-
-    VS_FIXEDFILEINFO* ffi{};
-    UINT ffiLength{};
-    RETURN_IF_WIN32_BOOL_FALSE(::VerQueryValueW(buffer.get(), L"\\", reinterpret_cast<void**>(&ffi), &ffiLength));
-    RETURN_HR_IF_NULL(E_UNEXPECTED, ffi);
-
-    major = HIWORD(ffi->dwFileVersionMS);
-    minor = LOWORD(ffi->dwFileVersionMS);
-    build = HIWORD(ffi->dwFileVersionLS);
-    revision = LOWORD(ffi->dwFileVersionLS);
-    return S_OK;
-}
-
 class PackageX
 {
 public:
@@ -628,7 +594,7 @@ HRESULT ShowLogo()
     std::uint16_t minor{};
     std::uint16_t build{};
     std::uint16_t patch{};
-    RETURN_IF_FAILED(GetExeVersion(major, minor, build, patch));
+    RETURN_IF_FAILED(wil::get_exe_version(major, minor, build, patch));
     if (patch != 0)
     {
         wprintf(L"msixadmin v%hu.%hu.%hu.%hu - Copyright (C) Howard Kapustein\n", major, minor, build, patch);
@@ -1866,7 +1832,7 @@ HRESULT Command_Tool_PropertySheet_Install(int argc, wchar_t* argv[])
     else
     {
         wil::unique_process_heap_string exePath;
-        RETURN_IF_FAILED(GetExePath(exePath));
+        RETURN_IF_FAILED(wil::exe_path(exePath));
         RETURN_IF_FAILED(wil::str_printf_nothrow(filename, L"%ls\\MSIXPropertySheet.dll", exePath.get()));
         dllFilename = filename.get();
     }
@@ -2021,7 +1987,7 @@ HRESULT Command_Tool_PropertySheet_Uninstall(int argc, wchar_t* argv[])
     else
     {
         wil::unique_process_heap_string exePath;
-        RETURN_IF_FAILED(GetExePath(exePath));
+        RETURN_IF_FAILED(wil::exe_path(exePath));
         RETURN_IF_FAILED(wil::str_printf_nothrow(filename, L"%ls\\MSIXPropertySheet.dll", exePath.get()));
         dllFilename = filename.get();
     }
@@ -2124,7 +2090,7 @@ HRESULT Command_Version(int argc, wchar_t* argv[])
     std::uint16_t minor{};
     std::uint16_t build{};
     std::uint16_t patch{};
-    RETURN_IF_FAILED(GetExeVersion(major, minor, build, patch));
+    RETURN_IF_FAILED(wil::get_exe_version(major, minor, build, patch));
     if (patch == 0)
     {
         wprintf(L"%hu.%hu.%hu\n", major, minor, build);
