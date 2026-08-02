@@ -41,6 +41,12 @@ inline bool string_ends_with(PCWSTR haystack, PCWSTR needle, bool noCase = false
     return CompareStringOrdinal(haystack + offset, static_cast<int>(needleLength), needle, static_cast<int>(needleLength), noCase ? TRUE : FALSE) == CSTR_EQUAL;
 }
 
+
+inline bool string_is_null_or_empty(PCWSTR string)
+{
+    return !string || (*string == L'\0');
+}
+
 inline HRESULT glob(PCWSTR string, PCWSTR pattern, bool& match)
 {
     match = false;
@@ -228,6 +234,112 @@ inline HRESULT get_module_version(HMODULE module, std::uint16_t& major, std::uin
 inline HRESULT get_exe_version(std::uint16_t& major, std::uint16_t& minor, std::uint16_t& build, std::uint16_t& revision)
 {
     RETURN_IF_FAILED(get_module_version(nullptr, major, minor, build, revision));
+    return S_OK;
+}
+inline HRESULT file_exists(PCWSTR filename, bool& isDirectory, bool& isFile)
+{
+    const auto attributes{ ::GetFileAttributesW(filename) };
+    if (attributes == INVALID_FILE_ATTRIBUTES)
+    {
+        isDirectory = false;
+        isFile = false;
+        RETURN_LAST_ERROR();
+    }
+    else if (WI_IsFlagSet(attributes, FILE_ATTRIBUTE_DIRECTORY))
+    {
+        isDirectory = true;
+        isFile = false;
+    }
+    else
+    {
+        isDirectory = false;
+        isFile = true;
+    }
+    return S_OK;
+}
+
+
+inline HRESULT file_exists(PCWSTR filename, bool& exists)
+{
+    const auto attributes{ ::GetFileAttributesW(filename) };
+    if (attributes == INVALID_FILE_ATTRIBUTES)
+    {
+        exists = false;
+        RETURN_LAST_ERROR();
+    }
+    else
+    {
+        exists = true;
+        return S_OK;
+    }
+}
+
+inline HRESULT is_directory(PCWSTR filename, bool& exists)
+{
+    const auto attributes{ ::GetFileAttributesW(filename) };
+    if (attributes == INVALID_FILE_ATTRIBUTES)
+    {
+        exists = false;
+        RETURN_LAST_ERROR();
+    }
+    else
+    {
+        exists = WI_IsFlagSet(attributes, FILE_ATTRIBUTE_DIRECTORY);
+        return S_OK;
+    }
+}
+
+inline HRESULT is_regular_file(PCWSTR filename, bool& exists)
+{
+    bool isDirectory{};
+    RETURN_IF_FAILED(is_directory(filename, isDirectory));
+    exists = !isDirectory;
+    return S_OK;
+}
+
+inline HRESULT to_uri(
+    PCWSTR string,
+    ABI::Windows::Foundation::IUriRuntimeClassFactory* uriFactory,
+    wil::com_ptr_nothrow<ABI::Windows::Foundation::IUriRuntimeClass>& uri)
+{
+    uri.reset();
+
+    if (!uriFactory)
+    {
+        HSTRING_HEADER header{};
+        HSTRING classId{};
+        RETURN_IF_FAILED(WindowsCreateStringReference(RuntimeClass_Windows_Foundation_Uri,
+            ARRAYSIZE(RuntimeClass_Windows_Foundation_Uri) - 1, &header, &classId));
+        RETURN_IF_FAILED(RoGetActivationFactory(classId, IID_PPV_ARGS(&uriFactory)));
+    }
+
+    WCHAR stackUrl[MAX_PATH];
+    PWSTR url{ stackUrl };
+    DWORD cchUrl{ ARRAYSIZE(stackUrl) };
+    HRESULT urlHr{ ::UrlCreateFromPathW(string, stackUrl, &cchUrl, 0) };
+
+    wistd::unique_ptr<WCHAR[]> heapUrl;
+    if (urlHr == E_POINTER)
+    {
+        heapUrl = wil::make_unique_nothrow<WCHAR[]>(cchUrl);
+        RETURN_IF_NULL_ALLOC(heapUrl);
+        url = heapUrl.get();
+        urlHr = ::UrlCreateFromPathW(string, url, &cchUrl, 0);
+    }
+    RETURN_IF_FAILED(urlHr);
+
+    HSTRING_HEADER header{};
+    HSTRING uriRef{};
+    RETURN_IF_FAILED(::WindowsCreateStringReference(url, cchUrl, &header, &uriRef));
+    RETURN_IF_FAILED(uriFactory->CreateUri(uriRef, uri.put()));
+    return S_OK;
+}
+
+inline HRESULT to_uri(
+    PCWSTR string,
+    wil::com_ptr_nothrow<ABI::Windows::Foundation::IUriRuntimeClass>& uri)
+{
+    RETURN_IF_FAILED(to_uri(string, nullptr, uri));
     return S_OK;
 }
 

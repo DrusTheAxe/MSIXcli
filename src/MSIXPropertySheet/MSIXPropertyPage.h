@@ -102,8 +102,6 @@ private:
     void SetDlgItemText_FormatSizeAndRatio(HWND hwndDlg, int nIDDlgItem, std::uint64_t size, std::uint64_t ratio);
     void SetDlgItemText_FormatSizeAndRatioAndCount(HWND hwndDlg, int nIDDlgItem, std::uint64_t size, std::uint64_t ratio, std::uint64_t count, PCWSTR suffix);
 
-    HRESULT ToUri(PCWSTR string, wil::com_ptr_nothrow<ABI::Windows::Foundation::IUriRuntimeClass>& uri);
-
     HRESULT GetText(HWND hwndDlg, int nIDDlgItem, wistd::unique_ptr<WCHAR[]>& text);
 
     ABI::Windows::Management::Deployment::PackageOperationPriority GetPriority(HWND hwndDlg);

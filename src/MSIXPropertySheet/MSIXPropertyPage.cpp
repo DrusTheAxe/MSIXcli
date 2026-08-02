@@ -1060,11 +1060,11 @@ HRESULT MSIXPropertyPage::OnInstall(
         auto externalPath{ wil::make_unique_nothrow<WCHAR[]>(static_cast<size_t>(cch) + 1) };
         RETURN_IF_NULL_ALLOC(externalPath);
         GetDlgItemTextW(hwndDlg, IDC_EXTERNAL_PATH, externalPath.get(), cch + 1);
-        RETURN_IF_FAILED(ToUri(externalPath.get(), externalLocationUri));
+        RETURN_IF_FAILED(wil::to_uri(externalPath.get(), m_uriFactory.get(), externalLocationUri));
     }
 
     wil::com_ptr_nothrow<ABI::Windows::Foundation::IUriRuntimeClass> packageUri;
-    RETURN_IF_FAILED(ToUri(m_filePath.get(), packageUri));
+    RETURN_IF_FAILED(wil::to_uri(m_filePath.get(), m_uriFactory.get(), packageUri));
 
     wil::com_ptr_nothrow<__FIAsyncOperationWithProgress_2_Windows__CManagement__CDeployment__CDeploymentResult_Windows__CManagement__CDeployment__CDeploymentProgress> deploymentOperation;
     if (action == InstallAction::Stage)
@@ -1208,14 +1208,13 @@ HRESULT MSIXPropertyPage::OnUninstall(
         auto externalPath{ wil::make_unique_nothrow<WCHAR[]>(static_cast<size_t>(cch) + 1) };
         RETURN_IF_NULL_ALLOC(externalPath);
         GetDlgItemTextW(hwndDlg, IDC_EXTERNAL_PATH, externalPath.get(), cch + 1);
-        RETURN_IF_FAILED(ToUri(externalPath.get(), externalLocationUri));
+        RETURN_IF_FAILED(wil::to_uri(externalPath.get(), m_uriFactory.get(), externalLocationUri));
     }
 
     wil::com_ptr_nothrow<ABI::Windows::Foundation::IUriRuntimeClass> packageUri;
-    RETURN_IF_FAILED(ToUri(m_filePath.get(), packageUri));
+    RETURN_IF_FAILED(wil::to_uri(m_filePath.get(), m_uriFactory.get(), packageUri));
 
     wil::com_ptr_nothrow<__FIAsyncOperationWithProgress_2_Windows__CManagement__CDeployment__CDeploymentResult_Windows__CManagement__CDeployment__CDeploymentProgress> deploymentOperation;
-
 
     HSTRING_HEADER packageFullNameHeader{};
     HSTRING packageFullName{};
@@ -1335,39 +1334,6 @@ void MSIXPropertyPage::SetDlgItemText_FormatSizeAndRatioAndCount(HWND hwndDlg, i
     WCHAR string[256]{};
     StringCchPrintfW(string, ARRAYSIZE(string), L"%ls  [%llu%%] \u2012 %llu %ls", sizeString, ratio, count, suffix);
     SetDlgItemText(hwndDlg, nIDDlgItem, string);
-}
-
-HRESULT MSIXPropertyPage::ToUri(PCWSTR string, wil::com_ptr_nothrow<ABI::Windows::Foundation::IUriRuntimeClass>& uri)
-{
-    if (!m_uriFactory)
-    {
-        HSTRING_HEADER header{};
-        HSTRING classId{};
-        RETURN_IF_FAILED(WindowsCreateStringReference(RuntimeClass_Windows_Foundation_Uri,
-            ARRAYSIZE(RuntimeClass_Windows_Foundation_Uri) - 1, &header, &classId));
-        RETURN_IF_FAILED(RoGetActivationFactory(classId, IID_PPV_ARGS(m_uriFactory.put())));
-    }
-
-    WCHAR stackUrl[MAX_PATH];
-    PWSTR url{ stackUrl };
-    DWORD cchUrl{ ARRAYSIZE(stackUrl) };
-    HRESULT urlHr{ UrlCreateFromPathW(string, stackUrl, &cchUrl, 0) };
-
-    wistd::unique_ptr<WCHAR[]> heapUrl;
-    if (urlHr == E_POINTER)
-    {
-        heapUrl = wil::make_unique_nothrow<WCHAR[]>(cchUrl);
-        RETURN_IF_NULL_ALLOC(heapUrl);
-        url = heapUrl.get();
-        urlHr = UrlCreateFromPathW(string, url, &cchUrl, 0);
-    }
-    RETURN_IF_FAILED(urlHr);
-
-    HSTRING_HEADER header{};
-    HSTRING uriRef{};
-    RETURN_IF_FAILED(WindowsCreateStringReference(url, cchUrl, &header, &uriRef));
-    RETURN_IF_FAILED(m_uriFactory->CreateUri(uriRef, uri.put()));
-    return S_OK;
 }
 
 HRESULT MSIXPropertyPage::GetText(HWND hwndDlg, int nIDDlgItem, wistd::unique_ptr<WCHAR[]>& text)

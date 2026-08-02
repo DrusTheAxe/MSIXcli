@@ -14,8 +14,8 @@
   * https://learn.microsoft.com/uwp/api/windows.management.deployment.packagemanager.findpackagesforuser?view=winrt-28000
   * https://learn.microsoft.com/uwp/api/windows.management.deployment.packagemanager.findpackagesforuserwithpackagetypes?view=winrt-28000
   * https://learn.microsoft.com/uwp/api/windows.management.deployment.packagemanager.findpackageswithpackagetypes?view=winrt-28000
-  * https://learn.microsoft.com/uwp/api/windows.management.deployment.packagemanager.findprovisionedpackages?view=winrt-28000
   * https://learn.microsoft.com/uwp/api/windows.management.deployment.packagemanager.findusers?view=winrt-28000
 * Add functionality not requiring admin privilege...
+  * msix.exe
   * PackageManager.EverythingElse :-)
 * Refactor help - more argparse/optparse/System.CommandLine/data driven (less deep duplication)

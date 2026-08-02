@@ -14,6 +14,15 @@
     ::ExitProcess(1);
 }
 
+[[noreturn]] void UnsupportedArgument(PCWSTR arg)
+{
+    wprintf(L"Error 0x00000001: Unsupported argument\n"
+            L"    Full command line: '%ls'\n"
+            L"Argument: %ls\n",
+            GetCommandLine(), arg);
+    ::ExitProcess(1);
+}
+
 class PackageX
 {
 public:
@@ -74,6 +83,11 @@ void PrintPackageKeyValueError(PCWSTR key, HRESULT hr)
 {
     wil::unique_hlocal_string message{ wil::format_message_nothrow(hr) };
     wprintf(L"%-30ls : ***ERROR 0x%08X %ls", key, hr, message.get());
+}
+
+void PrintPackageValue(PCWSTR key)
+{
+    wprintf(L"%-30ls :\n", key);
 }
 
 void PrintPackageValue(PCWSTR key, HRESULT hr, PCWSTR value)
@@ -543,11 +557,11 @@ void PrintPackage(
     PrintPackageValue(L"Status", LOG_IF_FAILED(package.package3()->get_Status(status.put())), status);
 
     hr = LOG_IF_FAILED(package.package2()->get_DisplayName(wil::out_param(string)));
-    PrintPackageValue(L"DisplayName", hr, string);
+    (hr == HRESULT_FROM_WIN32(ERROR_NOT_FOUND)) ? PrintPackageValue(L"DisplayName") : PrintPackageValue(L"DisplayName", hr, string);
     hr = LOG_IF_FAILED(package.package2()->get_PublisherDisplayName(wil::out_param(string)));
-    PrintPackageValue(L"PublisherDisplayName", hr, string);
+    (hr == HRESULT_FROM_WIN32(ERROR_NOT_FOUND)) ? PrintPackageValue(L"PublisherDisplayName") : PrintPackageValue(L"PublisherDisplayName", hr, string);
     hr = LOG_IF_FAILED(package.package2()->get_Description(wil::out_param(string)));
-    PrintPackageValue(L"Description", hr, string);
+    (hr == HRESULT_FROM_WIN32(ERROR_NOT_FOUND)) ? PrintPackageValue(L"Description") : PrintPackageValue(L"Description", hr, string);
     hr = LOG_IF_FAILED(package.package8()->get_EffectivePath(wil::out_param(string)));
     PrintPackageValue(L"EffectivePath", hr, string);
     hr = LOG_IF_FAILED(package.package8()->get_EffectiveExternalPath(wil::out_param(string)));
@@ -588,6 +602,52 @@ void PrintPackage(
     PrintPackageValue(L"SourceUriSchemeName", hr, string);
 }
 
+HRESULT ToPackageVolume(
+    PCWSTR path,
+    ABI::Windows::Management::Deployment::IPackageManager9* packageManager9,
+    wil::com_ptr_nothrow<ABI::Windows::Management::Deployment::IPackageVolume>& packageVolume)
+{
+    wil::com_ptr_nothrow<ABI::Windows::Management::Deployment::IPackageManager3> packageManager3;
+    RETURN_IF_FAILED(packageManager9->QueryInterface(IID_PPV_ARGS(packageManager3.put())));
+    wil::com_ptr_nothrow<ABI::Windows::Foundation::Collections::IIterable<ABI::Windows::Management::Deployment::PackageVolume*>> volumes;
+    if (SUCCEEDED_LOG(packageManager3->FindPackageVolumes(&volumes)) && volumes)
+    {
+        wil::com_ptr_nothrow<ABI::Windows::Foundation::Collections::IIterator<ABI::Windows::Management::Deployment::PackageVolume*>> volumesIterator;
+        if (SUCCEEDED_LOG(volumes->First(&volumesIterator)) && volumesIterator)
+        {
+            boolean hasCurrent{};
+            if (SUCCEEDED_LOG(volumesIterator->get_HasCurrent(&hasCurrent)))
+            {
+                while (hasCurrent)
+                {
+                    wil::com_ptr_nothrow<ABI::Windows::Management::Deployment::IPackageVolume> volume;
+                    if (SUCCEEDED_LOG(volumesIterator->get_Current(&volume)) && volume)
+                    {
+                        wil::unique_hstring packageStorePathHString;
+                        if (SUCCEEDED_LOG(volume->get_PackageStorePath(wil::out_param(packageStorePathHString))))
+                        {
+                            PCWSTR packageStorePath{ WindowsGetStringRawBuffer(packageStorePathHString.get(), nullptr) };
+                            if (packageStorePath)
+                            {
+                                if (wil::string_starts_with(packageStorePath, path, true))
+                                {
+                                    packageVolume = wistd::move(volume);
+                                    return S_OK;
+                                }
+                            }
+                        }
+                    }
+                    if (FAILED_LOG(volumesIterator->MoveNext(&hasCurrent)))
+                    {
+                        break;
+                    }
+                }
+            }
+        }
+    }
+    RETURN_HR_MSG(HRESULT_FROM_WIN32(ERROR_PATH_NOT_FOUND), "%ls", path);
+}
+
 HRESULT ShowLogo()
 {
     std::uint16_t major{};
@@ -620,6 +680,7 @@ HRESULT ShowLogo()
                 L"\n"
                 L"Commands:\n"
                 L"  certificate  Certificate management\n"
+                L"  package      Package management\n"
                 L"  provision    Provision management\n"
                 L"  shortcut     Shortcut operations\n"
                 L"  tool         Install or manage tools that extend the MSIX experience\n"
@@ -647,7 +708,163 @@ constexpr PCWSTR help_Command_Certificate{
     L"  list <FILE>     List the certificate from the signed package file\n"
     L"  remove <FILE*>  Remove the certificate per the signed package file\n"
     L"\n"
-    L"NOTE: <FILE*> can be '0x<HEX>' to specify a certificate by its SHA-256 thumbprint\n"
+    L"Arguments:\n"
+    L"  <FILE*> can be '0x<HEX>' to specify a certificate by its SHA-256 thumbprint\n"
+};
+
+constexpr PCWSTR help_Command_Package{
+    L"Description:\n"
+    L"  View or modify packages\n"
+    L"\n"
+    L"Usage:\n"
+    L"  msixadmin package <command> [options]\n"
+    L"\n"
+    L"Options:\n"
+    L"  -nologo, --no-logo    Do not display startup banner or copyright message\n"
+    L"  -?, -h, --help        Show command line help\n"
+    L"\n"
+    L"Commands:\n"
+    L"  add <PACKAGE>       Add a package\n"
+    L"  list                Display packages registered for the user\n"
+    L"  move <PACKAGE>      Move a package\n"
+    L"  register <PACKAGE>  Register a package\n"
+    L"  remove <PACKAGE>    Remove a package\n"
+    L"  stage <PACKAGE>     Stage a package\n"
+    L"\n"
+    L"Arguments:\n"
+    L"  <PACKAGE> = PackageFamilyName|PackageFullName|file|URI\n"
+};
+
+constexpr PCWSTR help_Command_Package_Add{
+    L"Description:\n"
+    L"  Add a package\n"
+    L"\n"
+    L"Usage:\n"
+    L"  msixadmin package add <PACKAGE> [options]\n"
+    L"\n"
+    L"Options:\n"
+    L"  --allow-unsigned              Allow an unsigned package\n"
+    L"  --defer                       Defer registration if package is in use\n"
+    L"  --dependency=<URI>            Dependency package\n"
+    L"  --developer-mode              Install the package in development mode\n"
+    L"  --external-location=<PATH>    Add the package with the external location\n"
+    L"  --force                       Forcibly shutdown processes using the package if in use\n"
+    L"  --limit-to-existing           Do not download missing referenced packages\n"
+    L"  --priority=<PRIORITY>         Execute the deployment operation with the specified priority\n"
+    L"  --retain-files-on-failure     Keep files created on a failed deployment\n"
+    L"  --stage-in-place              Stage the package in place\n"
+    L"  --stub=<STUB>                 Add a stub package\n"
+    L"  --target=<VOLUME>             Add the package to the target Package Volume (e.g. C:)\n"
+    L"  -nologo, --no-logo            Do not display startup banner or copyright message\n"
+    L"  -?, -h, --help                Show command line help\n"
+    L"\n"
+    L"Arguments:\n"
+    L"  <PACKAGE>  = PackageFamilyName|PackageFullName|file|URI\n"
+    L"  <PRIORITY> = low|normal|high\n"
+    L"  <STUB>     = default|full|stub|preference\n"
+};
+
+constexpr PCWSTR help_Command_Package_List{
+    L"Description:\n"
+    L"  Display the currently installed packages\n"
+    L"\n"
+    L"Usage:\n"
+    L"  msixadmin package list [options]\n"
+    L"\n"
+    L"Options:\n"
+    L"  --format=<FORMAT>            Display package format (default=full)\n"
+    L"  --glob:<PROPERTY>=<PATTERN>  Display packages with <PROPERTY> matching PATTERN (*,? wildcards)\n"
+    L"  --package-type=<TYPE>        Display packages of the specified package type (*=all)\n"
+    L"  --user=<SID>                 Display packages for a user (*=all, default=current)\n"
+    L"  --timezone=<TIMEZONE>        Display timezone for timestamps (default=local)\n"
+    L"  --no-summary                 Do not display summary information\n"
+    L"  -nologo, --no-logo           Do not display startup banner or copyright message\n"
+    L"  -?, -h, --help               Show command line help\n"
+    L""
+    L"Arguments:\n"
+    L"  <FORMAT> = full|packagefamilyname|packagefullname\n"
+    L"  <PROPERTY> = name|packagefamilyname|packagefullname\n"
+    L"  <TIMEZONE> = local|utc\n"
+    L"  <TYPE> = any combination of b (bundle), f (framework), m (main), o (optional), r (resource)\n"
+};
+
+constexpr PCWSTR help_Command_Package_Move{
+    L"Description:\n"
+    L"  Move a package\n"
+    L"\n"
+    L"Usage:\n"
+    L"  msixadmin package move <PACKAGEFULLNAME> <VOLUME> [options]\n"
+    L"\n"
+    L"Options:\n"
+    L"  --force                    Forcibly shutdown processes using the package if in use\n"
+    L"  --retain-files-on-failure  Keep files created on a failed deployment\n"
+    L"  -nologo, --no-logo         Do not display startup banner or copyright message\n"
+    L"  -?, -h, --help             Show command line help\n"
+};
+
+constexpr PCWSTR help_Command_Package_Register{
+    L"Description:\n"
+    L"  Register a package\n"
+    L"\n"
+    L"Usage:\n"
+    L"  msixadmin package register <PACKAGE> [options]\n"
+    L"\n"
+    L"Options:\n"
+    L"  --allow-unsigned              Allow an unsigned package\n"
+    L"  --defer                       Defer registration if package is in use\n"
+    L"  --dependency=<URI>            Dependency package\n"
+    L"  --developer-mode              Install the package in development mode\n"
+    L"  --external-location=<PATH>    Register the package with the external location\n"
+    L"  --force                       Forcibly shutdown processes using the package if in use\n"
+    L"  --stage-in-place              Stage the package in place\n"
+    L"  --target=<VOLUME>             Register the package to the target Package Volume (e.g. C:)\n"
+    L"  -nologo, --no-logo            Do not display startup banner or copyright message\n"
+    L"  -?, -h, --help                Show command line help\n"
+    L"\n"
+    L"Arguments:\n"
+    L"  <PACKAGE>  = PackageFamilyName|PackageFullName|file|path|URI\n"
+    L"  <STUB>     = default|full|stub|preference\n"
+};
+
+constexpr PCWSTR help_Command_Package_Remove{
+    L"Description:\n"
+    L"  Remove a package\n"
+    L"\n"
+    L"Usage:\n"
+    L"  msixadmin package remove <PACKAGE> [options]\n"
+    L"\n"
+    L"Options:\n"
+    L"  --defer                      Defer removal if package is in use\n"
+    L"  --preserve-application-data  Keep application data\n"
+    L"  --all-users                  Remove the package for all users\n"
+    L"  -nologo, --no-logo           Do not display startup banner or copyright message\n"
+    L"  -?, -h, --help               Show command line help\n"
+};
+
+constexpr PCWSTR help_Command_Package_Stage{
+    L"Description:\n"
+    L"  Stage a package\n"
+    L"\n"
+    L"Usage:\n"
+    L"  msixadmin package stage <PACKAGE> [options]\n"
+    L"\n"
+    L"Options:\n"
+    L"  --allow-unsigned            Allow an unsigned package\n"
+    L"  --dependency=<URI>          Dependency package\n"
+    L"  --developer-mode            Install the package in development mode\n"
+    L"  --external-location=<PATH>  Add the package with the external location\n"
+    L"  --priority=<PRIORITY>       Execute the deployment operation with the specified priority\n"
+    L"  --retain-files-on-failure   Keep files created on a failed deployment\n"
+    L"  --stage-in-place            Stage the package in place\n"
+    L"  --stub=<STUB>               Add a stub package\n"
+    L"  --target=<VOLUME>           Add the package to the target Package Volume (e.g. C:)\n"
+    L"  -nologo, --no-logo          Do not display startup banner or copyright message\n"
+    L"  -?, -h, --help              Show command line help\n"
+    L"\n"
+    L"Arguments:\n"
+    L"  <PACKAGE>  = file|URI\n"
+    L"  <PRIORITY> = low|normal|high\n"
+    L"  <STUB>     = default|full|stub|preference\n"
 };
 
 constexpr PCWSTR help_Command_Provision{
@@ -695,12 +912,9 @@ constexpr PCWSTR help_Command_Provision_List{
     L"  -nologo, --no-logo     Do not display startup banner or copyright message\n"
     L"  -?, -h, --help         Show command line help\n"
     L""
-    L"FORMAT Values:\n"
-    L"  full                   Display the full package information\n"
-    L"  packagefamilyname      Display the package family name\n"
-    L"TIMEZONE\n"
-    L"  local                  Display timestamps as local time zone\n"
-    L"  utc                    Display timestamps as UTC\n"
+    L"Arguments:\n"
+    L"  <TIMEZONE> = local|utc\n"
+    L"  <FORMAT> = full|packagefamilyname\n"
 };
 
 constexpr PCWSTR help_Command_Provision_Remove{
@@ -737,7 +951,7 @@ constexpr PCWSTR help_Command_Shortcut_Add{
     L"  -nologo, --no-logo           Do not display startup banner or copyright message\n"
     L"  -?, -h, --help               Show command line help\n"
     L"\n"
-    L"NOTE: URLs only support the --icon\n"
+    L"NOTE: URLs only support the --icon option\n"
 };
 
 constexpr PCWSTR help_Command_Shortcut{
@@ -1169,6 +1383,1098 @@ HRESULT Command_Certificate(int argc, wchar_t* argv[])
     return exitCode;
 }
 
+constexpr auto PackageTypes_Error{ ABI::Windows::Management::Deployment::PackageTypes_Xap };
+ABI::Windows::Management::Deployment::PackageTypes ToPackageTypes(PCWSTR string)
+{
+    auto packageTypes{ ABI::Windows::Management::Deployment::PackageTypes_None };
+    for (auto c = *string; c != L'\0'; c = *++string)
+    {
+        if (c == L'*')
+        {
+            return ABI::Windows::Management::Deployment::PackageTypes_All;
+        }
+        else if (c == L'm')
+        {
+            packageTypes |= ABI::Windows::Management::Deployment::PackageTypes_Main;
+        }
+        else if (c == L'f')
+        {
+            packageTypes |= ABI::Windows::Management::Deployment::PackageTypes_Framework;
+        }
+        else if (c == L'r')
+        {
+            packageTypes |= ABI::Windows::Management::Deployment::PackageTypes_Resource;
+        }
+        else if (c == L'b')
+        {
+            packageTypes |= ABI::Windows::Management::Deployment::PackageTypes_Bundle;
+        }
+        else if (c == L'o')
+        {
+            packageTypes |= ABI::Windows::Management::Deployment::PackageTypes_Optional;
+        }
+        else
+        {
+            // Invalid
+            return PackageTypes_Error;
+        }
+    }
+    return packageTypes;
+}
+
+HRESULT Command_Package_Add(int argc, wchar_t* argv[])
+{
+    if (argc < 4)
+    {
+        Help(help_Command_Package_Add);
+    }
+
+    PCWSTR package{ argv[3] };
+
+    bool logo{ true };
+    bool allowUnsigned{};
+    bool defer{};
+    wil::com_ptr_nothrow<ABI::Windows::Foundation::Collections::IVector<ABI::Windows::Foundation::Uri*>> dependencies;
+    bool developerMode{};
+    PCWSTR externalLocation{};
+    bool force{};
+    bool limitToExisting{};
+    bool retainFilesOnFailure{};
+    bool stageInPlace{};
+    auto priority{ ABI::Windows::Management::Deployment::PackageOperationPriority_Normal };
+    auto stub{ ABI::Windows::Management::Deployment::StubPackageOption_Default };
+    PCWSTR target{};
+
+    wil::com_ptr_nothrow<ABI::Windows::Management::Deployment::IAddPackageOptions> addPackageOptions;
+    {
+        HSTRING_HEADER classIdHeader{};
+        HSTRING classId{};
+        RETURN_IF_FAILED(WindowsCreateStringReference(
+            RuntimeClass_Windows_Management_Deployment_AddPackageOptions,
+            ARRAYSIZE(RuntimeClass_Windows_Management_Deployment_AddPackageOptions) - 1,
+            &classIdHeader, &classId));
+        wil::com_ptr_nothrow<IInspectable> inspectable;
+        RETURN_IF_FAILED(RoActivateInstance(classId, inspectable.put()));
+        RETURN_IF_FAILED(inspectable->QueryInterface(IID_PPV_ARGS(addPackageOptions.put())));
+    }
+    RETURN_IF_FAILED(addPackageOptions->get_DependencyPackageUris(dependencies.put()));
+
+    int argn{ 4 };
+    for (; argn < argc; ++argn)
+    {
+        PCWSTR arg{ argv[argn] };
+        if ((CompareStringOrdinal(arg, -1, L"-?", -1, FALSE) == CSTR_EQUAL) ||
+            (CompareStringOrdinal(arg, -1, L"-h", -1, FALSE) == CSTR_EQUAL) ||
+            (CompareStringOrdinal(arg, -1, L"--help", -1, FALSE) == CSTR_EQUAL))
+        {
+            Help(help_Command_Package_Add);
+        }
+        else if (CompareStringOrdinal(arg, -1, L"--allow-unsigned", -1, FALSE) == CSTR_EQUAL)
+        {
+            allowUnsigned = true;
+        }
+        else if (CompareStringOrdinal(arg, -1, L"--defer", -1, FALSE) == CSTR_EQUAL)
+        {
+            defer = true;
+        }
+        else if (wil::string_starts_with(arg, L"--dependency="))
+        {
+            PCWSTR dependency{ arg + (ARRAYSIZE(L"--dependency=") - 1) };
+            wil::com_ptr_nothrow<ABI::Windows::Foundation::IUriRuntimeClass> uri;
+            RETURN_IF_FAILED(wil::to_uri(dependency, uri));
+            RETURN_IF_FAILED(dependencies->Append(uri.get()));
+        }
+        else if (CompareStringOrdinal(arg, -1, L"--developer-mode", -1, FALSE) == CSTR_EQUAL)
+        {
+            developerMode = true;
+        }
+        else if (wil::string_starts_with(arg, L"--external-location="))
+        {
+            externalLocation = arg + (ARRAYSIZE(L"--externalLocation=") - 1);
+        }
+        else if (CompareStringOrdinal(arg, -1, L"--force", -1, FALSE) == CSTR_EQUAL)
+        {
+            force = true;
+        }
+        else if (CompareStringOrdinal(arg, -1, L"--limit-to-existing", -1, FALSE) == CSTR_EQUAL)
+        {
+            limitToExisting = true;
+        }
+        else if (CompareStringOrdinal(arg, -1, L"--priority=low", -1, FALSE) == CSTR_EQUAL)
+        {
+            priority = ABI::Windows::Management::Deployment::PackageOperationPriority_Low;
+        }
+        else if (CompareStringOrdinal(arg, -1, L"--priority=normal", -1, FALSE) == CSTR_EQUAL)
+        {
+            priority = ABI::Windows::Management::Deployment::PackageOperationPriority_Normal;
+        }
+        else if (CompareStringOrdinal(arg, -1, L"--priority=high", -1, FALSE) == CSTR_EQUAL)
+        {
+            priority = ABI::Windows::Management::Deployment::PackageOperationPriority_High;
+        }
+        else if (CompareStringOrdinal(arg, -1, L"--retain-files-on-failure", -1, FALSE) == CSTR_EQUAL)
+        {
+            retainFilesOnFailure = true;
+        }
+        else if (CompareStringOrdinal(arg, -1, L"--stage-in-place", -1, FALSE) == CSTR_EQUAL)
+        {
+            stageInPlace = true;
+        }
+        else if (CompareStringOrdinal(arg, -1, L"--stub=default", -1, FALSE) == CSTR_EQUAL)
+        {
+            stub = ABI::Windows::Management::Deployment::StubPackageOption_Default;
+        }
+        else if (CompareStringOrdinal(arg, -1, L"--stub=full", -1, FALSE) == CSTR_EQUAL)
+        {
+            stub = ABI::Windows::Management::Deployment::StubPackageOption_InstallFull;
+        }
+        else if (CompareStringOrdinal(arg, -1, L"--stub=stub", -1, FALSE) == CSTR_EQUAL)
+        {
+            stub = ABI::Windows::Management::Deployment::StubPackageOption_InstallStub;
+        }
+        else if (CompareStringOrdinal(arg, -1, L"--stub=preference", -1, FALSE) == CSTR_EQUAL)
+        {
+            stub = ABI::Windows::Management::Deployment::StubPackageOption_UsePreference;
+        }
+        else if (wil::string_starts_with(arg, L"--target="))
+        {
+            target = arg + (ARRAYSIZE(L"--target=") - 1);
+        }
+        else if ((CompareStringOrdinal(arg, -1, L"-nologo", -1, FALSE) == CSTR_EQUAL) ||
+                 (CompareStringOrdinal(arg, -1, L"--no-logo", -1, FALSE) == CSTR_EQUAL))
+        {
+            logo = false;
+        }
+        else
+        {
+            UnknownArgument(arg);
+        }
+    }
+    if (argn < argc)
+    {
+        UnknownArgument(argv[argn]);
+    }
+
+    if (logo)
+    {
+        ShowLogo();
+    }
+
+    wil::com_ptr_nothrow<ABI::Windows::Foundation::IUriRuntimeClass> packageUri;
+    RETURN_IF_FAILED(wil::to_uri(package, packageUri));
+
+    wil::com_ptr_nothrow<ABI::Windows::Management::Deployment::IPackageManager9> packageManager9;
+    {
+        HSTRING_HEADER classIdHeader{};
+        HSTRING classId{};
+        RETURN_IF_FAILED(WindowsCreateStringReference(
+            RuntimeClass_Windows_Management_Deployment_PackageManager,
+            ARRAYSIZE(RuntimeClass_Windows_Management_Deployment_PackageManager) - 1,
+            &classIdHeader, &classId));
+        wil::com_ptr_nothrow<IInspectable> inspectable;
+        RETURN_IF_FAILED(RoActivateInstance(classId, inspectable.put()));
+        RETURN_IF_FAILED(inspectable->QueryInterface(IID_PPV_ARGS(packageManager9.put())));
+    }
+
+    if (allowUnsigned)
+    {
+        RETURN_IF_FAILED(addPackageOptions->put_AllowUnsigned(true));
+    }
+    if (developerMode)
+    {
+        RETURN_IF_FAILED(addPackageOptions->put_DeveloperMode(true));
+    }
+    if (externalLocation)
+    {
+        wil::com_ptr_nothrow<ABI::Windows::Foundation::IUriRuntimeClass> externalLocationUri;
+        RETURN_IF_FAILED(wil::to_uri(package, externalLocationUri));
+        RETURN_IF_FAILED(addPackageOptions->put_ExternalLocationUri(externalLocationUri.get()));
+    }
+    if (stageInPlace)
+    {
+        RETURN_IF_FAILED(addPackageOptions->put_StageInPlace(true));
+    }
+    if (stub != ABI::Windows::Management::Deployment::StubPackageOption_Default)
+    {
+        RETURN_IF_FAILED(addPackageOptions->put_StubPackageOption(stub));
+    }
+    if (target)
+    {
+        wil::com_ptr_nothrow<ABI::Windows::Management::Deployment::IPackageVolume> targetVolume;
+        RETURN_IF_FAILED(ToPackageVolume(target, packageManager9.get(), targetVolume));
+        RETURN_IF_FAILED(addPackageOptions->put_TargetVolume(targetVolume.get()));
+    }
+    if (limitToExisting)
+    {
+        wil::com_ptr_nothrow<ABI::Windows::Management::Deployment::IAddPackageOptions2> addPackageOptions2;
+        RETURN_IF_FAILED(addPackageOptions->QueryInterface(IID_PPV_ARGS(addPackageOptions2.put())));
+        RETURN_IF_FAILED(addPackageOptions2->put_LimitToExistingPackages(true));
+    }
+    if (priority != ABI::Windows::Management::Deployment::PackageOperationPriority_Normal)
+    {
+        wil::com_ptr_nothrow<ABI::Windows::Management::Deployment::IAddPackageOptions3> addPackageOptions3;
+        RETURN_IF_FAILED(addPackageOptions->QueryInterface(IID_PPV_ARGS(addPackageOptions3.put())));
+        RETURN_IF_FAILED(addPackageOptions3->put_PackageOperationPriority(priority));
+    }
+
+    wil::com_ptr_nothrow<__FIAsyncOperationWithProgress_2_Windows__CManagement__CDeployment__CDeploymentResult_Windows__CManagement__CDeployment__CDeploymentProgress> deploymentOperation;
+    RETURN_IF_FAILED(packageManager9->AddPackageByUriAsync(packageUri.get(), addPackageOptions.get(), deploymentOperation.put()));
+    PCWSTR errorText{};
+    wil::unique_hstring errorTextHString{};
+    HRESULT extendedError{};
+    GUID activityId{};
+    RETURN_IF_FAILED(MSIX::Deployment::GetResults(deploymentOperation.get(), errorText, errorTextHString, extendedError, activityId));
+    wprintf(L"'%ls' is added\n", package);
+
+    return S_OK;
+}
+
+HRESULT Command_Package_List(int argc, wchar_t* argv[])
+{
+    enum class PackageDisplayFormat { Full = 0, PackageFullName = 1, PackageFamilyName = 2 };
+
+    PackageDisplayFormat format{};
+    PCWSTR glob_name{};
+    PCWSTR glob_packageFamilyName{};
+    PCWSTR glob_packageFullName{};
+    bool logo{ true };
+    ABI::Windows::Management::Deployment::PackageTypes packageTypes{};
+    bool summary{ true };
+    bool timeZoneIsLocal{ true };
+    PCWSTR user{};
+
+    int argn{ 3 };
+    for (; argn < argc; ++argn)
+    {
+        PCWSTR arg{ argv[argn] };
+        if ((CompareStringOrdinal(arg, -1, L"-?", -1, FALSE) == CSTR_EQUAL) ||
+            (CompareStringOrdinal(arg, -1, L"-h", -1, FALSE) == CSTR_EQUAL) ||
+            (CompareStringOrdinal(arg, -1, L"--help", -1, FALSE) == CSTR_EQUAL))
+        {
+            Help(help_Command_Package_List);
+        }
+        else if (CompareStringOrdinal(arg, -1, L"--format=full", -1, FALSE) == CSTR_EQUAL)
+        {
+            format = PackageDisplayFormat::Full;
+        }
+        else if (CompareStringOrdinal(arg, -1, L"--format=packagefamilyname", -1, FALSE) == CSTR_EQUAL)
+        {
+            format = PackageDisplayFormat::PackageFamilyName;
+        }
+        else if (CompareStringOrdinal(arg, -1, L"--format=packagefullname", -1, FALSE) == CSTR_EQUAL)
+        {
+            format = PackageDisplayFormat::PackageFullName;
+        }
+        else if (wil::string_starts_with(arg, L"--glob:name="))
+        {
+            glob_name = arg + (ARRAYSIZE(L"--glob:name=") - 1);
+        }
+        else if (wil::string_starts_with(arg, L"--glob:packagefamilyname="))
+        {
+            glob_packageFamilyName = arg + (ARRAYSIZE(L"--glob:packagefamilyname=") - 1);
+        }
+        else if (wil::string_starts_with(arg, L"--glob:packagefullname="))
+        {
+            glob_packageFullName = arg + (ARRAYSIZE(L"--glob:packagefullname=") - 1);
+        }
+        else if (wil::string_starts_with(arg, L"--package-type="))
+        {
+            packageTypes = ToPackageTypes(arg + (ARRAYSIZE(L"--package-type=") - 1));
+            if (packageTypes == PackageTypes_Error)
+            {
+                UnknownArgument(arg);
+            }
+        }
+        else if (CompareStringOrdinal(arg, -1, L"--timezone=local", -1, FALSE) == CSTR_EQUAL)
+        {
+            timeZoneIsLocal = true;
+        }
+        else if (CompareStringOrdinal(arg, -1, L"--timezone=utc", -1, FALSE) == CSTR_EQUAL)
+        {
+            timeZoneIsLocal = false;
+        }
+        else if (wil::string_starts_with(arg, L"--user="))
+        {
+            user = arg + (ARRAYSIZE(L"--user=") - 1);
+        }
+        else if (CompareStringOrdinal(arg, -1, L"--no-summary", -1, FALSE) == CSTR_EQUAL)
+        {
+            summary = false;
+        }
+        else if ((CompareStringOrdinal(arg, -1, L"-nologo", -1, FALSE) == CSTR_EQUAL) ||
+                 (CompareStringOrdinal(arg, -1, L"--no-logo", -1, FALSE) == CSTR_EQUAL))
+        {
+            logo = false;
+        }
+        else
+        {
+            UnknownArgument(arg);
+        }
+    }
+    if (argn < argc)
+    {
+        UnknownArgument(argv[argn]);
+    }
+
+    if (logo)
+    {
+        ShowLogo();
+    }
+
+    std::uint32_t countDisplayed{};
+
+    wil::com_ptr_nothrow<ABI::Windows::Foundation::Collections::IIterable<ABI::Windows::ApplicationModel::Package*>> iterablePackages;
+    {
+        HSTRING_HEADER classIdHeader{};
+        HSTRING classId{};
+        RETURN_IF_FAILED(WindowsCreateStringReference(
+            RuntimeClass_Windows_Management_Deployment_PackageManager,
+            ARRAYSIZE(RuntimeClass_Windows_Management_Deployment_PackageManager) - 1,
+            &classIdHeader, &classId));
+        wil::com_ptr_nothrow<IInspectable> inspectable;
+        RETURN_IF_FAILED(RoActivateInstance(classId, inspectable.put()));
+
+        // Choose the optimal FindPackage*() variant given our inputs/options
+        if (!user || (CompareStringOrdinal(user, -1, L"*", -1, FALSE) == CSTR_EQUAL))
+        {
+            // No user context
+            if (packageTypes == ABI::Windows::Management::Deployment::PackageTypes_None)
+            {
+                wil::com_ptr_nothrow<ABI::Windows::Management::Deployment::IPackageManager> packageManager;
+                RETURN_IF_FAILED(inspectable->QueryInterface(IID_PPV_ARGS(packageManager.put())));
+                RETURN_IF_FAILED(packageManager->FindPackages(iterablePackages.put()));
+            }
+            else
+            {
+                wil::com_ptr_nothrow<ABI::Windows::Management::Deployment::IPackageManager2> packageManager2;
+                RETURN_IF_FAILED(inspectable->QueryInterface(IID_PPV_ARGS(packageManager2.put())));
+                RETURN_IF_FAILED(packageManager2->FindPackagesWithPackageTypes(packageTypes, iterablePackages.put()));
+            }
+        }
+        else
+        {
+            // User context
+            HSTRING_HEADER userHeader{};
+            HSTRING userHString{};
+            RETURN_IF_FAILED(wil::to_hstring_reference(user, userHeader, userHString));
+            if (packageTypes == ABI::Windows::Management::Deployment::PackageTypes_None)
+            {
+                wil::com_ptr_nothrow<ABI::Windows::Management::Deployment::IPackageManager> packageManager;
+                RETURN_IF_FAILED(inspectable->QueryInterface(IID_PPV_ARGS(packageManager.put())));
+                RETURN_IF_FAILED(packageManager->FindPackagesByUserSecurityId(userHString, iterablePackages.put()));
+            }
+            else
+            {
+                wil::com_ptr_nothrow<ABI::Windows::Management::Deployment::IPackageManager2> packageManager2;
+                RETURN_IF_FAILED(inspectable->QueryInterface(IID_PPV_ARGS(packageManager2.put())));
+                RETURN_IF_FAILED(packageManager2->FindPackagesByUserSecurityIdWithPackageTypes(userHString, packageTypes, iterablePackages.put()));
+            }
+        }
+    }
+    wil::com_ptr_nothrow<ABI::Windows::Foundation::Collections::IVector<ABI::Windows::ApplicationModel::Package*>> packages;
+    RETURN_IF_FAILED(iterablePackages.query_to(&packages));
+
+    std::uint32_t packagesCount{};
+    RETURN_IF_FAILED(packages->get_Size(&packagesCount));
+    for (std::uint32_t index = 0; index < packagesCount; ++index)
+    {
+        wil::com_ptr_nothrow<ABI::Windows::ApplicationModel::IPackage> package;
+        RETURN_IF_FAILED(packages->GetAt(index, package.put()));
+
+        wil::com_ptr_nothrow<ABI::Windows::ApplicationModel::IPackageId> packageId;
+        RETURN_IF_FAILED(package->get_Id(packageId.put()));
+
+        wil::unique_hstring packageFullNameAsHString;
+        PCWSTR packageFullName{};
+        if (!wil::string_is_null_or_empty(glob_packageFullName) ||
+            (format == PackageDisplayFormat::PackageFullName))
+        {
+            RETURN_IF_FAILED(packageId->get_FullName(wil::out_param(packageFullNameAsHString)));
+            packageFullName = WindowsGetStringRawBuffer(packageFullNameAsHString.get(), nullptr);
+        }
+
+        wil::unique_hstring packageFamilyNameAsHString;
+        PCWSTR packageFamilyName{};
+        if (!wil::string_is_null_or_empty(glob_packageFamilyName) ||
+            (format == PackageDisplayFormat::PackageFamilyName))
+        {
+            RETURN_IF_FAILED(packageId->get_FamilyName(wil::out_param(packageFamilyNameAsHString)));
+            packageFamilyName = WindowsGetStringRawBuffer(packageFamilyNameAsHString.get(), nullptr);
+        }
+
+        if (!wil::string_is_null_or_empty(glob_name) ||
+            !wil::string_is_null_or_empty(glob_packageFullName) ||
+            !wil::string_is_null_or_empty(glob_packageFamilyName))
+        {
+            if (!wil::string_is_null_or_empty(glob_packageFullName))
+            {
+                bool match{};
+                RETURN_IF_FAILED(wil::glob(packageFullName, glob_packageFullName, match));
+                if (!match)
+                {
+                    continue;
+                }
+            }
+
+            if (!wil::string_is_null_or_empty(glob_packageFamilyName))
+            {
+                bool match{};
+                RETURN_IF_FAILED(wil::glob(packageFamilyName, glob_packageFamilyName, match));
+                if (!match)
+                {
+                    continue;
+                }
+            }
+
+            if (!wil::string_is_null_or_empty(glob_packageFamilyName))
+            {
+                bool match{};
+                RETURN_IF_FAILED(wil::glob(packageFamilyName, glob_packageFamilyName, match));
+                if (!match)
+                {
+                    continue;
+                }
+            }
+
+            if (!wil::string_is_null_or_empty(glob_name))
+            {
+                wil::unique_hstring nameAsHString;
+                RETURN_IF_FAILED(packageId->get_Name(wil::out_param(nameAsHString)));
+                PCWSTR name{ WindowsGetStringRawBuffer(nameAsHString.get(), nullptr) };
+                if (glob_name)
+                {
+                    bool match{};
+                    RETURN_IF_FAILED(wil::glob(name, glob_name, match));
+                    if (!match)
+                    {
+                        continue;
+                    }
+                }
+            }
+        }
+
+        ++countDisplayed;
+
+        if (format == PackageDisplayFormat::Full)
+        {
+            wprintf(L"#%u\n", countDisplayed);
+            PackageX packageX;
+            RETURN_IF_FAILED(PackageX::Make(package.get(), packageX));
+            PrintPackage(packageX, packageId.get(), timeZoneIsLocal);
+            wprintf(L"\n");
+        }
+        else if (format == PackageDisplayFormat::PackageFullName)
+        {
+            wprintf(L"%ls\n", packageFullName);
+        }
+        else if (format == PackageDisplayFormat::PackageFamilyName)
+        {
+            wprintf(L"%ls\n", packageFamilyName);
+        }
+    }
+
+    if (summary)
+    {
+        wprintf(L"%u package%ls\n", countDisplayed, countDisplayed == 1 ? L"" : L"s");
+    }
+
+    return S_OK;
+}
+
+HRESULT Command_Package_Move(int argc, wchar_t* argv[])
+{
+    //TODO Command_Package_Move
+    (void)argc;
+    (void)argv;
+    RETURN_HR(E_NOTIMPL);
+}
+
+HRESULT Command_Package_Register(int argc, wchar_t* argv[])
+{
+    if (argc < 4)
+    {
+        Help(help_Command_Package_Add);
+    }
+
+    PCWSTR package{ argv[3] };
+
+    bool logo{ true };
+    bool allowUnsigned{};
+    bool defer{};
+    wil::com_ptr_nothrow<ABI::Windows::Foundation::Collections::IVector<ABI::Windows::Foundation::Uri*>> dependencies;
+    bool developerMode{};
+    PCWSTR externalLocation{};
+    bool force{};
+    bool stageInPlace{};
+    PCWSTR appDataTarget{};
+
+    wil::com_ptr_nothrow<ABI::Windows::Management::Deployment::IRegisterPackageOptions> registerPackageOptions;
+    {
+        HSTRING_HEADER classIdHeader{};
+        HSTRING classId{};
+        RETURN_IF_FAILED(WindowsCreateStringReference(
+            RuntimeClass_Windows_Management_Deployment_AddPackageOptions,
+            ARRAYSIZE(RuntimeClass_Windows_Management_Deployment_AddPackageOptions) - 1,
+            &classIdHeader, &classId));
+        wil::com_ptr_nothrow<IInspectable> inspectable;
+        RETURN_IF_FAILED(RoActivateInstance(classId, inspectable.put()));
+        RETURN_IF_FAILED(inspectable->QueryInterface(IID_PPV_ARGS(registerPackageOptions.put())));
+    }
+    RETURN_IF_FAILED(registerPackageOptions->get_DependencyPackageUris(dependencies.put()));
+
+    int argn{ 4 };
+    for (; argn < argc; ++argn)
+    {
+        PCWSTR arg{ argv[argn] };
+        if ((CompareStringOrdinal(arg, -1, L"-?", -1, FALSE) == CSTR_EQUAL) ||
+            (CompareStringOrdinal(arg, -1, L"-h", -1, FALSE) == CSTR_EQUAL) ||
+            (CompareStringOrdinal(arg, -1, L"--help", -1, FALSE) == CSTR_EQUAL))
+        {
+            Help(help_Command_Package_Add);
+        }
+        else if (CompareStringOrdinal(arg, -1, L"--allow-unsigned", -1, FALSE) == CSTR_EQUAL)
+        {
+            allowUnsigned = true;
+        }
+        else if (wil::string_starts_with(arg, L"--appdata-target="))
+        {
+            appDataTarget = arg + (ARRAYSIZE(L"--appdata-target=") - 1);
+        }
+        else if (CompareStringOrdinal(arg, -1, L"--defer", -1, FALSE) == CSTR_EQUAL)
+        {
+            defer = true;
+        }
+        else if (wil::string_starts_with(arg, L"--dependency="))
+        {
+            PCWSTR dependency{ arg + (ARRAYSIZE(L"--dependency=") - 1) };
+            wil::com_ptr_nothrow<ABI::Windows::Foundation::IUriRuntimeClass> uri;
+            RETURN_IF_FAILED(wil::to_uri(dependency, uri));
+            RETURN_IF_FAILED(dependencies->Append(uri.get()));
+        }
+        else if (CompareStringOrdinal(arg, -1, L"--developer-mode", -1, FALSE) == CSTR_EQUAL)
+        {
+            developerMode = true;
+        }
+        else if (wil::string_starts_with(arg, L"--external-location="))
+        {
+            externalLocation = arg + (ARRAYSIZE(L"--externalLocation=") - 1);
+        }
+        else if (CompareStringOrdinal(arg, -1, L"--force", -1, FALSE) == CSTR_EQUAL)
+        {
+            force = true;
+        }
+        else if (CompareStringOrdinal(arg, -1, L"--stage-in-place", -1, FALSE) == CSTR_EQUAL)
+        {
+            stageInPlace = true;
+        }
+        else if ((CompareStringOrdinal(arg, -1, L"-nologo", -1, FALSE) == CSTR_EQUAL) ||
+                 (CompareStringOrdinal(arg, -1, L"--no-logo", -1, FALSE) == CSTR_EQUAL))
+        {
+            logo = false;
+        }
+        else
+        {
+            UnknownArgument(arg);
+        }
+    }
+    if (argn < argc)
+    {
+        UnknownArgument(argv[argn]);
+    }
+
+    if (logo)
+    {
+        ShowLogo();
+    }
+
+    PCWSTR packageFamilyName{};
+    PCWSTR packageFullName{};
+    PCWSTR packagePath{};
+    wil::unique_process_heap_string packagePathBuffer;
+    wil::com_ptr_nothrow<ABI::Windows::Foundation::IUriRuntimeClass> packageUri;
+    if (::VerifyPackageFullName(package) == ERROR_SUCCESS)
+    {
+        packageFullName = package;
+    }
+    else if (::VerifyPackageFamilyName(package) == ERROR_SUCCESS)
+    {
+        packageFamilyName = package;
+    }
+    else
+    {
+        bool isDirectory{};
+        bool isFile{};
+        if (SUCCEEDED(wil::file_exists(package, isDirectory, isFile)))
+        {
+            if (isFile)
+            {
+                packagePath = package;
+            }
+            else
+            {
+                RETURN_IF_FAILED(wil::str_printf_nothrow(packagePathBuffer, L"%ls\\AppxManifest.xml", package));
+                bool exists{};
+                if (SUCCEEDED(wil::is_regular_file(packagePathBuffer.get(), exists)) && exists)
+                {
+                    packagePath = packagePathBuffer.get();
+                }
+                else
+                {
+                    RETURN_IF_FAILED(wil::to_uri(package, packageUri));
+                    RETURN_HR(E_NOTIMPL);   //TODO package remove url
+                }
+            }
+        }
+    }
+    wprintf(L"Registering '%ls'...\n", packagePath ? packagePath : package);
+
+    wil::com_ptr_nothrow<ABI::Windows::Management::Deployment::IPackageManager9> packageManager9;
+    {
+        HSTRING_HEADER classIdHeader{};
+        HSTRING classId{};
+        RETURN_IF_FAILED(WindowsCreateStringReference(
+            RuntimeClass_Windows_Management_Deployment_PackageManager,
+            ARRAYSIZE(RuntimeClass_Windows_Management_Deployment_PackageManager) - 1,
+            &classIdHeader, &classId));
+        wil::com_ptr_nothrow<IInspectable> inspectable;
+        RETURN_IF_FAILED(RoActivateInstance(classId, inspectable.put()));
+        RETURN_IF_FAILED(inspectable->QueryInterface(IID_PPV_ARGS(packageManager9.put())));
+    }
+
+    auto deploymentOptions{ ABI::Windows::Management::Deployment::DeploymentOptions_None };
+    if (allowUnsigned)
+    {
+        if (packageFullName)
+        {
+            UnsupportedArgument(L"--allow-unsigned not supported if PACKAGE=PackageFullName");
+        }
+        RETURN_IF_FAILED(registerPackageOptions->put_AllowUnsigned(true));
+    }
+    if (defer)
+    {
+        if (packageFullName)
+        {
+            UnsupportedArgument(L"--allow-unsigned not supported if PACKAGE=PackageFullName");
+        }
+        RETURN_IF_FAILED(registerPackageOptions->put_DeferRegistrationWhenPackagesAreInUse(true));
+    }
+    if (force)
+    {
+        if (packageFullName)
+        {
+            WI_SetFlag(deploymentOptions, ABI::Windows::Management::Deployment::DeploymentOptions_ForceTargetApplicationShutdown);
+        }
+        else
+        {
+            RETURN_IF_FAILED(registerPackageOptions->put_ForceTargetAppShutdown(true));
+        }
+    }
+    if (developerMode)
+    {
+        if (packageFullName)
+        {
+            WI_SetFlag(deploymentOptions, ABI::Windows::Management::Deployment::DeploymentOptions_DevelopmentMode);
+        }
+        else
+        {
+            RETURN_IF_FAILED(registerPackageOptions->put_DeveloperMode(true));
+        }
+    }
+    if (externalLocation)
+    {
+        if (packageFullName)
+        {
+            UnsupportedArgument(L"--allow-unsigned not supported if PACKAGE=PackageFullName");
+        }
+        wil::com_ptr_nothrow<ABI::Windows::Foundation::IUriRuntimeClass> externalLocationUri;
+        RETURN_IF_FAILED(wil::to_uri(package, externalLocationUri));
+        RETURN_IF_FAILED(registerPackageOptions->put_ExternalLocationUri(externalLocationUri.get()));
+    }
+    if (appDataTarget)
+    {
+        if (packageFullName)
+        {
+            UnsupportedArgument(L"--allow-unsigned not supported if PACKAGE=PackageFullName");
+        }
+        wil::com_ptr_nothrow<ABI::Windows::Management::Deployment::IPackageVolume> appDataVolume;
+        RETURN_IF_FAILED(ToPackageVolume(appDataTarget, packageManager9.get(), appDataVolume));
+        RETURN_IF_FAILED(registerPackageOptions->put_AppDataVolume(appDataVolume.get()));
+    }
+
+    wil::com_ptr_nothrow<__FIAsyncOperationWithProgress_2_Windows__CManagement__CDeployment__CDeploymentResult_Windows__CManagement__CDeployment__CDeploymentProgress> deploymentOperation;
+    if (packageFullName)
+    {
+        wil::com_ptr_nothrow<ABI::Windows::Management::Deployment::IPackageManager2> packageManager2;
+        RETURN_IF_FAILED(packageManager9->QueryInterface(IID_PPV_ARGS(packageManager2.put())));
+        HSTRING_HEADER packageFullNameHeader{};
+        HSTRING packageFullNameHString{};
+        RETURN_IF_FAILED(wil::to_hstring_reference(packageFullName, packageFullNameHeader, packageFullNameHString));
+        RETURN_IF_FAILED(packageManager2->RegisterPackageByFullNameAsync(packageFullNameHString, dependencyNames.get(), deploymentOptions, deploymentOperation.put()));
+    }
+    else if (packageFamilyName)
+    {
+        wil::com_ptr_nothrow<ABI::Windows::Management::Deployment::IPackageManager5> packageManager5;
+        RETURN_IF_FAILED(packageManager9->QueryInterface(IID_PPV_ARGS(packageManager5.put())));
+        HSTRING_HEADER packageFamilyNameHeader{};
+        HSTRING packageFamilyNameHString{};
+        RETURN_IF_FAILED(wil::to_hstring_reference(packageFamilyName, packageFamilyNameHeader, packageFamilyNameHString));
+        RETURN_IF_FAILED(packageManager5->RegisterPackageByFamilyNameAndOptionalPackagesAsync(packageFamilyNameHString, dependencyNames.get(), deploymentOptions, nullptr, nullptr, deploymentOperation.put()));
+    }
+    else
+    {
+        RETURN_IF_FAILED(packageManager9->RegisterPackageByUriAsync(packageUri.get(), registerPackageOptions.get(), deploymentOperation.put()));
+    }
+    PCWSTR errorText{};
+    wil::unique_hstring errorTextHString{};
+    HRESULT extendedError{};
+    GUID activityId{};
+    RETURN_IF_FAILED(MSIX::Deployment::GetResults(deploymentOperation.get(), errorText, errorTextHString, extendedError, activityId));
+    wprintf(L"%ls is registered\n", packagePath ? packagePath : package);
+
+    return S_OK;
+}
+
+HRESULT Command_Package_Remove(int argc, wchar_t* argv[])
+{
+    if (argc < 4)
+    {
+        Help(help_Command_Package_Remove);
+    }
+
+    PCWSTR package{ argv[3] };
+
+    bool allUsers{};
+    bool defer{};
+    bool logo{ true };
+    bool preserveApplicationData{};
+
+    int argn{ 4 };
+    for (; argn < argc; ++argn)
+    {
+        PCWSTR arg{ argv[argn] };
+        if ((CompareStringOrdinal(arg, -1, L"-?", -1, FALSE) == CSTR_EQUAL) ||
+            (CompareStringOrdinal(arg, -1, L"-h", -1, FALSE) == CSTR_EQUAL) ||
+            (CompareStringOrdinal(arg, -1, L"--help", -1, FALSE) == CSTR_EQUAL))
+        {
+            Help(help_Command_Package_List);
+        }
+        else if (CompareStringOrdinal(arg, -1, L"--all-users", -1, FALSE) == CSTR_EQUAL)
+        {
+            allUsers = true;
+        }
+        else if (CompareStringOrdinal(arg, -1, L"--defer", -1, FALSE) == CSTR_EQUAL)
+        {
+            defer = true;
+        }
+        else if (CompareStringOrdinal(arg, -1, L"--preserve-application-data", -1, FALSE) == CSTR_EQUAL)
+        {
+            preserveApplicationData = true;
+        }
+        else if ((CompareStringOrdinal(arg, -1, L"-nologo", -1, FALSE) == CSTR_EQUAL) ||
+                 (CompareStringOrdinal(arg, -1, L"--no-logo", -1, FALSE) == CSTR_EQUAL))
+        {
+            logo = false;
+        }
+        else
+        {
+            UnknownArgument(arg);
+        }
+    }
+    if (argn < argc)
+    {
+        UnknownArgument(argv[argn]);
+    }
+
+    if (logo)
+    {
+        ShowLogo();
+    }
+
+    PCWSTR packageFullName{};
+    PCWSTR packageFamilyName{};
+    wil::unique_cotaskmem_ptr<WCHAR[]> packageFullNameBuffer;
+    wil::com_ptr_nothrow<ABI::Windows::Foundation::IUriRuntimeClass> packageUri;
+    bool exists{};
+    if (::VerifyPackageFullName(package) == ERROR_SUCCESS)
+    {
+        packageFullName = package;
+    }
+    else if (::VerifyPackageFamilyName(package) == ERROR_SUCCESS)
+    {
+        packageFamilyName = package;
+    }
+    else if (SUCCEEDED(wil::is_regular_file(package, exists)) && exists)
+    {
+        wil::com_ptr_nothrow<IAppxFactory> factory;
+        wil::com_ptr_nothrow<IAppxPackageReader> packageReader;
+        RETURN_IF_FAILED_MSG(MSIX::Packaging::Package::Reader::Open(package, packageReader), "%ls", package);
+        wil::com_ptr_nothrow<IAppxManifestReader> manifestReader;
+        RETURN_IF_FAILED(packageReader->GetManifest(&manifestReader));
+        wil::com_ptr_nothrow<IAppxManifestPackageId> manifestPackageId;
+        RETURN_IF_FAILED(manifestReader->GetPackageId(&manifestPackageId));
+        RETURN_IF_FAILED(manifestPackageId->GetPackageFullName(wil::out_param(packageFullNameBuffer)));
+        packageFullName = packageFullNameBuffer.get();
+    }
+    else
+    {
+        RETURN_IF_FAILED(wil::to_uri(package, packageUri));
+        RETURN_HR(E_NOTIMPL);   //TODO package remove url
+    }
+    wprintf(L"Removing '%ls'...\n", packageFullName ? packageFullName : package);
+
+    HSTRING_HEADER packageFullNameHeader{};
+    HSTRING packageFullNameHString{};
+    RETURN_IF_FAILED(wil::to_hstring_reference(packageFullName, packageFullNameHeader, packageFullNameHString));
+
+    HSTRING_HEADER classIdHeader{};
+    HSTRING classId{};
+    RETURN_IF_FAILED(WindowsCreateStringReference(
+        RuntimeClass_Windows_Management_Deployment_PackageManager,
+        ARRAYSIZE(RuntimeClass_Windows_Management_Deployment_PackageManager) - 1,
+        &classIdHeader, &classId));
+    wil::com_ptr_nothrow<IInspectable> inspectable;
+    RETURN_IF_FAILED(RoActivateInstance(classId, inspectable.put()));
+    wil::com_ptr_nothrow<ABI::Windows::Management::Deployment::IPackageManager2> packageManager2;
+    RETURN_IF_FAILED(inspectable->QueryInterface(IID_PPV_ARGS(packageManager2.put())));
+
+    ABI::Windows::Management::Deployment::RemovalOptions removalOptions{};
+    WI_SetFlagIf(removalOptions, ABI::Windows::Management::Deployment::RemovalOptions_RemoveForAllUsers, allUsers);
+    WI_SetFlagIf(removalOptions, ABI::Windows::Management::Deployment::RemovalOptions_DeferRemovalWhenPackagesAreInUse, defer);
+    WI_SetFlagIf(removalOptions, ABI::Windows::Management::Deployment::RemovalOptions_PreserveApplicationData, preserveApplicationData);
+
+    wil::com_ptr_nothrow<__FIAsyncOperationWithProgress_2_Windows__CManagement__CDeployment__CDeploymentResult_Windows__CManagement__CDeployment__CDeploymentProgress> deploymentOperation;
+    RETURN_IF_FAILED(packageManager2->RemovePackageWithOptionsAsync(packageFullNameHString, removalOptions, deploymentOperation.put()));
+    PCWSTR errorText{};
+    wil::unique_hstring errorTextHString{};
+    HRESULT extendedError{};
+    GUID activityId{};
+    RETURN_IF_FAILED(MSIX::Deployment::GetResults(deploymentOperation.get(), errorText, errorTextHString, extendedError, activityId));
+    wprintf(L"'%ls' is removed\n", packageFullName);
+
+    return S_OK;
+}
+
+HRESULT Command_Package_Stage(int argc, wchar_t* argv[])
+{
+    if (argc < 4)
+    {
+        Help(help_Command_Package_Stage);
+    }
+
+    PCWSTR package{ argv[3] };
+
+    bool logo{ true };
+    bool allowUnsigned{};
+    wil::com_ptr_nothrow<ABI::Windows::Foundation::Collections::IVector<ABI::Windows::Foundation::Uri*>> dependencies;
+    bool developerMode{};
+    PCWSTR externalLocation{};
+    bool retainFilesOnFailure{};
+    bool stageInPlace{};
+    auto priority{ ABI::Windows::Management::Deployment::PackageOperationPriority_Normal };
+    auto stub{ ABI::Windows::Management::Deployment::StubPackageOption_Default };
+    PCWSTR target{};
+
+    wil::com_ptr_nothrow<ABI::Windows::Management::Deployment::IStagePackageOptions> stagePackageOptions;
+    {
+        HSTRING_HEADER classIdHeader{};
+        HSTRING classId{};
+        RETURN_IF_FAILED(WindowsCreateStringReference(
+            RuntimeClass_Windows_Management_Deployment_StagePackageOptions,
+            ARRAYSIZE(RuntimeClass_Windows_Management_Deployment_StagePackageOptions) - 1,
+            &classIdHeader, &classId));
+        wil::com_ptr_nothrow<IInspectable> inspectable;
+        RETURN_IF_FAILED(RoActivateInstance(classId, inspectable.put()));
+        RETURN_IF_FAILED(inspectable->QueryInterface(IID_PPV_ARGS(stagePackageOptions.put())));
+    }
+    RETURN_IF_FAILED(stagePackageOptions->get_DependencyPackageUris(dependencies.put()));
+
+    int argn{ 4 };
+    for (; argn < argc; ++argn)
+    {
+        PCWSTR arg{ argv[argn] };
+        if ((CompareStringOrdinal(arg, -1, L"-?", -1, FALSE) == CSTR_EQUAL) ||
+            (CompareStringOrdinal(arg, -1, L"-h", -1, FALSE) == CSTR_EQUAL) ||
+            (CompareStringOrdinal(arg, -1, L"--help", -1, FALSE) == CSTR_EQUAL))
+        {
+            Help(help_Command_Package_Stage);
+        }
+        else if (CompareStringOrdinal(arg, -1, L"--allow-unsigned", -1, FALSE) == CSTR_EQUAL)
+        {
+            allowUnsigned = true;
+        }
+        else if (wil::string_starts_with(arg, L"--dependency="))
+        {
+            PCWSTR dependency{ arg + (ARRAYSIZE(L"--dependency=") - 1) };
+            wil::com_ptr_nothrow<ABI::Windows::Foundation::IUriRuntimeClass> uri;
+            RETURN_IF_FAILED(wil::to_uri(dependency, uri));
+            RETURN_IF_FAILED(dependencies->Append(uri.get()));
+        }
+        else if (CompareStringOrdinal(arg, -1, L"--developer-mode", -1, FALSE) == CSTR_EQUAL)
+        {
+            developerMode = true;
+        }
+        else if (wil::string_starts_with(arg, L"--external-location="))
+        {
+            externalLocation = arg + (ARRAYSIZE(L"--externalLocation=") - 1);
+        }
+        else if (CompareStringOrdinal(arg, -1, L"--priority=low", -1, FALSE) == CSTR_EQUAL)
+        {
+            priority = ABI::Windows::Management::Deployment::PackageOperationPriority_Low;
+        }
+        else if (CompareStringOrdinal(arg, -1, L"--priority=normal", -1, FALSE) == CSTR_EQUAL)
+        {
+            priority = ABI::Windows::Management::Deployment::PackageOperationPriority_Normal;
+        }
+        else if (CompareStringOrdinal(arg, -1, L"--priority=high", -1, FALSE) == CSTR_EQUAL)
+        {
+            priority = ABI::Windows::Management::Deployment::PackageOperationPriority_High;
+        }
+        else if (CompareStringOrdinal(arg, -1, L"--retain-files-on-failure", -1, FALSE) == CSTR_EQUAL)
+        {
+            retainFilesOnFailure = true;
+        }
+        else if (CompareStringOrdinal(arg, -1, L"--stage-in-place", -1, FALSE) == CSTR_EQUAL)
+        {
+            stageInPlace = true;
+        }
+        else if (CompareStringOrdinal(arg, -1, L"--stub=default", -1, FALSE) == CSTR_EQUAL)
+        {
+            stub = ABI::Windows::Management::Deployment::StubPackageOption_Default;
+        }
+        else if (CompareStringOrdinal(arg, -1, L"--stub=full", -1, FALSE) == CSTR_EQUAL)
+        {
+            stub = ABI::Windows::Management::Deployment::StubPackageOption_InstallFull;
+        }
+        else if (CompareStringOrdinal(arg, -1, L"--stub=stub", -1, FALSE) == CSTR_EQUAL)
+        {
+            stub = ABI::Windows::Management::Deployment::StubPackageOption_InstallStub;
+        }
+        else if (CompareStringOrdinal(arg, -1, L"--stub=preference", -1, FALSE) == CSTR_EQUAL)
+        {
+            stub = ABI::Windows::Management::Deployment::StubPackageOption_UsePreference;
+        }
+        else if (wil::string_starts_with(arg, L"--target="))
+        {
+            target = arg + (ARRAYSIZE(L"--target=") - 1);
+        }
+        else if ((CompareStringOrdinal(arg, -1, L"-nologo", -1, FALSE) == CSTR_EQUAL) ||
+                 (CompareStringOrdinal(arg, -1, L"--no-logo", -1, FALSE) == CSTR_EQUAL))
+        {
+            logo = false;
+        }
+        else
+        {
+            UnknownArgument(arg);
+        }
+    }
+    if (argn < argc)
+    {
+        UnknownArgument(argv[argn]);
+    }
+
+    if (logo)
+    {
+        ShowLogo();
+    }
+
+    wil::com_ptr_nothrow<ABI::Windows::Foundation::IUriRuntimeClass> packageUri;
+    RETURN_IF_FAILED(wil::to_uri(package, packageUri));
+
+    wil::com_ptr_nothrow<ABI::Windows::Management::Deployment::IPackageManager9> packageManager9;
+    {
+        HSTRING_HEADER classIdHeader{};
+        HSTRING classId{};
+        RETURN_IF_FAILED(WindowsCreateStringReference(
+            RuntimeClass_Windows_Management_Deployment_PackageManager,
+            ARRAYSIZE(RuntimeClass_Windows_Management_Deployment_PackageManager) - 1,
+            &classIdHeader, &classId));
+        wil::com_ptr_nothrow<IInspectable> inspectable;
+        RETURN_IF_FAILED(RoActivateInstance(classId, inspectable.put()));
+        RETURN_IF_FAILED(inspectable->QueryInterface(IID_PPV_ARGS(packageManager9.put())));
+    }
+
+    if (allowUnsigned)
+    {
+        RETURN_IF_FAILED(stagePackageOptions->put_AllowUnsigned(true));
+    }
+    if (developerMode)
+    {
+        RETURN_IF_FAILED(stagePackageOptions->put_DeveloperMode(true));
+    }
+    if (externalLocation)
+    {
+        wil::com_ptr_nothrow<ABI::Windows::Foundation::IUriRuntimeClass> externalLocationUri;
+        RETURN_IF_FAILED(wil::to_uri(package, externalLocationUri));
+        RETURN_IF_FAILED(stagePackageOptions->put_ExternalLocationUri(externalLocationUri.get()));
+    }
+    if (stageInPlace)
+    {
+        RETURN_IF_FAILED(stagePackageOptions->put_StageInPlace(true));
+    }
+    if (stub != ABI::Windows::Management::Deployment::StubPackageOption_Default)
+    {
+        RETURN_IF_FAILED(stagePackageOptions->put_StubPackageOption(stub));
+    }
+    if (target)
+    {
+        wil::com_ptr_nothrow<ABI::Windows::Management::Deployment::IPackageVolume> targetVolume;
+        RETURN_IF_FAILED(ToPackageVolume(target, packageManager9.get(), targetVolume));
+        RETURN_IF_FAILED(stagePackageOptions->put_TargetVolume(targetVolume.get()));
+    }
+    if (priority != ABI::Windows::Management::Deployment::PackageOperationPriority_Normal)
+    {
+        wil::com_ptr_nothrow<ABI::Windows::Management::Deployment::IStagePackageOptions3> stagePackageOptions3;
+        RETURN_IF_FAILED(stagePackageOptions->QueryInterface(IID_PPV_ARGS(stagePackageOptions3.put())));
+        RETURN_IF_FAILED(stagePackageOptions3->put_PackageOperationPriority(priority));
+    }
+
+    wil::com_ptr_nothrow<__FIAsyncOperationWithProgress_2_Windows__CManagement__CDeployment__CDeploymentResult_Windows__CManagement__CDeployment__CDeploymentProgress> deploymentOperation;
+    RETURN_IF_FAILED(packageManager9->StagePackageByUriAsync(packageUri.get(), stagePackageOptions.get(), deploymentOperation.put()));
+    PCWSTR errorText{};
+    wil::unique_hstring errorTextHString{};
+    HRESULT extendedError{};
+    GUID activityId{};
+    RETURN_IF_FAILED(MSIX::Deployment::GetResults(deploymentOperation.get(), errorText, errorTextHString, extendedError, activityId));
+    wprintf(L"'%ls' is staged\n", package);
+
+    return S_OK;
+}
+
+HRESULT Command_Package(int argc, wchar_t* argv[])
+{
+    if (argc < 3)
+    {
+        Help(help_Command_Package);
+    }
+
+    PCWSTR command{ argv[2] };
+    if (CompareStringOrdinal(command, -1, L"add", -1, FALSE) == CSTR_EQUAL)
+    {
+        RETURN_IF_FAILED(Command_Package_Add(argc, argv));
+    }
+    else if (CompareStringOrdinal(command, -1, L"list", -1, FALSE) == CSTR_EQUAL)
+    {
+        RETURN_IF_FAILED(Command_Package_List(argc, argv));
+    }
+    else if (CompareStringOrdinal(command, -1, L"move", -1, FALSE) == CSTR_EQUAL)
+    {
+        RETURN_IF_FAILED(Command_Package_Move(argc, argv));
+    }
+    else if (CompareStringOrdinal(command, -1, L"remove", -1, FALSE) == CSTR_EQUAL)
+    {
+        RETURN_IF_FAILED(Command_Package_Remove(argc, argv));
+    }
+    else if (CompareStringOrdinal(command, -1, L"stage", -1, FALSE) == CSTR_EQUAL)
+    {
+        RETURN_IF_FAILED(Command_Package_Stage(argc, argv));
+    }
+    else
+    {
+        Help(help_Command_Package);
+    }
+    return S_OK;
+}
+
 HRESULT Command_Provision_Add(int argc, wchar_t* argv[])
 {
     if (argc < 4)
@@ -1401,7 +2707,6 @@ HRESULT Command_Provision_List(int argc, wchar_t* argv[])
 
     return S_OK;
 }
-
 
 HRESULT Command_Provision_Remove(int argc, wchar_t* argv[])
 {
@@ -1705,7 +3010,7 @@ HRESULT Command_Shortcut_Add(int argc, wchar_t* argv[])
         if (targetType == ShortcutTargetType::ApplicationUserModelId)
         {
             wil::unique_cotaskmem_string parseName;
-            RETURN_IF_FAILED(wil::str_printf_nothrow<wil::unique_cotaskmem_string>(parseName, L"shell:AppsFolder\\%ls", target));
+            RETURN_IF_FAILED(wil::str_printf_nothrow(parseName, L"shell:AppsFolder\\%ls", target));
 
             wil::unique_cotaskmem_ptr<ITEMIDLIST_ABSOLUTE> pidl;
             RETURN_IF_FAILED(SHParseDisplayName(parseName.get(), nullptr, wil::out_param(pidl), 0, nullptr));
@@ -2134,6 +3439,10 @@ int wmain(int argc, wchar_t* argv[])
     if (CompareStringOrdinal(arg, -1, L"certificate", -1, FALSE) == CSTR_EQUAL)
     {
         return MessageOnError(Command_Certificate(argc, argv));
+    }
+    else if (CompareStringOrdinal(arg, -1, L"package", -1, FALSE) == CSTR_EQUAL)
+    {
+        return MessageOnError(Command_Package(argc, argv));
     }
     else if (CompareStringOrdinal(arg, -1, L"provision", -1, FALSE) == CSTR_EQUAL)
     {
