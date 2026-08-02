@@ -29,13 +29,13 @@
     <Resource Language="en-us" />
   </Resources>
   <Dependencies>
-    <TargetDeviceFamily Name="Windows.Desktop" MinVersion="10.0.17763.0" MaxVersionTested="10.0.28000.0" />
+    <TargetDeviceFamily Name="Windows.Desktop" MinVersion="10.0.22000.0" MaxVersionTested="10.0.28000.0" />
   </Dependencies>
   <Capabilities>
     <rescap:Capability Name="runFullTrust"/>
   </Capabilities>
   <Applications>
-    <Application Id="MSIXcli" Executable="msix.exe" EntryPoint="Windows.FullTrustApplication">
+    <Application Id="msix" Executable="msix.exe" uap10:RuntimeBehvior="packagedClassicApp" uap10:TrustLevel="mediumIL">
       <uap3:VisualElements
             BackgroundColor="transparent"
             DisplayName="MSIX CLI"
@@ -54,10 +54,10 @@
         </uap3:Extension>
       </Extensions>
     </Application>
-    <Application Id="MSIXadmin" Executable="msixadmin.exe" EntryPoint="Windows.FullTrustApplication">
+    <Application Id="msixadmin" Executable="msixadmin.exe" uap10:RuntimeBehvior="packagedClassicApp" uap10:TrustLevel="mediumIL">
       <uap3:VisualElements
             BackgroundColor="transparent"
-            DisplayName="MSIX Admin"
+            DisplayName="MSIX Admin CLI"
             Square150x150Logo="msixadmin-100x100.png"
             Square44x44Logo="msixadmin-48x48.png"
             Description="MSIX package management (admin privileged functionality)"
@@ -68,6 +68,7 @@
         <uap3:Extension Category="windows.appExecutionAlias">
           <uap3:AppExecutionAlias>
             <desktop:ExecutionAlias Alias="msixadmin.exe"/>
+            <desktop:ExecutionAlias Alias="msixadmincli.exe"/>
           </uap3:AppExecutionAlias>
         </uap3:Extension>
       </Extensions>

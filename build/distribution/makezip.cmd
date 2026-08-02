@@ -15,7 +15,7 @@ SET TARGETBASE=%TARGETDIR%\MSIXcli-%VER%-%ARCH%
 IF "%ZIPEXE%" == "" SET ZIPEXE=C:\Util.W32\ZIP.EXE
 SET ZOPTS=-9jDX
 SET ZTARGET=%TARGETBASE%.zip
-SET FILES="%ROOTDIR%\README.md" "%ROOTDIR%\LICENSE" "%BINDIR%\MSIXAdmin\MSIXadmin.exe" "%BINDIR%\MSIXPropertySheet\MSIXPropertySheet.dll"
+SET FILES="%ROOTDIR%\README.md" "%ROOTDIR%\LICENSE" "%BINDIR%\msix\msix.exe" "%BINDIR%\msixadmin\msixadmin.exe" "%BINDIR%\MSIXPropertySheet\MSIXPropertySheet.dll"
 
 IF "%_7ZDIR%" == "" SET _7ZDIR=C:\Util.W32\7-ZipPortable\App
 IF "%_7Zx86%" == "" SET _7Zx86=%_7ZDIR%\7-Zip\7z.exe

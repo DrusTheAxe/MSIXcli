@@ -15,7 +15,9 @@ SET TARGET=%TARGETDIR%\AppData-%VER%-%ARCH%.msix
 SET SCRATCH="%TEMP%\appxdata-temp-msix"
 IF EXIST %SCRATCH% RD /s/q %SCRATCH%
 MD %SCRATCH% 2>&1 >NUL
-COPY %BINDIR%\* %SCRATCH%\*
+COPY %BINDIR%\msix\msix.exe %SCRATCH%\*
+COPY %BINDIR%\msixadmin\msixadmin.exe %SCRATCH%\*
+COPY %BINDIR%\MSIXPropertySheet\MSIXPropertySheet.dll %SCRATCH%\*
 COPY %ROOTDIR%\build\appxmanifest.xml %SCRATCH%\*
 COPY %ROOTDIR%\LICENSE %SCRATCH%\*
 COPY %ROOTDIR%\README.md %SCRATCH%\*
