@@ -12,5 +12,9 @@
 * Add functionality not requiring admin privilege...
   * msix.exe
   * PackageManager.EverythingElse :-)
+  * Repair
+  * Reset
+* Add .msixbundle
+* Add .emsix and .emsixbundle
 * Refactor help - more argparse/optparse/System.CommandLine/data driven (less deep duplication)
 * Localization
