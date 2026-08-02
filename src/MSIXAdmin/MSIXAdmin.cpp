@@ -648,6 +648,20 @@ HRESULT ToPackageVolume(
     RETURN_HR_MSG(HRESULT_FROM_WIN32(ERROR_PATH_NOT_FOUND), "%ls", path);
 }
 
+HRESULT IsMsUupProtocol(ABI::Windows::Foundation::IUriRuntimeClass* uri, bool& isMsUup)
+{
+    isMsUup = false;
+
+    wil::unique_hstring schemeName;
+    RETURN_IF_FAILED(uri->get_SchemeName(wil::out_param(schemeName)));
+    PCWSTR scheme{ WindowsGetStringRawBuffer(schemeName.get(), nullptr) };
+    if (CompareStringOrdinal(scheme, -1, L"ms-uup:", -1, TRUE) != CSTR_EQUAL)
+    {
+        isMsUup = true;
+    }
+    return S_OK;
+}
+
 HRESULT ShowLogo()
 {
     std::uint16_t major{};
@@ -2018,13 +2032,21 @@ HRESULT Command_Package_Register(int argc, wchar_t* argv[])
                 {
                     packagePath = packagePathBuffer.get();
                 }
-                else
+                else if (SUCCEEDED(wil::to_uri(package, packageUri)))
                 {
-                    RETURN_IF_FAILED(wil::to_uri(package, packageUri));
-                    RETURN_HR(E_NOTIMPL);   //TODO package remove url
+                    bool isMsUup{};
+                    RETURN_IF_FAILED(IsMsUupProtocol(packageUri.get(), isMsUup));
+                    if (!isMsUup)
+                    {
+                        packageUri.reset();
+                    }
                 }
             }
         }
+    }
+    if (!packageFullName && !packageFamilyName && !packageUri)
+    {
+        UnknownArgument(package);
     }
     wprintf(L"Registering '%ls'...\n", packagePath ? packagePath : package);
 
@@ -2226,10 +2248,9 @@ HRESULT Command_Package_Remove(int argc, wchar_t* argv[])
     }
     else if (SUCCEEDED(wil::to_uri(package, packageUri)))
     {
-        wil::unique_hstring schemeName;
-        RETURN_IF_FAILED(packageUri->get_SchemeName(wil::out_param(schemeName)));
-        PCWSTR scheme{ WindowsGetStringRawBuffer(schemeName.get(), nullptr) };
-        if (CompareStringOrdinal(scheme, -1, L"ms-uup:", -1, TRUE) != CSTR_EQUAL)
+        bool isMsUup{};
+        RETURN_IF_FAILED(IsMsUupProtocol(packageUri.get(), isMsUup));
+        if (!isMsUup)
         {
             packageUri.reset();
         }
