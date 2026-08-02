@@ -604,11 +604,13 @@ void PrintPackage(
 
 HRESULT ToPackageVolume(
     PCWSTR path,
-    ABI::Windows::Management::Deployment::IPackageManager9* packageManager9,
-    wil::com_ptr_nothrow<ABI::Windows::Management::Deployment::IPackageVolume>& packageVolume)
+    ABI::Windows::Management::Deployment::IPackageManager3* packageManager3,
+    wil::com_ptr_nothrow<ABI::Windows::Management::Deployment::IPackageVolume>& packageVolume,
+    wil::unique_hstring& packageVolumePathHString)
 {
-    wil::com_ptr_nothrow<ABI::Windows::Management::Deployment::IPackageManager3> packageManager3;
-    RETURN_IF_FAILED(packageManager9->QueryInterface(IID_PPV_ARGS(packageManager3.put())));
+    packageVolume.reset();
+    packageVolumePathHString.reset();
+
     wil::com_ptr_nothrow<ABI::Windows::Foundation::Collections::IIterable<ABI::Windows::Management::Deployment::PackageVolume*>> volumes;
     if (SUCCEEDED_LOG(packageManager3->FindPackageVolumes(&volumes)) && volumes)
     {
@@ -632,6 +634,7 @@ HRESULT ToPackageVolume(
                                 if (wil::string_starts_with(packageStorePath, path, true))
                                 {
                                     packageVolume = wistd::move(volume);
+                                    packageVolumePathHString = wistd::move(packageStorePathHString);
                                     return S_OK;
                                 }
                             }
@@ -646,6 +649,38 @@ HRESULT ToPackageVolume(
         }
     }
     RETURN_HR_MSG(HRESULT_FROM_WIN32(ERROR_PATH_NOT_FOUND), "%ls", path);
+}
+
+HRESULT ToPackageVolume(
+    PCWSTR path,
+    ABI::Windows::Management::Deployment::IPackageManager3* packageManager3,
+    wil::com_ptr_nothrow<ABI::Windows::Management::Deployment::IPackageVolume>& packageVolume)
+{
+    wil::unique_hstring packageVolumePathHString;
+    RETURN_IF_FAILED(ToPackageVolume(path, packageManager3, packageVolume, packageVolumePathHString));
+    return S_OK;
+}
+
+HRESULT ToPackageVolume(
+    PCWSTR path,
+    ABI::Windows::Management::Deployment::IPackageManager9* packageManager9,
+    wil::com_ptr_nothrow<ABI::Windows::Management::Deployment::IPackageVolume>& packageVolume,
+    wil::unique_hstring& packageVolumePathHString)
+{
+    wil::com_ptr_nothrow<ABI::Windows::Management::Deployment::IPackageManager3> packageManager3;
+    RETURN_IF_FAILED(packageManager9->QueryInterface(IID_PPV_ARGS(packageManager3.put())));
+    RETURN_IF_FAILED(ToPackageVolume(path, packageManager3.get(), packageVolume, packageVolumePathHString));
+    return S_OK;
+}
+
+HRESULT ToPackageVolume(
+    PCWSTR path,
+    ABI::Windows::Management::Deployment::IPackageManager9* packageManager9,
+    wil::com_ptr_nothrow<ABI::Windows::Management::Deployment::IPackageVolume>& packageVolume)
+{
+    wil::unique_hstring packageVolumePathHString;
+    RETURN_IF_FAILED(ToPackageVolume(path, packageManager9, packageVolume, packageVolumePathHString));
+    return S_OK;
 }
 
 HRESULT IsMsUupProtocol(ABI::Windows::Foundation::IUriRuntimeClass* uri, bool& isMsUup)
@@ -1897,10 +1932,96 @@ HRESULT Command_Package_List(int argc, wchar_t* argv[])
 
 HRESULT Command_Package_Move(int argc, wchar_t* argv[])
 {
-    //TODO Command_Package_Move
-    (void)argc;
-    (void)argv;
-    RETURN_HR(E_NOTIMPL);
+    if (argc < 5)
+    {
+        Help(help_Command_Package_Stage);
+    }
+
+    PCWSTR packageFullName{ argv[3] };
+    PCWSTR target{ argv[4] };
+
+    bool logo{ true };
+    bool force{};
+    bool retainFilesOnFailure{};
+
+    int argn{ 5 };
+    for (; argn < argc; ++argn)
+    {
+        PCWSTR arg{ argv[argn] };
+        if ((CompareStringOrdinal(arg, -1, L"-?", -1, FALSE) == CSTR_EQUAL) ||
+            (CompareStringOrdinal(arg, -1, L"-h", -1, FALSE) == CSTR_EQUAL) ||
+            (CompareStringOrdinal(arg, -1, L"--help", -1, FALSE) == CSTR_EQUAL))
+        {
+            Help(help_Command_Package_Stage);
+        }
+        else if (CompareStringOrdinal(arg, -1, L"--force", -1, FALSE) == CSTR_EQUAL)
+        {
+            force = true;
+        }
+        else if (CompareStringOrdinal(arg, -1, L"--retain-files-on-failure", -1, FALSE) == CSTR_EQUAL)
+        {
+            retainFilesOnFailure = true;
+        }
+        else if (wil::string_starts_with(arg, L"--target="))
+        {
+            target = arg + (ARRAYSIZE(L"--target=") - 1);
+        }
+        else if ((CompareStringOrdinal(arg, -1, L"-nologo", -1, FALSE) == CSTR_EQUAL) ||
+                 (CompareStringOrdinal(arg, -1, L"--no-logo", -1, FALSE) == CSTR_EQUAL))
+        {
+            logo = false;
+        }
+        else
+        {
+            UnknownArgument(arg);
+        }
+    }
+    if (argn < argc)
+    {
+        UnknownArgument(argv[argn]);
+    }
+
+    if (logo)
+    {
+        ShowLogo();
+    }
+
+    HSTRING_HEADER packageFullNameHeader{};
+    HSTRING packageFullNameHString{};
+    RETURN_IF_FAILED(wil::to_hstring_reference(packageFullName, packageFullNameHeader, packageFullNameHString));
+
+    wil::com_ptr_nothrow<ABI::Windows::Management::Deployment::IPackageManager3> packageManager3;
+    {
+        HSTRING_HEADER classIdHeader{};
+        HSTRING classId{};
+        RETURN_IF_FAILED(WindowsCreateStringReference(
+            RuntimeClass_Windows_Management_Deployment_PackageManager,
+            ARRAYSIZE(RuntimeClass_Windows_Management_Deployment_PackageManager) - 1,
+            &classIdHeader, &classId));
+        wil::com_ptr_nothrow<IInspectable> inspectable;
+        RETURN_IF_FAILED(RoActivateInstance(classId, inspectable.put()));
+        RETURN_IF_FAILED(inspectable->QueryInterface(IID_PPV_ARGS(packageManager3.put())));
+    }
+
+    wil::com_ptr_nothrow<ABI::Windows::Management::Deployment::IPackageVolume> targetVolume;
+    wil::unique_hstring packageVolumePathHString;
+    RETURN_IF_FAILED(ToPackageVolume(target, packageManager3.get(), targetVolume, packageVolumePathHString));
+
+    auto deploymentOptions{ ABI::Windows::Management::Deployment::DeploymentOptions_None };
+    WI_SetFlagIf(deploymentOptions, ABI::Windows::Management::Deployment::DeploymentOptions_ForceTargetApplicationShutdown, force);
+    WI_SetFlagIf(deploymentOptions, ABI::Windows::Management::Deployment::DeploymentOptions_RetainFilesOnFailure, retainFilesOnFailure);
+
+    wil::com_ptr_nothrow<__FIAsyncOperationWithProgress_2_Windows__CManagement__CDeployment__CDeploymentResult_Windows__CManagement__CDeployment__CDeploymentProgress> deploymentOperation;
+    RETURN_IF_FAILED(packageManager3->MovePackageToVolumeAsync(packageFullNameHString, deploymentOptions, targetVolume.get(), deploymentOperation.put()));
+    PCWSTR errorText{};
+    wil::unique_hstring errorTextHString{};
+    HRESULT extendedError{};
+    GUID activityId{};
+    RETURN_IF_FAILED(MSIX::Deployment::GetResults(deploymentOperation.get(), errorText, errorTextHString, extendedError, activityId));
+    PCWSTR packageVolumePath{ WindowsGetStringRawBuffer(packageVolumePathHString.get(), nullptr) };
+    wprintf(L"'%ls' is moved to %ls\n", packageFullName, packageVolumePath);
+
+    return S_OK;
 }
 
 HRESULT Command_Package_Register(int argc, wchar_t* argv[])
