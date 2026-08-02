@@ -1564,7 +1564,7 @@ HRESULT Command_Help_Commands_Tree(int argc, wchar_t* argv[])
                 L"\u2502     \u251C\u2500\u2500install\n"
                 L"\u2502     \u251C\u2500\u2500list\n"
                 L"\u2502     \u2514\u2500\u2500uninstall\n"
-                L"\u251C\u2500\u2500version\n");
+                L"\u2514\u2500\u2500version\n");
     }
 
     return S_OK;

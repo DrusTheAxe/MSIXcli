@@ -23,6 +23,12 @@ Nothing magical, just the usual Fusion manifest games (OK, perhaps that is a bit
 
 Run `msixadmin --help` for more information.
 
+## Command Tree
+
+Run `msixadmin help commands tree`
+
+![Display the commands tree](docs/images/msixadmin/MSIX-help-commands-tree.png)
+
 ## MSIX Property Sheet
 
 Run
