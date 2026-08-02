@@ -9,6 +9,7 @@
   * https://learn.microsoft.com/uwp/api/windows.management.deployment.appinstallermanager.getforsystem?view=winrt-28000
   * https://learn.microsoft.com/uwp/api/windows.management.deployment.packagemanager.cleanuppackageforuserasync?view=winrt-28000
   * https://learn.microsoft.com/uwp/api/windows.management.deployment.packagemanager.findusers?view=winrt-28000
+* Add PackageVolume functionality
 * Add functionality not requiring admin privilege...
   * msix.exe
   * PackageManager.EverythingElse :-)
