@@ -42,7 +42,7 @@ msixadmin tool propertysheet install
 to install the MSIX PropertySheet page. This shows a new `MSIX` tab in Explorer's property sheet for
 MSIX files.
 
-**NOTE**: Currently supports *.msix and *.appx. Bundles and more are on the TODO list.
+**NOTE**: Currently supports *.msix and *.appx. Bundles and more are on the [TODO list](https://github.com/DrusTheAxe/MSIXcli/issues).
 
 ### Screenshots
 
