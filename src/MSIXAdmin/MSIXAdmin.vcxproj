@@ -27,6 +27,9 @@
       <Platform>ARM64</Platform>
     </ProjectConfiguration>
   </ItemGroup>
+  <PropertyGroup>
+    <MSIXADMIN Condition="('$(MSIXADMIN)'=='')">1</MSIXADMIN>
+  </PropertyGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>17.0</VCProjectVersion>
     <ProjectGuid>{20EC1070-C309-4944-B66B-7788070E1B6B}</ProjectGuid>
@@ -74,12 +77,12 @@
       <PrecompiledHeader>Use</PrecompiledHeader>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
       <UseFullPaths>true</UseFullPaths>
-      <PreprocessorDefinitions>_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_WINDOWS;MSIXADMIN=$(MSIXADMIN);%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <AdditionalIncludeDirectories>%(AdditionalIncludeDirectories);$(RepoRoot)\src\inc</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
-      <UACExecutionLevel>RequireAdministrator</UACExecutionLevel>
+      <UACExecutionLevel Condition="('$(MSIXADMIN)'=='') or ('$(MSIXADMIN)'=='1')">RequireAdministrator</UACExecutionLevel>
       <AdditionalDependencies>onecore.lib;onecoreuap.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
@@ -118,11 +121,13 @@
     <None Include="packages.config" />
   </ItemGroup>
   <ItemGroup>
-    <Manifest Include="MSIXAdmin.manifest" />
+    <Manifest Condition="('$(MSIXADMIN)'!='0')" Include="MSIXAdmin.manifest" />
+    <Manifest Condition="('$(MSIXADMIN)'=='0')" Include="MSIX.manifest" />
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="Resource.rc">
       <AdditionalIncludeDirectories>%(AdditionalIncludeDirectories);$(RepoRoot)\src\inc</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>MSIXADMIN=$(MSIXADMIN);%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ResourceCompile>
   </ItemGroup>
   <ItemGroup>

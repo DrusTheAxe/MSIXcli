@@ -3,6 +3,16 @@
 
 #include <winresrc.h>
 
-#define MSIXCLI_FILENAME        "MSIXAdmin.exe"
-#define MSIXCLI_PRODUCT_NAME    "MSIX Admin"
+#ifndef MSIXADMIN
+#define MSIXADMIN 1
+#endif
+
+#if MSIXADMIN == 0
+#define MSIXCLI_FILENAME        "msixadmin.exe"
+#define MSIXCLI_PRODUCT_NAME    "MSIX Command-Line Interface"
+#else
+#define MSIXCLI_FILENAME        "msixadmin.exe"
+#define MSIXCLI_PRODUCT_NAME    "MSIX Admin Command-Line Interface"
+#endif
+
 #include "VersionInfo.ver"

@@ -6,5 +6,5 @@
       version="1.0.0.0"
       processorArchitecture="*"
       />
-  <description>MSIX Administration Command-Line Interface</description>
+  <description>MSIX Command-Line Interface</description>
 </assembly>
