@@ -61,7 +61,7 @@ public:
     //      6. Click **Yes** on the admin prompt for changes to your device.
     //      7. On the **Certificate Import Wizard** chose the radio button **Place all certificates in the following store** then select the **Browse** button.
     //      8. If the cert is...
-    //         1. ...**a leaf cert issued by an already-trusted CA** (e.g. public one) -> You don�t need to do anything. Exit out of adding the cert
+    //         1. ...**a leaf cert issued by an already-trusted CA** (e.g. public one) -> You don't need to do anything. Exit out of adding the cert
     //         2. ...**an untrusted leaf cert** (e.g. self-signed) -> Select the **Trusted People** certificate store (common case)
     //         3. ...**a new CA** -> Select the **Trusted Root Certification Authorities** certificate store (extremely rare)
     //      9. Click the **OK** button.
