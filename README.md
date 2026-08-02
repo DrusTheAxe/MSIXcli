@@ -12,7 +12,15 @@ have to decide for yourself whether you find these tools useful or dead ends (or
 
 # msix.exe
 
-TBD
+This command line executable provides access to MSIX functionality.
+
+Run `msix --help` for more information.
+
+## Command Tree
+
+Run `msix help commands tree`
+
+![Display the commands tree](docs/images/msix/MSIX-help-commands-tree.png)
 
 # msixadmin.exe
 
@@ -22,12 +30,6 @@ If not launched elevated you'll see a UAC prompt to allow elevation, or process 
 Nothing magical, just the usual Fusion manifest games (OK, perhaps that is a bit magical... :P).
 
 Run `msixadmin --help` for more information.
-
-## Command Tree
-
-Run `msixadmin help commands tree`
-
-![Display the commands tree](docs/images/msixadmin/MSIX-help-commands-tree.png)
 
 ## MSIX Property Sheet
 
