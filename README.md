@@ -71,6 +71,11 @@ MSIX files.
 
 See the LICENSE file in the root directory.
 
+# Code of Conduct
+
+See [Code of Conduct](https://github.com/drustheaxe/msixcli/docs/CODE-OF-CONDUCT.md) or onctact
+[howard.kapustein@gmail.com](mailto:howard.kapustein@gmail.com) with any additional questions or comments.
+
 # References
 
 - [Implementing Shell Extension Handlers](https://docs.microsoft.com/en-us/windows/win32/shell/handlers)
