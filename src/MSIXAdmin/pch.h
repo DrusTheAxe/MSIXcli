@@ -36,3 +36,4 @@
 #include <MSIXSigning.h>
 #include <wil_array.h>
 #include <wil_extension.h>
+#include <wil_winrt_vector.h>

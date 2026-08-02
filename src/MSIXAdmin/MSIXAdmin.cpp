@@ -1901,7 +1901,7 @@ HRESULT Command_Package_Register(int argc, wchar_t* argv[])
     bool logo{ true };
     bool allowUnsigned{};
     bool defer{};
-    wil::com_ptr_nothrow<ABI::Windows::Foundation::Collections::IVector<ABI::Windows::Foundation::Uri*>> dependencies;
+    wil::winrt::vector_hstring dependenciesNames;
     bool developerMode{};
     PCWSTR externalLocation{};
     bool force{};
@@ -1920,7 +1920,6 @@ HRESULT Command_Package_Register(int argc, wchar_t* argv[])
         RETURN_IF_FAILED(RoActivateInstance(classId, inspectable.put()));
         RETURN_IF_FAILED(inspectable->QueryInterface(IID_PPV_ARGS(registerPackageOptions.put())));
     }
-    RETURN_IF_FAILED(registerPackageOptions->get_DependencyPackageUris(dependencies.put()));
 
     int argn{ 4 };
     for (; argn < argc; ++argn)
@@ -1947,9 +1946,10 @@ HRESULT Command_Package_Register(int argc, wchar_t* argv[])
         else if (wil::string_starts_with(arg, L"--dependency="))
         {
             PCWSTR dependency{ arg + (ARRAYSIZE(L"--dependency=") - 1) };
-            wil::com_ptr_nothrow<ABI::Windows::Foundation::IUriRuntimeClass> uri;
-            RETURN_IF_FAILED(wil::to_uri(dependency, uri));
-            RETURN_IF_FAILED(dependencies->Append(uri.get()));
+            HSTRING_HEADER dependencyHeader{};
+            HSTRING dependencyHString{};
+            RETURN_IF_FAILED(wil::to_hstring_reference(dependency, dependencyHeader, dependencyHString));
+            RETURN_IF_FAILED(dependenciesNames.push_back(dependencyHString));
         }
         else if (CompareStringOrdinal(arg, -1, L"--developer-mode", -1, FALSE) == CSTR_EQUAL)
         {
@@ -2109,7 +2109,7 @@ HRESULT Command_Package_Register(int argc, wchar_t* argv[])
         HSTRING_HEADER packageFullNameHeader{};
         HSTRING packageFullNameHString{};
         RETURN_IF_FAILED(wil::to_hstring_reference(packageFullName, packageFullNameHeader, packageFullNameHString));
-        RETURN_IF_FAILED(packageManager2->RegisterPackageByFullNameAsync(packageFullNameHString, dependencyNames.get(), deploymentOptions, deploymentOperation.put()));
+        RETURN_IF_FAILED(packageManager2->RegisterPackageByFullNameAsync(packageFullNameHString, dependenciesNames.get(), deploymentOptions, deploymentOperation.put()));
     }
     else if (packageFamilyName)
     {
@@ -2118,10 +2118,19 @@ HRESULT Command_Package_Register(int argc, wchar_t* argv[])
         HSTRING_HEADER packageFamilyNameHeader{};
         HSTRING packageFamilyNameHString{};
         RETURN_IF_FAILED(wil::to_hstring_reference(packageFamilyName, packageFamilyNameHeader, packageFamilyNameHString));
-        RETURN_IF_FAILED(packageManager5->RegisterPackageByFamilyNameAndOptionalPackagesAsync(packageFamilyNameHString, dependencyNames.get(), deploymentOptions, nullptr, nullptr, deploymentOperation.put()));
+        RETURN_IF_FAILED(packageManager5->RegisterPackageByFamilyNameAndOptionalPackagesAsync(packageFamilyNameHString, dependenciesNames.get(), deploymentOptions, nullptr, nullptr, deploymentOperation.put()));
     }
     else
     {
+        wil::com_ptr_nothrow<ABI::Windows::Foundation::Collections::IVector<ABI::Windows::Foundation::Uri*>> dependenciesUris;
+        RETURN_IF_FAILED(registerPackageOptions->get_DependencyPackageUris(dependenciesUris.put()));
+        for (std::uint32_t index = 0; index < dependenciesNames.size(); ++index)
+        {
+            auto dependency{ dependenciesNames[index] };
+            wil::com_ptr_nothrow<ABI::Windows::Foundation::IUriRuntimeClass> uri;
+            RETURN_IF_FAILED(wil::to_uri(::WindowsGetStringRawBuffer(dependency, nullptr), uri));
+            RETURN_IF_FAILED(dependenciesUris->Append(uri.get()));
+        }
         RETURN_IF_FAILED(packageManager9->RegisterPackageByUriAsync(packageUri.get(), registerPackageOptions.get(), deploymentOperation.put()));
     }
     PCWSTR errorText{};
@@ -2215,10 +2224,19 @@ HRESULT Command_Package_Remove(int argc, wchar_t* argv[])
         RETURN_IF_FAILED(manifestPackageId->GetPackageFullName(wil::out_param(packageFullNameBuffer)));
         packageFullName = packageFullNameBuffer.get();
     }
-    else
+    else if (SUCCEEDED(wil::to_uri(package, packageUri)))
     {
-        RETURN_IF_FAILED(wil::to_uri(package, packageUri));
-        RETURN_HR(E_NOTIMPL);   //TODO package remove url
+        wil::unique_hstring schemeName;
+        RETURN_IF_FAILED(packageUri->get_SchemeName(wil::out_param(schemeName)));
+        PCWSTR scheme{ WindowsGetStringRawBuffer(schemeName.get(), nullptr) };
+        if (CompareStringOrdinal(scheme, -1, L"ms-uup:", -1, TRUE) != CSTR_EQUAL)
+        {
+            packageUri.reset();
+        }
+    }
+    if (!packageFullName && !packageFamilyName && !packageUri)
+    {
+        UnknownArgument(package);
     }
     wprintf(L"Removing '%ls'...\n", packageFullName ? packageFullName : package);
 
@@ -2265,7 +2283,6 @@ HRESULT Command_Package_Stage(int argc, wchar_t* argv[])
 
     bool logo{ true };
     bool allowUnsigned{};
-    wil::com_ptr_nothrow<ABI::Windows::Foundation::Collections::IVector<ABI::Windows::Foundation::Uri*>> dependencies;
     bool developerMode{};
     PCWSTR externalLocation{};
     bool retainFilesOnFailure{};
@@ -2286,6 +2303,7 @@ HRESULT Command_Package_Stage(int argc, wchar_t* argv[])
         RETURN_IF_FAILED(RoActivateInstance(classId, inspectable.put()));
         RETURN_IF_FAILED(inspectable->QueryInterface(IID_PPV_ARGS(stagePackageOptions.put())));
     }
+    wil::com_ptr_nothrow<ABI::Windows::Foundation::Collections::IVector<ABI::Windows::Foundation::Uri*>> dependencies;
     RETURN_IF_FAILED(stagePackageOptions->get_DependencyPackageUris(dependencies.put()));
 
     int argn{ 4 };

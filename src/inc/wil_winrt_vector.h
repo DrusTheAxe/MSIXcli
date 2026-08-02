@@ -505,6 +505,326 @@ private:
     std::uint32_t m_capacity{};
     std::uint32_t m_size{};
 };
+
+class vector_hstring_implementation;
+
+class vector_hstring_iterator final :
+    public ABI::Windows::Foundation::Collections::IIterator<HSTRING>
+{
+private:
+    using iterator_interface = ABI::Windows::Foundation::Collections::IIterator<HSTRING>;
+
+public:
+    explicit vector_hstring_iterator(vector_hstring_implementation* owner) noexcept;
+
+    HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void** object) noexcept override
+    {
+        RETURN_HR_IF_NULL(E_POINTER, object);
+        *object = nullptr;
+
+        if ((iid == __uuidof(IUnknown)) ||
+            (iid == __uuidof(IInspectable)) ||
+            (iid == __uuidof(iterator_interface)))
+        {
+            *object = static_cast<iterator_interface*>(this);
+            AddRef();
+            return S_OK;
+        }
+        return E_NOINTERFACE;
+    }
+
+    ULONG STDMETHODCALLTYPE AddRef() noexcept override
+    {
+        return ++m_references;
+    }
+
+    ULONG STDMETHODCALLTYPE Release() noexcept override
+    {
+        const auto references{ --m_references };
+        if (references == 0)
+        {
+            delete this;
+        }
+        return references;
+    }
+
+    HRESULT STDMETHODCALLTYPE GetIids(ULONG* iidCount, IID** iids) noexcept override
+    {
+        RETURN_HR_IF_NULL(E_POINTER, iidCount);
+        RETURN_HR_IF_NULL(E_POINTER, iids);
+        *iidCount = 0;
+        *iids = nullptr;
+
+        auto result{ static_cast<IID*>(CoTaskMemAlloc(sizeof(IID))) };
+        RETURN_IF_NULL_ALLOC(result);
+        result[0] = __uuidof(iterator_interface);
+        *iidCount = 1;
+        *iids = result;
+        return S_OK;
+    }
+
+    HRESULT STDMETHODCALLTYPE GetRuntimeClassName(HSTRING* className) noexcept override
+    {
+        RETURN_HR_IF_NULL(E_POINTER, className);
+        *className = nullptr;
+        return S_OK;
+    }
+
+    HRESULT STDMETHODCALLTYPE GetTrustLevel(TrustLevel* trustLevel) noexcept override
+    {
+        RETURN_HR_IF_NULL(E_POINTER, trustLevel);
+        *trustLevel = BaseTrust;
+        return S_OK;
+    }
+
+    HRESULT STDMETHODCALLTYPE get_Current(HSTRING* current) noexcept override;
+
+    HRESULT STDMETHODCALLTYPE get_HasCurrent(boolean* hasCurrent) noexcept override;
+
+    HRESULT STDMETHODCALLTYPE MoveNext(boolean* hasCurrent) noexcept override;
+
+    HRESULT STDMETHODCALLTYPE GetMany(
+        unsigned capacity,
+        HSTRING* value,
+        unsigned* actual) noexcept override;
+
+private:
+    std::atomic<ULONG> m_references{ 1 };
+    wil::com_ptr_nothrow<vector_hstring_implementation> m_owner;
+    unsigned m_index{};
+};
+
+class vector_hstring_implementation final :
+    public ABI::Windows::Foundation::Collections::IIterable<HSTRING>
+{
+private:
+    using iterable_interface = ABI::Windows::Foundation::Collections::IIterable<HSTRING>;
+    using iterator_interface = ABI::Windows::Foundation::Collections::IIterator<HSTRING>;
+
+public:
+    constexpr static std::uint32_t default_capacity{ 16 };
+
+    ~vector_hstring_implementation() noexcept
+    {
+        clear();
+        delete[] m_data;
+    }
+
+    HRESULT STDMETHODCALLTYPE QueryInterface(REFIID iid, void** object) noexcept override
+    {
+        RETURN_HR_IF_NULL(E_POINTER, object);
+        *object = nullptr;
+
+        if ((iid == __uuidof(IUnknown)) ||
+            (iid == __uuidof(IInspectable)) ||
+            (iid == __uuidof(iterable_interface)))
+        {
+            *object = static_cast<iterable_interface*>(this);
+            AddRef();
+            return S_OK;
+        }
+        return E_NOINTERFACE;
+    }
+
+    ULONG STDMETHODCALLTYPE AddRef() noexcept override
+    {
+        return ++m_references;
+    }
+
+    ULONG STDMETHODCALLTYPE Release() noexcept override
+    {
+        const auto references{ --m_references };
+        if (references == 0)
+        {
+            delete this;
+        }
+        return references;
+    }
+
+    HRESULT STDMETHODCALLTYPE GetIids(ULONG* iidCount, IID** iids) noexcept override
+    {
+        RETURN_HR_IF_NULL(E_POINTER, iidCount);
+        RETURN_HR_IF_NULL(E_POINTER, iids);
+        *iidCount = 0;
+        *iids = nullptr;
+
+        auto result{ static_cast<IID*>(CoTaskMemAlloc(sizeof(IID))) };
+        RETURN_IF_NULL_ALLOC(result);
+        result[0] = __uuidof(iterable_interface);
+        *iidCount = 1;
+        *iids = result;
+        return S_OK;
+    }
+
+    HRESULT STDMETHODCALLTYPE GetRuntimeClassName(HSTRING* className) noexcept override
+    {
+        RETURN_HR_IF_NULL(E_POINTER, className);
+        *className = nullptr;
+        return S_OK;
+    }
+
+    HRESULT STDMETHODCALLTYPE GetTrustLevel(TrustLevel* trustLevel) noexcept override
+    {
+        RETURN_HR_IF_NULL(E_POINTER, trustLevel);
+        *trustLevel = BaseTrust;
+        return S_OK;
+    }
+
+    HRESULT STDMETHODCALLTYPE First(iterator_interface** first) noexcept override
+    {
+        RETURN_HR_IF_NULL(E_POINTER, first);
+        *first = nullptr;
+
+        auto iterator{ new (std::nothrow) vector_hstring_iterator(this) };
+        RETURN_IF_NULL_ALLOC(iterator);
+        *first = iterator;
+        return S_OK;
+    }
+
+    HSTRING at(std::uint32_t index) const noexcept
+    {
+        return m_data[index];
+    }
+
+    std::uint32_t size() const noexcept
+    {
+        return m_size;
+    }
+
+    std::uint32_t capacity() const noexcept
+    {
+        return m_capacity;
+    }
+
+    void clear() noexcept
+    {
+        while (m_size != 0)
+        {
+            WindowsDeleteString(m_data[--m_size]);
+            m_data[m_size] = nullptr;
+        }
+    }
+
+    HRESULT append(HSTRING item) noexcept
+    {
+        RETURN_HR_IF(E_OUTOFMEMORY, m_size == UINT32_MAX);
+        RETURN_IF_FAILED(reserve(m_size + 1));
+
+        HSTRING duplicate{};
+        RETURN_IF_FAILED(WindowsDuplicateString(item, &duplicate));
+        m_data[m_size++] = duplicate;
+        return S_OK;
+    }
+
+    HRESULT insert(std::uint32_t index, HSTRING item) noexcept
+    {
+        RETURN_HR_IF(E_BOUNDS, index > m_size);
+        RETURN_HR_IF(E_OUTOFMEMORY, m_size == UINT32_MAX);
+        RETURN_IF_FAILED(reserve(m_size + 1));
+
+        HSTRING duplicate{};
+        RETURN_IF_FAILED(WindowsDuplicateString(item, &duplicate));
+        for (auto current = m_size; current > index; --current)
+        {
+            m_data[current] = m_data[current - 1];
+        }
+        m_data[index] = duplicate;
+        ++m_size;
+        return S_OK;
+    }
+
+private:
+    HRESULT reserve(std::uint32_t requestedCapacity) noexcept
+    {
+        if (requestedCapacity <= m_capacity)
+        {
+            return S_OK;
+        }
+
+        const auto doubledCapacity{ m_capacity > (UINT32_MAX / 2) ? UINT32_MAX : m_capacity * 2 };
+        const auto newCapacity{
+            requestedCapacity <= default_capacity ? default_capacity :
+            requestedCapacity < doubledCapacity ? doubledCapacity :
+            requestedCapacity };
+
+        auto newData{ new (std::nothrow) HSTRING[newCapacity]{} };
+        RETURN_IF_NULL_ALLOC(newData);
+
+        for (std::uint32_t index = 0; index < m_size; ++index)
+        {
+            newData[index] = m_data[index];
+        }
+        delete[] m_data;
+        m_data = newData;
+        m_capacity = newCapacity;
+        return S_OK;
+    }
+
+    std::atomic<ULONG> m_references{ 1 };
+    HSTRING* m_data{};
+    std::uint32_t m_capacity{};
+    std::uint32_t m_size{};
+};
+
+inline vector_hstring_iterator::vector_hstring_iterator(vector_hstring_implementation* owner) noexcept :
+    m_owner(owner)
+{
+}
+
+inline HRESULT vector_hstring_iterator::get_Current(HSTRING* current) noexcept
+{
+    RETURN_HR_IF_NULL(E_POINTER, current);
+    *current = nullptr;
+    RETURN_HR_IF(E_BOUNDS, m_index >= m_owner->size());
+    return WindowsDuplicateString(m_owner->at(m_index), current);
+}
+
+inline HRESULT vector_hstring_iterator::get_HasCurrent(boolean* hasCurrent) noexcept
+{
+    RETURN_HR_IF_NULL(E_POINTER, hasCurrent);
+    *hasCurrent = m_index < m_owner->size();
+    return S_OK;
+}
+
+inline HRESULT vector_hstring_iterator::MoveNext(boolean* hasCurrent) noexcept
+{
+    RETURN_HR_IF_NULL(E_POINTER, hasCurrent);
+    if (m_index < m_owner->size())
+    {
+        ++m_index;
+    }
+    *hasCurrent = m_index < m_owner->size();
+    return S_OK;
+}
+
+inline HRESULT vector_hstring_iterator::GetMany(
+    unsigned capacity,
+    HSTRING* value,
+    unsigned* actual) noexcept
+{
+    RETURN_HR_IF_NULL(E_POINTER, actual);
+    *actual = 0;
+    RETURN_HR_IF(E_POINTER, (capacity != 0) && !value);
+    ZeroMemory(value, sizeof(*value) * capacity);
+
+    while ((*actual < capacity) && (m_index < m_owner->size()))
+    {
+        const auto hr{ WindowsDuplicateString(m_owner->at(m_index), &value[*actual]) };
+        if (FAILED(hr))
+        {
+            for (unsigned index = 0; index < *actual; ++index)
+            {
+                WindowsDeleteString(value[index]);
+                value[index] = nullptr;
+            }
+            *actual = 0;
+            return hr;
+        }
+        ++m_index;
+        ++*actual;
+    }
+    return S_OK;
+}
 }
 
 template <typename T>
@@ -577,5 +897,71 @@ public:
 
 private:
     wil::com_ptr_nothrow<details::vector_implementation<T>> m_implementation;
+};
+
+class vector_hstring
+{
+private:
+    using abi_type = ABI::Windows::Foundation::Collections::IIterable<HSTRING>;
+
+public:
+    vector_hstring() noexcept
+    {
+        m_implementation.attach(new (std::nothrow) details::vector_hstring_implementation());
+    }
+
+    HSTRING operator[](size_t index) const noexcept
+    {
+        return m_implementation->at(static_cast<std::uint32_t>(index));
+    }
+
+    operator abi_type*() const noexcept
+    {
+        return get();
+    }
+
+    abi_type* get() const noexcept
+    {
+        return m_implementation.get();
+    }
+
+    std::uint32_t size() const noexcept
+    {
+        return m_implementation ? m_implementation->size() : 0;
+    }
+
+    std::uint32_t capacity() const noexcept
+    {
+        return m_implementation ? m_implementation->capacity() : 0;
+    }
+
+    bool empty() const noexcept
+    {
+        return size() == 0;
+    }
+
+    void clear() noexcept
+    {
+        if (m_implementation)
+        {
+            m_implementation->clear();
+        }
+    }
+
+    HRESULT push_back(HSTRING item) noexcept
+    {
+        RETURN_IF_NULL_ALLOC(m_implementation);
+        return m_implementation->append(item);
+    }
+
+    HRESULT insert(size_t index, HSTRING item) noexcept
+    {
+        RETURN_HR_IF(E_BOUNDS, index > UINT32_MAX);
+        RETURN_IF_NULL_ALLOC(m_implementation);
+        return m_implementation->insert(static_cast<std::uint32_t>(index), item);
+    }
+
+private:
+    wil::com_ptr_nothrow<details::vector_hstring_implementation> m_implementation;
 };
 }
