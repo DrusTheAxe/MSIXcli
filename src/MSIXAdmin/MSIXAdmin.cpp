@@ -729,6 +729,7 @@ HRESULT ShowLogo()
                 L"\n"
                 L"Commands:\n"
                 L"  certificate  Certificate management\n"
+                L"  help         Help system\n"
                 L"  package      Package management\n"
                 L"  provision    Provision management\n"
                 L"  shortcut     Shortcut operations\n"
@@ -759,6 +760,48 @@ constexpr PCWSTR help_Command_Certificate{
     L"\n"
     L"Arguments:\n"
     L"  <FILE*> can be '0x<HEX>' to specify a certificate by its SHA-256 thumbprint\n"
+};
+
+constexpr PCWSTR help_Command_Help_Commands_Tree{
+    L"Description:\n"
+    L"  Display the command tree\n"
+    L"\n"
+    L"Usage:\n"
+    L"  msixadmin help commands tree [options]\n"
+    L"\n"
+    L"Options:\n"
+    L"  -nologo, --no-logo    Do not display startup banner or copyright message\n"
+    L"  -?, -h, --help        Show command line help\n"
+};
+
+constexpr PCWSTR help_Command_Help_Commands{
+    L"Description:\n"
+    L"  Help about commands\n"
+    L"\n"
+    L"Usage:\n"
+    L"  msixadmin help commands <commands> [options]\n"
+    L"\n"
+    L"Options:\n"
+    L"  -nologo, --no-logo    Do not display startup banner or copyright message\n"
+    L"  -?, -h, --help        Show command line help\n"
+    L"\n"
+    L"Commands:\n"
+    L"  tree  Display the command tree\n"
+};
+
+constexpr PCWSTR help_Command_Help{
+    L"Description:\n"
+    L"  Help system\n"
+    L"\n"
+    L"Usage:\n"
+    L"  msixadmin help <command> [options]\n"
+    L"\n"
+    L"Options:\n"
+    L"  -nologo, --no-logo    Do not display startup banner or copyright message\n"
+    L"  -?, -h, --help        Show command line help\n"
+    L"\n"
+    L"Commands:\n"
+    L"  commands  Display help about commands\n"
 };
 
 constexpr PCWSTR help_Command_Package{
@@ -1430,6 +1473,139 @@ HRESULT Command_Certificate(int argc, wchar_t* argv[])
         FAIL_FAST_HR(E_UNEXPECTED);
     }
     return exitCode;
+}
+
+HRESULT Command_Help_Commands_Tree(int argc, wchar_t* argv[])
+{
+    bool logo{};
+    bool ascii{};
+
+    int argn{ 4 };
+    for (; argn < argc; ++argn)
+    {
+        PCWSTR arg{ argv[argn] };
+        if ((CompareStringOrdinal(arg, -1, L"-?", -1, FALSE) == CSTR_EQUAL) ||
+            (CompareStringOrdinal(arg, -1, L"-h", -1, FALSE) == CSTR_EQUAL) ||
+            (CompareStringOrdinal(arg, -1, L"--help", -1, FALSE) == CSTR_EQUAL))
+        {
+            Help(help_Command_Help_Commands_Tree);
+        }
+        else if (CompareStringOrdinal(arg, -1, L"--ascii", -1, FALSE) == CSTR_EQUAL)
+        {
+            ascii = true;
+        }
+        else
+        {
+            UnknownArgument(arg);
+        }
+    }
+    if (argn < argc)
+    {
+        UnknownArgument(argv[argn]);
+    }
+
+    if (logo)
+    {
+        ShowLogo();
+    }
+
+    if (ascii)
+    {
+        wprintf(L"msixadmin\n"
+                L"+--certificate\n"
+                L"|  +--add\n"
+                L"|  +--exists\n"
+                L"|  +--list\n"
+                L"|  +--remove\n"
+                L"+--package\n"
+                L"|  +--add\n"
+                L"|  +--list\n"
+                L"|  +--move\n"
+                L"|  +--register\n"
+                L"|  +--remove\n"
+                L"|  +--stage\n"
+                L"+--provision\n"
+                L"|  +--add\n"
+                L"|  +--list\n"
+                L"|  +--remove\n"
+                L"+--shortcut\n"
+                L"|  +--add\n"
+                L"+--tool\n"
+                L"|  +--propertysheet\n"
+                L"|     +--install\n"
+                L"|     +--list\n"
+                L"|     +--uninstall\n"
+                L"+--version\n");
+    }
+    else
+    {
+        _setmode(_fileno(stdout), _O_U16TEXT);
+        wprintf(L"msixadmin\n"
+                L"\u251C\u2500\u2500certificate\n"
+                L"\u2502  \u251C\u2500\u2500add\n"
+                L"\u2502  \u251C\u2500\u2500exists\n"
+                L"\u2502  \u251C\u2500\u2500list\n"
+                L"\u2502  \u2514\u2500\u2500remove\n"
+                L"\u251C\u2500\u2500package\n"
+                L"\u2502  \u251C\u2500\u2500add\n"
+                L"\u2502  \u251C\u2500\u2500list\n"
+                L"\u2502  \u251C\u2500\u2500move\n"
+                L"\u2502  \u251C\u2500\u2500register\n"
+                L"\u2502  \u251C\u2500\u2500remove\n"
+                L"\u2502  \u2514\u2500\u2500stage\n"
+                L"\u251C\u2500\u2500provision\n"
+                L"\u2502  \u251C\u2500\u2500add\n"
+                L"\u2502  \u251C\u2500\u2500list\n"
+                L"\u2502  \u2514\u2500\u2500remove\n"
+                L"\u251C\u2500\u2500shortcut\n"
+                L"\u2502  \u2514\u2500\u2500add\n"
+                L"\u251C\u2500\u2500tool\n"
+                L"\u2502  \u2514\u2500\u2500propertysheet\n"
+                L"\u2502     \u251C\u2500\u2500install\n"
+                L"\u2502     \u251C\u2500\u2500list\n"
+                L"\u2502     \u2514\u2500\u2500uninstall\n"
+                L"\u251C\u2500\u2500version\n");
+    }
+
+    return S_OK;
+}
+
+HRESULT Command_Help_Commands(int argc, wchar_t* argv[])
+{
+    if (argc < 4)
+    {
+        Help(help_Command_Help_Commands);
+    }
+
+    PCWSTR command{ argv[3] };
+    if (CompareStringOrdinal(command, -1, L"tree", -1, FALSE) == CSTR_EQUAL)
+    {
+        RETURN_IF_FAILED(Command_Help_Commands_Tree(argc, argv));
+    }
+    else
+    {
+        Help(help_Command_Help_Commands);
+    }
+    return S_OK;
+}
+
+HRESULT Command_Help(int argc, wchar_t* argv[])
+{
+    if (argc < 3)
+    {
+        Help(help_Command_Help);
+    }
+
+    PCWSTR command{ argv[2] };
+    if (CompareStringOrdinal(command, -1, L"commands", -1, FALSE) == CSTR_EQUAL)
+    {
+        RETURN_IF_FAILED(Command_Help_Commands(argc, argv));
+    }
+    else
+    {
+        Help(help_Command_Help);
+    }
+    return S_OK;
 }
 
 constexpr auto PackageTypes_Error{ ABI::Windows::Management::Deployment::PackageTypes_Xap };
@@ -3599,6 +3775,10 @@ int wmain(int argc, wchar_t* argv[])
     if (CompareStringOrdinal(arg, -1, L"certificate", -1, FALSE) == CSTR_EQUAL)
     {
         return MessageOnError(Command_Certificate(argc, argv));
+    }
+    else if (CompareStringOrdinal(arg, -1, L"help", -1, FALSE) == CSTR_EQUAL)
+    {
+        return MessageOnError(Command_Help(argc, argv));
     }
     else if (CompareStringOrdinal(arg, -1, L"package", -1, FALSE) == CSTR_EQUAL)
     {

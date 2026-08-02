@@ -3,6 +3,10 @@
 
 #pragma once
 
+// C/C++ Library
+#include <fcntl.h>
+#include <io.h>
+
 // Win32 / Shell
 #include <windows.h>
 #include <unknwn.h>
