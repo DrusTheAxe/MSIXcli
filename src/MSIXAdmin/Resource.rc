@@ -8,7 +8,7 @@
 #endif
 
 #if MSIXADMIN == 0
-#define MSIXCLI_FILENAME        "msixadmin.exe"
+#define MSIXCLI_FILENAME        "msix.exe"
 #define MSIXCLI_PRODUCT_NAME    "MSIX Command-Line Interface"
 #else
 #define MSIXCLI_FILENAME        "msixadmin.exe"

@@ -82,7 +82,7 @@
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
-      <UACExecutionLevel Condition="('$(MSIXADMIN)'=='') or ('$(MSIXADMIN)'=='1')">RequireAdministrator</UACExecutionLevel>
+      <UACExecutionLevel Condition="'$(MSIXADMIN)'=='1'">RequireAdministrator</UACExecutionLevel>
       <AdditionalDependencies>onecore.lib;onecoreuap.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
@@ -121,7 +121,7 @@
     <None Include="packages.config" />
   </ItemGroup>
   <ItemGroup>
-    <Manifest Condition="('$(MSIXADMIN)'!='0')" Include="MSIXAdmin.manifest" />
+    <Manifest Condition="('$(MSIXADMIN)'=='1')" Include="MSIXAdmin.manifest" />
     <Manifest Condition="('$(MSIXADMIN)'=='0')" Include="MSIX.manifest" />
   </ItemGroup>
   <ItemGroup>

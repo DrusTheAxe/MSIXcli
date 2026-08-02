@@ -5,6 +5,18 @@
 
 #include <windows.h>
 
+#if !defined(MSIXADMIN)
+#define MSIXADMIN 1
+#endif
+
+#if !defined(MSIX_EXE_NAME)
+#if MSIXADMIN == 0
+#define MSIX_EXE_NAME   L"msix"
+#else
+#define MSIX_EXE_NAME   L"msixadmin"
+#endif
+#endif
+
 [[noreturn]] void UnknownArgument(PCWSTR arg)
 {
     wprintf(L"Error 0x00000001: Unknown argument\n"
@@ -706,11 +718,11 @@ HRESULT ShowLogo()
     RETURN_IF_FAILED(wil::get_exe_version(major, minor, build, patch));
     if (patch != 0)
     {
-        wprintf(L"msixadmin v%hu.%hu.%hu.%hu - Copyright (C) Howard Kapustein\n", major, minor, build, patch);
+        wprintf(MSIX_EXE_NAME L" v%hu.%hu.%hu.%hu - Copyright (C) Howard Kapustein\n", major, minor, build, patch);
     }
     else
     {
-        wprintf(L"msixadmin v%hu.%hu.%hu - Copyright (C) Howard Kapustein\n", major, minor, build);
+        wprintf(MSIX_EXE_NAME L" v%hu.%hu.%hu - Copyright (C) Howard Kapustein\n", major, minor, build);
     }
     return S_OK;
 }
@@ -725,7 +737,7 @@ HRESULT ShowLogo()
     else
     {
         wprintf(L"Usage:\n"
-                L"  msixadmin <command> [arguments]\n"
+                L"  " MSIX_EXE_NAME L" <command> [arguments]\n"
                 L"\n"
                 L"Commands:\n"
                 L"  certificate  Certificate management\n"
@@ -736,7 +748,7 @@ HRESULT ShowLogo()
                 L"  tool         Install or manage tools that extend the MSIX experience\n"
                 L"  version      Display version\n"
                 L"\n"
-                L"Run 'MSIXAdmin [command] --help' for more information on a command\n");
+                L"Run '" MSIX_EXE_NAME L" [command] --help' for more information on a command\n");
     }
     ::ExitProcess(1);
 }
@@ -746,7 +758,7 @@ constexpr PCWSTR help_Command_Certificate{
     L"  MSIX Certificate Management\n"
     L"\n"
     L"Usage:\n"
-    L"  msixadmin certificate [command] [options]\n"
+    L"  " MSIX_EXE_NAME L" certificate [command] [options]\n"
     L"\n"
     L"Options:\n"
     L"  -nologo, --no-logo  Do not display startup banner or copyright message\n"
@@ -767,7 +779,7 @@ constexpr PCWSTR help_Command_Help_Commands_Tree{
     L"  Display the command tree\n"
     L"\n"
     L"Usage:\n"
-    L"  msixadmin help commands tree [options]\n"
+    L"  " MSIX_EXE_NAME L" help commands tree [options]\n"
     L"\n"
     L"Options:\n"
     L"  -nologo, --no-logo    Do not display startup banner or copyright message\n"
@@ -779,7 +791,7 @@ constexpr PCWSTR help_Command_Help_Commands{
     L"  Help about commands\n"
     L"\n"
     L"Usage:\n"
-    L"  msixadmin help commands <commands> [options]\n"
+    L"  " MSIX_EXE_NAME L" help commands <commands> [options]\n"
     L"\n"
     L"Options:\n"
     L"  -nologo, --no-logo    Do not display startup banner or copyright message\n"
@@ -794,7 +806,7 @@ constexpr PCWSTR help_Command_Help{
     L"  Help system\n"
     L"\n"
     L"Usage:\n"
-    L"  msixadmin help <command> [options]\n"
+    L"  " MSIX_EXE_NAME L" help <command> [options]\n"
     L"\n"
     L"Options:\n"
     L"  -nologo, --no-logo    Do not display startup banner or copyright message\n"
@@ -809,7 +821,7 @@ constexpr PCWSTR help_Command_Package{
     L"  View or modify packages\n"
     L"\n"
     L"Usage:\n"
-    L"  msixadmin package <command> [options]\n"
+    L"  " MSIX_EXE_NAME L" package <command> [options]\n"
     L"\n"
     L"Options:\n"
     L"  -nologo, --no-logo    Do not display startup banner or copyright message\n"
@@ -832,7 +844,7 @@ constexpr PCWSTR help_Command_Package_Add{
     L"  Add a package\n"
     L"\n"
     L"Usage:\n"
-    L"  msixadmin package add <PACKAGE> [options]\n"
+    L"  " MSIX_EXE_NAME L" package add <PACKAGE> [options]\n"
     L"\n"
     L"Options:\n"
     L"  --allow-unsigned              Allow an unsigned package\n"
@@ -861,7 +873,7 @@ constexpr PCWSTR help_Command_Package_List{
     L"  Display the currently installed packages\n"
     L"\n"
     L"Usage:\n"
-    L"  msixadmin package list [options]\n"
+    L"  " MSIX_EXE_NAME L" package list [options]\n"
     L"\n"
     L"Options:\n"
     L"  --format=<FORMAT>            Display package format (default=full)\n"
@@ -885,7 +897,7 @@ constexpr PCWSTR help_Command_Package_Move{
     L"  Move a package\n"
     L"\n"
     L"Usage:\n"
-    L"  msixadmin package move <PACKAGEFULLNAME> <VOLUME> [options]\n"
+    L"  " MSIX_EXE_NAME L" package move <PACKAGEFULLNAME> <VOLUME> [options]\n"
     L"\n"
     L"Options:\n"
     L"  --force                    Forcibly shutdown processes using the package if in use\n"
@@ -899,7 +911,7 @@ constexpr PCWSTR help_Command_Package_Register{
     L"  Register a package\n"
     L"\n"
     L"Usage:\n"
-    L"  msixadmin package register <PACKAGE> [options]\n"
+    L"  " MSIX_EXE_NAME L" package register <PACKAGE> [options]\n"
     L"\n"
     L"Options:\n"
     L"  --allow-unsigned              Allow an unsigned package\n"
@@ -923,7 +935,7 @@ constexpr PCWSTR help_Command_Package_Remove{
     L"  Remove a package\n"
     L"\n"
     L"Usage:\n"
-    L"  msixadmin package remove <PACKAGE> [options]\n"
+    L"  " MSIX_EXE_NAME L" package remove <PACKAGE> [options]\n"
     L"\n"
     L"Options:\n"
     L"  --defer                      Defer removal if package is in use\n"
@@ -938,7 +950,7 @@ constexpr PCWSTR help_Command_Package_Stage{
     L"  Stage a package\n"
     L"\n"
     L"Usage:\n"
-    L"  msixadmin package stage <PACKAGE> [options]\n"
+    L"  " MSIX_EXE_NAME L" package stage <PACKAGE> [options]\n"
     L"\n"
     L"Options:\n"
     L"  --allow-unsigned            Allow an unsigned package\n"
@@ -964,7 +976,7 @@ constexpr PCWSTR help_Command_Provision{
     L"  View or modify the provisioned list\n"
     L"\n"
     L"Usage:\n"
-    L"  msixadmin provision <command> [options]\n"
+    L"  " MSIX_EXE_NAME L" provision <command> [options]\n"
     L"\n"
     L"Options:\n"
     L"  -nologo, --no-logo    Do not display startup banner or copyright message\n"
@@ -981,7 +993,7 @@ constexpr PCWSTR help_Command_Provision_Add{
     L"  Add a package family to the provisioning list\n"
     L"\n"
     L"Usage:\n"
-    L"  msixadmin provision add <PACKAGEFAMILYNAME> [options]\n"
+    L"  " MSIX_EXE_NAME L" provision add <PACKAGEFAMILYNAME> [options]\n"
     L"\n"
     L"Options:\n"
     L"  --defer-registration  Defer automatic registration\n"
@@ -994,7 +1006,7 @@ constexpr PCWSTR help_Command_Provision_List{
     L"  Display the currently provisioned package families\n"
     L"\n"
     L"Usage:\n"
-    L"  msixadmin provision list [options]\n"
+    L"  " MSIX_EXE_NAME L" provision list [options]\n"
     L"\n"
     L"Options:\n"
     L"  --format=<FORMAT>      Display package format (default=packagefamilyname)\n"
@@ -1014,7 +1026,7 @@ constexpr PCWSTR help_Command_Provision_Remove{
     L"  Remove a package family from the provisioning list\n"
     L"\n"
     L"Usage:\n"
-    L"  msixadmin provision remove <PACKAGEFAMILYNAME> [options]\n"
+    L"  " MSIX_EXE_NAME L" provision remove <PACKAGEFAMILYNAME> [options]\n"
     L"\n"
     L"Options:\n"
     L"  -nologo, --no-logo    Do not display startup banner or copyright message\n"
@@ -1026,7 +1038,7 @@ constexpr PCWSTR help_Command_Shortcut_Add{
     L"  Create a shortcut (.LNK file) to run a target command\n"
     L"\n"
     L"Usage:\n"
-    L"  msixadmin shortcut add <FILE> <TARGET> [options]\n"
+    L"  " MSIX_EXE_NAME L" shortcut add <FILE> <TARGET> [options]\n"
     L"\n"
     L"Arguments:\n"
     L"  <FILE>    The shortcut file (*.url for an Internet shortcut)\n"
@@ -1051,7 +1063,7 @@ constexpr PCWSTR help_Command_Shortcut{
     L"  Manage Shortcut\n"
     L"\n"
     L"Usage:\n"
-    L"  msixadmin shortcut <command> [options]\n"
+    L"  " MSIX_EXE_NAME L" shortcut <command> [options]\n"
     L"\n"
     L"Options:\n"
     L"  -nologo, --no-logo    Do not display startup banner or copyright message\n"
@@ -1066,7 +1078,7 @@ constexpr PCWSTR help_Command_Tool{
     L"  Install or manage tools that extend the MSIX experience\n"
     L"\n"
     L"Usage:\n"
-    L"  msixadmin tool <command> [options]\n"
+    L"  " MSIX_EXE_NAME L" tool <command> [options]\n"
     L"\n"
     L"Options:\n"
     L"  -nologo, --no-logo    Do not display startup banner or copyright message\n"
@@ -1081,7 +1093,7 @@ constexpr PCWSTR help_Command_Tool_PropertySheet{
     L"  Manage the MSIX property sheet extension\n"
     L"\n"
     L"Usage:\n"
-    L"  msixadmin tool propertysheet <command> [options]\n"
+    L"  " MSIX_EXE_NAME L" tool propertysheet <command> [options]\n"
     L"\n"
     L"Options:\n"
     L"  -nologo, --no-logo    Do not display startup banner or copyright message\n"
@@ -1098,10 +1110,10 @@ constexpr PCWSTR help_Command_Tool_PropertySheet_Install{
     L"  Install the MSIX property sheet extension\n"
     L"\n"
     L"Usage:\n"
-    L"  msixadmin tool propertysheet install [options]\n"
+    L"  " MSIX_EXE_NAME L" tool propertysheet install [options]\n"
     L"\n"
     L"Options:\n"
-    L"  --path=<FILE>         The path to the MSIX property sheet DLL (default = GetPath(msixadmin.exe) + \\MSIXPropertySheet.dll)\n"
+    L"  --path=<FILE>         The path to the MSIX property sheet DLL (default = GetPath(" MSIX_EXE_NAME L".exe) + \\MSIXPropertySheet.dll)\n"
     L"  -nologo, --no-logo    Do not display startup banner or copyright message\n"
     L"  -?, -h, --help        Show command line help\n"
 };
@@ -1111,7 +1123,7 @@ constexpr PCWSTR help_Command_Tool_PropertySheet_List{
     L"  Display the installed MSIX property sheet extension\n"
     L"\n"
     L"Usage:\n"
-    L"  msixadmin tool propertysheet list [options]\n"
+    L"  " MSIX_EXE_NAME L" tool propertysheet list [options]\n"
     L"\n"
     L"Options:\n"
     L"  -nologo, --no-logo    Do not display startup banner or copyright message\n"
@@ -1123,10 +1135,10 @@ constexpr PCWSTR help_Command_Tool_PropertySheet_Uninstall{
     L"  Uninstall the MSIX property sheet extension\n"
     L"\n"
     L"Usage:\n"
-    L"  msixadmin tool propertysheet uninstall [options]\n"
+    L"  " MSIX_EXE_NAME L" tool propertysheet uninstall [options]\n"
     L"\n"
     L"Options:\n"
-    L"  --path=<FILE>         The path to the MSIX property sheet DLL (default = GetPath(msixadmin.exe) + \\MSIXPropertySheet.dll)\n"
+    L"  --path=<FILE>         The path to the MSIX property sheet DLL (default = GetPath(" MSIX_EXE_NAME L".exe) + \\MSIXPropertySheet.dll)\n"
     L"  -nologo, --no-logo    Do not display startup banner or copyright message\n"
     L"  -?, -h, --help        Show command line help\n"
 };
@@ -1136,7 +1148,7 @@ constexpr PCWSTR help_Command_Version{
     L"  Version information\n"
     L"\n"
     L"Usage:\n"
-    L"  msixadmin version [options]\n"
+    L"  " MSIX_EXE_NAME L" version [options]\n"
     L"\n"
     L"Options:\n"
     L"  -nologo, --no-logo  Do not display startup banner or copyright message\n"
@@ -1475,6 +1487,14 @@ HRESULT Command_Certificate(int argc, wchar_t* argv[])
     return exitCode;
 }
 
+#if defined(MSIXADMIN) && (MSIXADMIN == 0)
+#define MSIXADMIN_ELEVATION         L"*"
+#define MSIXADMIN_ELEVATION_MESSAGE L"\nNOTE: * = Requires elevation\n"
+#else
+#define MSIXADMIN_ELEVATION         L""
+#define MSIXADMIN_ELEVATION_MESSAGE L""
+#endif
+
 HRESULT Command_Help_Commands_Tree(int argc, wchar_t* argv[])
 {
     bool logo{};
@@ -1511,12 +1531,12 @@ HRESULT Command_Help_Commands_Tree(int argc, wchar_t* argv[])
 
     if (ascii)
     {
-        wprintf(L"msixadmin\n"
+        wprintf(MSIX_EXE_NAME L"\n"
                 L"+--certificate\n"
-                L"|  +--add\n"
-                L"|  +--exists\n"
+                L"|  +--add" MSIXADMIN_ELEVATION L"\n"
+                L"|  +--exists" MSIXADMIN_ELEVATION L"\n"
                 L"|  +--list\n"
-                L"|  +--remove\n"
+                L"|  +--remove" MSIXADMIN_ELEVATION L"\n"
                 L"+--package\n"
                 L"|  +--add\n"
                 L"|  +--list\n"
@@ -1525,27 +1545,28 @@ HRESULT Command_Help_Commands_Tree(int argc, wchar_t* argv[])
                 L"|  +--remove\n"
                 L"|  +--stage\n"
                 L"+--provision\n"
-                L"|  +--add\n"
-                L"|  +--list\n"
-                L"|  +--remove\n"
+                L"|  +--add" MSIXADMIN_ELEVATION L"\n"
+                L"|  +--list" MSIXADMIN_ELEVATION L"\n"
+                L"|  +--remove" MSIXADMIN_ELEVATION L"\n"
                 L"+--shortcut\n"
                 L"|  +--add\n"
                 L"+--tool\n"
                 L"|  +--propertysheet\n"
-                L"|     +--install\n"
+                L"|     +--install" MSIXADMIN_ELEVATION L"\n"
                 L"|     +--list\n"
-                L"|     +--uninstall\n"
-                L"+--version\n");
+                L"|     +--uninstall" MSIXADMIN_ELEVATION L"\n"
+                L"+--version\n"
+                MSIXADMIN_ELEVATION_MESSAGE);
     }
     else
     {
         _setmode(_fileno(stdout), _O_U16TEXT);
-        wprintf(L"msixadmin\n"
+        wprintf(MSIX_EXE_NAME L"\n"
                 L"\u251C\u2500\u2500certificate\n"
-                L"\u2502  \u251C\u2500\u2500add\n"
-                L"\u2502  \u251C\u2500\u2500exists\n"
+                L"\u2502  \u251C\u2500\u2500add" MSIXADMIN_ELEVATION L"\n"
+                L"\u2502  \u251C\u2500\u2500exists" MSIXADMIN_ELEVATION L"\n"
                 L"\u2502  \u251C\u2500\u2500list\n"
-                L"\u2502  \u2514\u2500\u2500remove\n"
+                L"\u2502  \u2514\u2500\u2500remove" MSIXADMIN_ELEVATION L"\n"
                 L"\u251C\u2500\u2500package\n"
                 L"\u2502  \u251C\u2500\u2500add\n"
                 L"\u2502  \u251C\u2500\u2500list\n"
@@ -1554,17 +1575,18 @@ HRESULT Command_Help_Commands_Tree(int argc, wchar_t* argv[])
                 L"\u2502  \u251C\u2500\u2500remove\n"
                 L"\u2502  \u2514\u2500\u2500stage\n"
                 L"\u251C\u2500\u2500provision\n"
-                L"\u2502  \u251C\u2500\u2500add\n"
-                L"\u2502  \u251C\u2500\u2500list\n"
-                L"\u2502  \u2514\u2500\u2500remove\n"
+                L"\u2502  \u251C\u2500\u2500add" MSIXADMIN_ELEVATION L"\n"
+                L"\u2502  \u251C\u2500\u2500list" MSIXADMIN_ELEVATION L"\n"
+                L"\u2502  \u2514\u2500\u2500remove" MSIXADMIN_ELEVATION L"\n"
                 L"\u251C\u2500\u2500shortcut\n"
                 L"\u2502  \u2514\u2500\u2500add\n"
                 L"\u251C\u2500\u2500tool\n"
                 L"\u2502  \u2514\u2500\u2500propertysheet\n"
-                L"\u2502     \u251C\u2500\u2500install\n"
+                L"\u2502     \u251C\u2500\u2500install" MSIXADMIN_ELEVATION L"\n"
                 L"\u2502     \u251C\u2500\u2500list\n"
-                L"\u2502     \u2514\u2500\u2500uninstall\n"
-                L"\u2514\u2500\u2500version\n");
+                L"\u2502     \u2514\u2500\u2500uninstall" MSIXADMIN_ELEVATION L"\n"
+                L"\u2514\u2500\u2500version\n"
+                MSIXADMIN_ELEVATION_MESSAGE);
     }
 
     return S_OK;

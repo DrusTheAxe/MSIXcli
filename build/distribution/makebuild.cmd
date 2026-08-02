@@ -17,8 +17,8 @@ IF ERRORLEVEL 1 GoTo TheEnd
 IF NOT EXIST %BINDIR_MSIX% MD %BINDIR_MSIX%
 ECHO COPY %OUTDIR%\msixadmin.exe %BINDIR_MSIX%\msix.exe
 COPY %OUTDIR%\msixadmin.exe %BINDIR_MSIX%\msix.exe
-COPY %OUTDIR%\msixadmin.pdb %BINDIR_MSIX%\msix.pdb
 ECHO COPY %OUTDIR%\msixadmin.pdb %BINDIR_MSIX%\msix.pdb
+COPY %OUTDIR%\msixadmin.pdb %BINDIR_MSIX%\msix.pdb
 
 msbuild -p:Configuration=%CONFIG%;Platform=%ARCH% -t:Rebuild -p:MSIXADMIN=1 MSIXcli.sln
 IF ERRORLEVEL 1 GoTo TheEnd
