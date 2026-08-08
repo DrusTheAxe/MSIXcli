@@ -378,7 +378,7 @@ void PrintPackageValue(PCWSTR key, HRESULT hr, wil::com_ptr_nothrow<ABI::Windows
             }
 
             wil::com_ptr_nothrow<ABI::Windows::ApplicationModel::IPackageStatus2> packageStatus2;
-            if (FAILED_LOG(hr = packageStatus->QueryInterface(IID_PPV_ARGS(packageStatus2.put()))))
+            if (FAILED_LOG(hr = packageStatus.query_to(packageStatus2.put())))
             {
                 PrintPackageKeyValueError(key, hr);
             }
@@ -576,12 +576,15 @@ void PrintPackageValue(PCWSTR key, HRESULT hr, const boolean& value)
 void PrintPackage(
     PackageX& package,
     ABI::Windows::ApplicationModel::IPackageId* packageId,
-    const bool localTimeZone)
+    const bool localTimeZone,
+    PCWSTR user = nullptr,
+    ABI::Windows::Management::Deployment::IPackageManager12* packageManager12 = nullptr)
 {
-    wil::unique_hstring string;
-    HRESULT hr{ LOG_IF_FAILED(packageId->get_FullName(wil::out_param(string))) };
-    PCWSTR packageFullName{ WindowsGetStringRawBuffer(string.get(), nullptr) };
+    wil::unique_hstring packageFullNameHString;
+    HRESULT hr{ LOG_IF_FAILED(packageId->get_FullName(wil::out_param(packageFullNameHString))) };
+    PCWSTR packageFullName{ WindowsGetStringRawBuffer(packageFullNameHString.get(), nullptr) };
     PrintPackageValue(L"PackageFullName", hr, packageFullName);
+    wil::unique_hstring string;
     hr = LOG_IF_FAILED(packageId->get_FamilyName(wil::out_param(string)));
     PrintPackageValue(L"PackageFamilyName", hr, string);
     hr = LOG_IF_FAILED(packageId->get_Name(wil::out_param(string)));
@@ -646,6 +649,33 @@ void PrintPackage(
     PrintPackageValue(L"IsStub", LOG_IF_FAILED(package.package8()->get_IsStub(&boolean)), boolean);
     hr = LOG_IF_FAILED(package.package9()->get_SourceUriSchemeName(wil::out_param(string)));
     PrintPackageValue(L"SourceUriSchemeName", hr, string);
+    if (user)
+    {
+        PrintPackageValue(L"User", hr, user);
+    }
+    if (packageManager12 && packageFullName)
+    {
+        if (user)
+        {
+            HSTRING_HEADER userHeader{};
+            HSTRING userHString{};
+            hr = LOG_IF_FAILED_MSG(wil::to_hstring_reference(user, userHeader, userHString), "%ls", user);
+            if (SUCCEEDED(hr))
+            {
+                wil::unique_process_heap_string value;
+                hr = LOG_IF_FAILED(packageManager12->IsPackageRemovalPendingForUser(packageFullNameHString.get(), userHString, &boolean));
+                if (SUCCEEDED(hr))
+                {
+                    hr = LOG_IF_FAILED(wil::str_printf_nothrow(value, L"[%ls] %ls", user, boolean ? L"Yes" : L"No"));
+                }
+                PrintPackageValue(L"RemovalPending", hr, value.get());
+            }
+        }
+        else
+        {
+            PrintPackageValue(L"RemovalPending", LOG_IF_FAILED(packageManager12->IsPackageRemovalPending(packageFullNameHString.get(), &boolean)), boolean);
+        }
+    }
 }
 
 HRESULT ToPackageVolume(
@@ -919,14 +949,14 @@ constexpr PCWSTR help_Command_Package_List{
     L"  " MSIX_EXE_NAME L" package list [options]\n"
     L"\n"
     L"Options:\n"
-    L"  --format=<FORMAT>            Display package format (default=full)\n"
-    L"  --glob:<PROPERTY>=<PATTERN>  Display packages with <PROPERTY> matching PATTERN (*,? wildcards)\n"
-    L"  --package-type=<TYPE>        Display packages of the specified package type (*=all)\n"
-    L"  --user=<SID>                 Display packages for a user (*=all, default=current)\n"
-    L"  --timezone=<TIMEZONE>        Display timezone for timestamps (default=local)\n"
-    L"  --no-summary                 Do not display summary information\n"
-    L"  -nologo, --no-logo           Do not display startup banner or copyright message\n"
-    L"  -?, -h, --help               Show command line help\n"
+    L"  --format=<FORMAT>              Display package format (default=full)\n"
+    L"  --glob[:<PROPERTY>]=<PATTERN>  Display packages with <PROPERTY> (default=name) matching PATTERN (*,? wildcards)\n"
+    L"  --package-type=<TYPE>          Display packages of the specified package type (*=all)\n"
+    L"  --user=<SID>                   Display packages for a user (*=all, default=current)\n"
+    L"  --timezone=<TIMEZONE>          Display timezone for timestamps (default=local)\n"
+    L"  --no-summary                   Do not display summary information\n"
+    L"  -nologo, --no-logo             Do not display startup banner or copyright message\n"
+    L"  -?, -h, --help                 Show command line help\n"
     L"\n"
     L"Arguments:\n"
     L"  <FORMAT> = full|packagefamilyname|packagefullname\n"
@@ -1805,7 +1835,7 @@ HRESULT Command_Package_Add(int argc, wchar_t* argv[])
             &classIdHeader, &classId));
         wil::com_ptr_nothrow<IInspectable> inspectable;
         RETURN_IF_FAILED(RoActivateInstance(classId, inspectable.put()));
-        RETURN_IF_FAILED(inspectable->QueryInterface(IID_PPV_ARGS(addPackageOptions.put())));
+        RETURN_IF_FAILED(inspectable.query_to(addPackageOptions.put()));
     }
     RETURN_IF_FAILED(addPackageOptions->get_DependencyPackageUris(dependencies.put()));
 
@@ -1923,7 +1953,7 @@ HRESULT Command_Package_Add(int argc, wchar_t* argv[])
             &classIdHeader, &classId));
         wil::com_ptr_nothrow<IInspectable> inspectable;
         RETURN_IF_FAILED(RoActivateInstance(classId, inspectable.put()));
-        RETURN_IF_FAILED(inspectable->QueryInterface(IID_PPV_ARGS(packageManager9.put())));
+        RETURN_IF_FAILED(inspectable.query_to(packageManager9.put()));
     }
 
     if (allowUnsigned)
@@ -1957,13 +1987,13 @@ HRESULT Command_Package_Add(int argc, wchar_t* argv[])
     if (limitToExisting)
     {
         wil::com_ptr_nothrow<ABI::Windows::Management::Deployment::IAddPackageOptions2> addPackageOptions2;
-        RETURN_IF_FAILED(addPackageOptions->QueryInterface(IID_PPV_ARGS(addPackageOptions2.put())));
+        RETURN_IF_FAILED(addPackageOptions.query_to(addPackageOptions2.put()));
         RETURN_IF_FAILED(addPackageOptions2->put_LimitToExistingPackages(true));
     }
     if (priority != ABI::Windows::Management::Deployment::PackageOperationPriority_Normal)
     {
         wil::com_ptr_nothrow<ABI::Windows::Management::Deployment::IAddPackageOptions3> addPackageOptions3;
-        RETURN_IF_FAILED(addPackageOptions->QueryInterface(IID_PPV_ARGS(addPackageOptions3.put())));
+        RETURN_IF_FAILED(addPackageOptions.query_to(addPackageOptions3.put()));
         RETURN_IF_FAILED(addPackageOptions3->put_PackageOperationPriority(priority));
     }
 
@@ -2014,6 +2044,10 @@ HRESULT Command_Package_List(int argc, wchar_t* argv[])
         else if (CompareStringOrdinal(arg, -1, L"--format=packagefullname", -1, FALSE) == CSTR_EQUAL)
         {
             format = PackageDisplayFormat::PackageFullName;
+        }
+        else if (wil::string_starts_with(arg, L"--glob="))
+        {
+            glob_name = arg + (ARRAYSIZE(L"--glob=") - 1);
         }
         else if (wil::string_starts_with(arg, L"--glob:name="))
         {
@@ -2073,6 +2107,7 @@ HRESULT Command_Package_List(int argc, wchar_t* argv[])
 
     std::uint32_t countDisplayed{};
 
+    wil::com_ptr_nothrow<IInspectable> inspectable;
     wil::com_ptr_nothrow<ABI::Windows::Foundation::Collections::IIterable<ABI::Windows::ApplicationModel::Package*>> iterablePackages;
     {
         HSTRING_HEADER classIdHeader{};
@@ -2081,7 +2116,6 @@ HRESULT Command_Package_List(int argc, wchar_t* argv[])
             RuntimeClass_Windows_Management_Deployment_PackageManager,
             ARRAYSIZE(RuntimeClass_Windows_Management_Deployment_PackageManager) - 1,
             &classIdHeader, &classId));
-        wil::com_ptr_nothrow<IInspectable> inspectable;
         RETURN_IF_FAILED(RoActivateInstance(classId, inspectable.put()));
 
         // Choose the optimal FindPackage*() variant given our inputs/options
@@ -2091,13 +2125,13 @@ HRESULT Command_Package_List(int argc, wchar_t* argv[])
             if (packageTypes == ABI::Windows::Management::Deployment::PackageTypes_None)
             {
                 wil::com_ptr_nothrow<ABI::Windows::Management::Deployment::IPackageManager> packageManager;
-                RETURN_IF_FAILED(inspectable->QueryInterface(IID_PPV_ARGS(packageManager.put())));
+                RETURN_IF_FAILED(inspectable.query_to(packageManager.put()));
                 RETURN_IF_FAILED(packageManager->FindPackages(iterablePackages.put()));
             }
             else
             {
                 wil::com_ptr_nothrow<ABI::Windows::Management::Deployment::IPackageManager2> packageManager2;
-                RETURN_IF_FAILED(inspectable->QueryInterface(IID_PPV_ARGS(packageManager2.put())));
+                RETURN_IF_FAILED(inspectable.query_to(packageManager2.put()));
                 RETURN_IF_FAILED(packageManager2->FindPackagesWithPackageTypes(packageTypes, iterablePackages.put()));
             }
         }
@@ -2110,13 +2144,13 @@ HRESULT Command_Package_List(int argc, wchar_t* argv[])
             if (packageTypes == ABI::Windows::Management::Deployment::PackageTypes_None)
             {
                 wil::com_ptr_nothrow<ABI::Windows::Management::Deployment::IPackageManager> packageManager;
-                RETURN_IF_FAILED(inspectable->QueryInterface(IID_PPV_ARGS(packageManager.put())));
+                RETURN_IF_FAILED(inspectable.query_to(packageManager.put()));
                 RETURN_IF_FAILED(packageManager->FindPackagesByUserSecurityId(userHString, iterablePackages.put()));
             }
             else
             {
                 wil::com_ptr_nothrow<ABI::Windows::Management::Deployment::IPackageManager2> packageManager2;
-                RETURN_IF_FAILED(inspectable->QueryInterface(IID_PPV_ARGS(packageManager2.put())));
+                RETURN_IF_FAILED(inspectable.query_to(packageManager2.put()));
                 RETURN_IF_FAILED(packageManager2->FindPackagesByUserSecurityIdWithPackageTypes(userHString, packageTypes, iterablePackages.put()));
             }
         }
@@ -2210,7 +2244,13 @@ HRESULT Command_Package_List(int argc, wchar_t* argv[])
             wprintf(L"#%u\n", countDisplayed);
             PackageX packageX;
             RETURN_IF_FAILED(PackageX::Make(package.get(), packageX));
-            PrintPackage(packageX, packageId.get(), timeZoneIsLocal);
+            wil::com_ptr_nothrow<ABI::Windows::Management::Deployment::IPackageManager12> packageManager12;
+            HRESULT hr{ LOG_IF_FAILED(inspectable.query_to(&packageManager12)) };
+            if (hr == E_NOINTERFACE)
+            {
+                hr = S_OK;
+            }
+            PrintPackage(packageX, packageId.get(), timeZoneIsLocal, user, packageManager12.get());
             wprintf(L"\n");
         }
         else if (format == PackageDisplayFormat::PackageFullName)
@@ -2301,7 +2341,7 @@ HRESULT Command_Package_Move(int argc, wchar_t* argv[])
             &classIdHeader, &classId));
         wil::com_ptr_nothrow<IInspectable> inspectable;
         RETURN_IF_FAILED(RoActivateInstance(classId, inspectable.put()));
-        RETURN_IF_FAILED(inspectable->QueryInterface(IID_PPV_ARGS(packageManager3.put())));
+        RETURN_IF_FAILED(inspectable.query_to(packageManager3.put()));
     }
 
     wil::com_ptr_nothrow<ABI::Windows::Management::Deployment::IPackageVolume> targetVolume;
@@ -2354,7 +2394,7 @@ HRESULT Command_Package_Register(int argc, wchar_t* argv[])
             &classIdHeader, &classId));
         wil::com_ptr_nothrow<IInspectable> inspectable;
         RETURN_IF_FAILED(RoActivateInstance(classId, inspectable.put()));
-        RETURN_IF_FAILED(inspectable->QueryInterface(IID_PPV_ARGS(registerPackageOptions.put())));
+        RETURN_IF_FAILED(inspectable.query_to(registerPackageOptions.put()));
     }
 
     int argn{ 4 };
@@ -2482,7 +2522,7 @@ HRESULT Command_Package_Register(int argc, wchar_t* argv[])
             &classIdHeader, &classId));
         wil::com_ptr_nothrow<IInspectable> inspectable;
         RETURN_IF_FAILED(RoActivateInstance(classId, inspectable.put()));
-        RETURN_IF_FAILED(inspectable->QueryInterface(IID_PPV_ARGS(packageManager9.put())));
+        RETURN_IF_FAILED(inspectable.query_to(packageManager9.put()));
     }
 
     auto deploymentOptions{ ABI::Windows::Management::Deployment::DeploymentOptions_None };
@@ -2549,7 +2589,7 @@ HRESULT Command_Package_Register(int argc, wchar_t* argv[])
     if (packageFullName)
     {
         wil::com_ptr_nothrow<ABI::Windows::Management::Deployment::IPackageManager2> packageManager2;
-        RETURN_IF_FAILED(packageManager9->QueryInterface(IID_PPV_ARGS(packageManager2.put())));
+        RETURN_IF_FAILED(packageManager9.query_to(packageManager2.put()));
         HSTRING_HEADER packageFullNameHeader{};
         HSTRING packageFullNameHString{};
         RETURN_IF_FAILED(wil::to_hstring_reference(packageFullName, packageFullNameHeader, packageFullNameHString));
@@ -2558,7 +2598,7 @@ HRESULT Command_Package_Register(int argc, wchar_t* argv[])
     else if (packageFamilyName)
     {
         wil::com_ptr_nothrow<ABI::Windows::Management::Deployment::IPackageManager5> packageManager5;
-        RETURN_IF_FAILED(packageManager9->QueryInterface(IID_PPV_ARGS(packageManager5.put())));
+        RETURN_IF_FAILED(packageManager9.query_to(packageManager5.put()));
         HSTRING_HEADER packageFamilyNameHeader{};
         HSTRING packageFamilyNameHString{};
         RETURN_IF_FAILED(wil::to_hstring_reference(packageFamilyName, packageFamilyNameHeader, packageFamilyNameHString));
@@ -2689,7 +2729,7 @@ HRESULT Command_Package_Remove(int argc, wchar_t* argv[])
     wil::com_ptr_nothrow<IInspectable> inspectable;
     RETURN_IF_FAILED(RoActivateInstance(classId, inspectable.put()));
     wil::com_ptr_nothrow<ABI::Windows::Management::Deployment::IPackageManager2> packageManager2;
-    RETURN_IF_FAILED(inspectable->QueryInterface(IID_PPV_ARGS(packageManager2.put())));
+    RETURN_IF_FAILED(inspectable.query_to(packageManager2.put()));
 
     ABI::Windows::Management::Deployment::RemovalOptions removalOptions{};
     WI_SetFlagIf(removalOptions, ABI::Windows::Management::Deployment::RemovalOptions_RemoveForAllUsers, allUsers);
@@ -2737,7 +2777,7 @@ HRESULT Command_Package_Stage(int argc, wchar_t* argv[])
             &classIdHeader, &classId));
         wil::com_ptr_nothrow<IInspectable> inspectable;
         RETURN_IF_FAILED(RoActivateInstance(classId, inspectable.put()));
-        RETURN_IF_FAILED(inspectable->QueryInterface(IID_PPV_ARGS(stagePackageOptions.put())));
+        RETURN_IF_FAILED(inspectable.query_to(stagePackageOptions.put()));
     }
     wil::com_ptr_nothrow<ABI::Windows::Foundation::Collections::IVector<ABI::Windows::Foundation::Uri*>> dependencies;
     RETURN_IF_FAILED(stagePackageOptions->get_DependencyPackageUris(dependencies.put()));
@@ -2844,7 +2884,7 @@ HRESULT Command_Package_Stage(int argc, wchar_t* argv[])
             &classIdHeader, &classId));
         wil::com_ptr_nothrow<IInspectable> inspectable;
         RETURN_IF_FAILED(RoActivateInstance(classId, inspectable.put()));
-        RETURN_IF_FAILED(inspectable->QueryInterface(IID_PPV_ARGS(packageManager9.put())));
+        RETURN_IF_FAILED(inspectable.query_to(packageManager9.put()));
     }
 
     if (allowUnsigned)
@@ -2878,7 +2918,7 @@ HRESULT Command_Package_Stage(int argc, wchar_t* argv[])
     if (priority != ABI::Windows::Management::Deployment::PackageOperationPriority_Normal)
     {
         wil::com_ptr_nothrow<ABI::Windows::Management::Deployment::IStagePackageOptions3> stagePackageOptions3;
-        RETURN_IF_FAILED(stagePackageOptions->QueryInterface(IID_PPV_ARGS(stagePackageOptions3.put())));
+        RETURN_IF_FAILED(stagePackageOptions.query_to(stagePackageOptions3.put()));
         RETURN_IF_FAILED(stagePackageOptions3->put_PackageOperationPriority(priority));
     }
 
@@ -2953,7 +2993,7 @@ HRESULT ClearOrSetPackageStatus(PCWSTR packageFullName, ABI::Windows::Management
             &classIdHeader, &classId));
         wil::com_ptr_nothrow<IInspectable> inspectable;
         RETURN_IF_FAILED(RoActivateInstance(classId, inspectable.put()));
-        RETURN_IF_FAILED(inspectable->QueryInterface(IID_PPV_ARGS(packageManager3.put())));
+        RETURN_IF_FAILED(inspectable.query_to(packageManager3.put()));
     }
 
     if (setStatus)
@@ -3103,7 +3143,7 @@ HRESULT Command_Package_Status_Set(int argc, wchar_t* argv[])
             &classIdHeader, &classId));
         wil::com_ptr_nothrow<IInspectable> inspectable;
         RETURN_IF_FAILED(RoActivateInstance(classId, inspectable.put()));
-        RETURN_IF_FAILED(inspectable->QueryInterface(IID_PPV_ARGS(packageManager3.put())));
+        RETURN_IF_FAILED(inspectable.query_to(packageManager3.put()));
     }
 
     PCWSTR packageFullName{};
@@ -3252,8 +3292,8 @@ HRESULT Command_Provision_Add(int argc, wchar_t* argv[])
                 &classIdHeader, &classId));
             wil::com_ptr_nothrow<IInspectable> inspectable;
             RETURN_IF_FAILED(RoActivateInstance(classId, inspectable.put()));
-            RETURN_IF_FAILED(inspectable->QueryInterface(IID_PPV_ARGS(packageAllUserProvisioningOptions.put())));
-            RETURN_IF_FAILED(inspectable->QueryInterface(IID_PPV_ARGS(packageAllUserProvisioningOptions2.put())));
+            RETURN_IF_FAILED(inspectable.query_to(packageAllUserProvisioningOptions.put()));
+            RETURN_IF_FAILED(inspectable.query_to(packageAllUserProvisioningOptions2.put()));
         }
         RETURN_IF_FAILED(packageAllUserProvisioningOptions2->put_DeferAutomaticRegistration(true));
         wil::com_ptr_nothrow<ABI::Windows::Management::Deployment::IPackageManager10> packageManager10;
@@ -3266,7 +3306,7 @@ HRESULT Command_Provision_Add(int argc, wchar_t* argv[])
                 &classIdHeader, &classId));
             wil::com_ptr_nothrow<IInspectable> inspectable;
             RETURN_IF_FAILED(RoActivateInstance(classId, inspectable.put()));
-            RETURN_IF_FAILED(inspectable->QueryInterface(IID_PPV_ARGS(packageManager10.put())));
+            RETURN_IF_FAILED(inspectable.query_to(packageManager10.put()));
         }
         RETURN_IF_FAILED(packageManager10->ProvisionPackageForAllUsersWithOptionsAsync(packageFamilyNameHString, packageAllUserProvisioningOptions.get(), deploymentOperation.put()));
     }
@@ -3282,7 +3322,7 @@ HRESULT Command_Provision_Add(int argc, wchar_t* argv[])
                 &classIdHeader, &classId));
             wil::com_ptr_nothrow<IInspectable> inspectable;
             RETURN_IF_FAILED(RoActivateInstance(classId, inspectable.put()));
-            RETURN_IF_FAILED(inspectable->QueryInterface(IID_PPV_ARGS(packageManager6.put())));
+            RETURN_IF_FAILED(inspectable.query_to(packageManager6.put()));
         }
         RETURN_IF_FAILED(packageManager6->ProvisionPackageForAllUsersAsync(packageFamilyNameHString, deploymentOperation.put()));
     }
@@ -3373,7 +3413,7 @@ HRESULT Command_Provision_List(int argc, wchar_t* argv[])
         wil::com_ptr_nothrow<IInspectable> inspectable;
         RETURN_IF_FAILED(RoActivateInstance(classId, inspectable.put()));
         wil::com_ptr_nothrow<ABI::Windows::Management::Deployment::IPackageManager9> packageManager9;
-        RETURN_IF_FAILED(inspectable->QueryInterface(IID_PPV_ARGS(packageManager9.put())));
+        RETURN_IF_FAILED(inspectable.query_to(packageManager9.put()));
         RETURN_IF_FAILED(packageManager9->FindProvisionedPackages(packages.put()));
     }
     std::uint32_t packagesCount{};
@@ -3477,7 +3517,7 @@ HRESULT Command_Provision_Remove(int argc, wchar_t* argv[])
         wil::com_ptr_nothrow<IInspectable> inspectable;
         RETURN_IF_FAILED(RoActivateInstance(classId, inspectable.put()));
         wil::com_ptr_nothrow<ABI::Windows::Management::Deployment::IPackageManager8> packageManager8;
-        RETURN_IF_FAILED(inspectable->QueryInterface(IID_PPV_ARGS(packageManager8.put())));
+        RETURN_IF_FAILED(inspectable.query_to(packageManager8.put()));
         RETURN_IF_FAILED(packageManager8->DeprovisionPackageForAllUsersAsync(packageFamilyNameHString, deploymentOperation.put()));
     }
     PCWSTR errorText{};
@@ -3677,7 +3717,7 @@ HRESULT Command_Shortcut_Add(int argc, wchar_t* argv[])
         if (iconPath)
         {
             wil::com_ptr<IPropertySetStorage> propertySetStorage;
-            RETURN_IF_FAILED(url->QueryInterface(IID_PPV_ARGS(&propertySetStorage)));
+            RETURN_IF_FAILED(url.query_to(&propertySetStorage));
             wil::com_ptr<IPropertyStorage> propertyStorage;
             HRESULT hr = propertySetStorage->Open(FMTID_Intshcut, STGM_READWRITE | STGM_SHARE_EXCLUSIVE, &propertyStorage);
             if (hr == STG_E_FILENOTFOUND)
@@ -3713,7 +3753,7 @@ HRESULT Command_Shortcut_Add(int argc, wchar_t* argv[])
             RETURN_IF_FAILED(propertyStorage->Commit(STGC_DEFAULT));
         }
 
-        RETURN_IF_FAILED(url->QueryInterface(IID_PPV_ARGS(&persistFile)));
+        RETURN_IF_FAILED(url.query_to(&persistFile));
     }
     else
     {
@@ -3730,7 +3770,7 @@ HRESULT Command_Shortcut_Add(int argc, wchar_t* argv[])
             RETURN_IF_FAILED(shellLink->SetIDList(pidl.get()));
 
             wil::com_ptr_nothrow<IPropertyStore> propertyStore;
-            RETURN_IF_FAILED(shellLink->QueryInterface(IID_PPV_ARGS(&propertyStore)));
+            RETURN_IF_FAILED(shellLink.query_to(&propertyStore));
             RETURN_IF_FAILED(wil::set_property_store_value(propertyStore, PKEY_AppUserModel_ID, target));
             RETURN_IF_FAILED(propertyStore->Commit());
         }
@@ -3763,14 +3803,14 @@ HRESULT Command_Shortcut_Add(int argc, wchar_t* argv[])
         if (runAsAdministrator)
         {
             wil::com_ptr_nothrow<IShellLinkDataList> dataList;
-            RETURN_IF_FAILED(shellLink->QueryInterface(IID_PPV_ARGS(&dataList)));
+            RETURN_IF_FAILED(shellLink.query_to(&dataList));
             DWORD flags{};
             RETURN_IF_FAILED(dataList->GetFlags(&flags));
             flags |= SLDF_RUNAS_USER;
             RETURN_IF_FAILED(dataList->SetFlags(flags));
         }
 
-        RETURN_IF_FAILED(shellLink->QueryInterface(IID_PPV_ARGS(&persistFile)));
+        RETURN_IF_FAILED(shellLink.query_to(&persistFile));
     }
     RETURN_IF_FAILED(persistFile->Save(file, TRUE));
     wprintf(L"Shortcut '%ls' is created\n", file);

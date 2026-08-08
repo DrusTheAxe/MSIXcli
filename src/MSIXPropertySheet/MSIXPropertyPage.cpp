@@ -95,10 +95,10 @@ MSIXPropertyPage::MSIXPropertyPage(wil::unique_process_heap_ptr<WCHAR[]> filePat
                 &classIdHeader, &classId)) &&
             SUCCEEDED_LOG(RoActivateInstance(classId, inspectable.put())))
         {
-            std::ignore = LOG_IF_FAILED(inspectable->QueryInterface(IID_PPV_ARGS(m_packageManager2.put())));
-            std::ignore = LOG_IF_FAILED(inspectable->QueryInterface(IID_PPV_ARGS(m_packageManager3.put())));
-            std::ignore = LOG_IF_FAILED(inspectable->QueryInterface(IID_PPV_ARGS(m_packageManager9.put())));
-            std::ignore = LOG_IF_FAILED(inspectable->QueryInterface(IID_PPV_ARGS(m_packageManager12.put())));
+            std::ignore = LOG_IF_FAILED(inspectable.query_to(m_packageManager2.put()));
+            std::ignore = LOG_IF_FAILED(inspectable.query_to(m_packageManager3.put()));
+            std::ignore = LOG_IF_FAILED(inspectable.query_to(m_packageManager9.put()));
+            std::ignore = LOG_IF_FAILED(inspectable.query_to(m_packageManager12.put()));
         }
     }
 
@@ -110,9 +110,9 @@ MSIXPropertyPage::MSIXPropertyPage(wil::unique_process_heap_ptr<WCHAR[]> filePat
                 &classIdHeader, &classId)) &&
             SUCCEEDED_LOG(RoActivateInstance(classId, inspectable.put())))
         {
-            std::ignore = LOG_IF_FAILED(inspectable->QueryInterface(IID_PPV_ARGS(m_addPackageOptions.put())));
-            std::ignore = LOG_IF_FAILED(inspectable->QueryInterface(IID_PPV_ARGS(m_addPackageOptions2.put())));
-            std::ignore = LOG_IF_FAILED(inspectable->QueryInterface(IID_PPV_ARGS(m_addPackageOptions3.put())));
+            std::ignore = LOG_IF_FAILED(inspectable.query_to(m_addPackageOptions.put()));
+            std::ignore = LOG_IF_FAILED(inspectable.query_to(m_addPackageOptions2.put()));
+            std::ignore = LOG_IF_FAILED(inspectable.query_to(m_addPackageOptions3.put()));
         }
     }
 }
@@ -1081,8 +1081,8 @@ HRESULT MSIXPropertyPage::OnInstall(
                 &classIdHeader, &classId));
             wil::com_ptr_nothrow<IInspectable> inspectable;
             RETURN_IF_FAILED(RoActivateInstance(classId, inspectable.put()));
-            RETURN_IF_FAILED(inspectable->QueryInterface(IID_PPV_ARGS(m_stagePackageOptions.put())));
-            RETURN_IF_FAILED(inspectable->QueryInterface(IID_PPV_ARGS(m_stagePackageOptions3.put())));
+            RETURN_IF_FAILED(inspectable.query_to(m_stagePackageOptions.put()));
+            RETURN_IF_FAILED(inspectable.query_to(m_stagePackageOptions3.put()));
         }
 
         RETURN_IF_FAILED(m_stagePackageOptions->put_DeveloperMode(isChecked(IDC_DEVELOPERMODE)));
