@@ -3024,22 +3024,23 @@ HRESULT Command_Package_Status_Clear(int argc, wchar_t* argv[])
         ShowLogo();
     }
 
+    PCWSTR packageFullName{};
+    wil::unique_cotaskmem_ptr<WCHAR[]> packageFullNameBuffer;
     if (::VerifyPackageFullName(package) == ERROR_SUCCESS)
     {
-        RETURN_IF_FAILED(ClearPackageStatus(package, packageStatus));
-        wprintf(L"Package '%ls' cleared status %ls\n", package, status);
+        packageFullName = package;
     }
     else if (IsPackageFileOrUri(package))
     {
-        wil::unique_cotaskmem_ptr<WCHAR[]> packageFullName;
-        RETURN_IF_FAILED(PackageToPackageFullName(package, packageFullName));
-        RETURN_IF_FAILED(ClearPackageStatus(packageFullName.get(), packageStatus));
-        wprintf(L"Package '%ls' cleared status %ls\n", packageFullName.get(), status);
+        RETURN_IF_FAILED(PackageToPackageFullName(package, packageFullNameBuffer));
+        packageFullName = packageFullNameBuffer.get();
     }
     else
     {
-        UnknownArgument(argv[argn]);
+        UnknownArgument(package);
     }
+    RETURN_IF_FAILED(ClearPackageStatus(packageFullName, packageStatus));
+    wprintf(L"Package '%ls' cleared status %ls\n", packageFullName, status);
     return S_OK;
 }
 
@@ -3105,22 +3106,23 @@ HRESULT Command_Package_Status_Set(int argc, wchar_t* argv[])
         RETURN_IF_FAILED(inspectable->QueryInterface(IID_PPV_ARGS(packageManager3.put())));
     }
 
+    PCWSTR packageFullName{};
+    wil::unique_cotaskmem_ptr<WCHAR[]> packageFullNameBuffer;
     if (::VerifyPackageFullName(package) == ERROR_SUCCESS)
     {
-        RETURN_IF_FAILED(SetPackageStatus(package, packageStatus));
-        wprintf(L"Package '%ls' set status %ls\n", package, status);
+        packageFullName = package;
     }
     else if (IsPackageFileOrUri(package))
     {
-        wil::unique_cotaskmem_ptr<WCHAR[]> packageFullName;
-        RETURN_IF_FAILED(PackageToPackageFullName(package, packageFullName));
-        RETURN_IF_FAILED(SetPackageStatus(packageFullName.get(), packageStatus));
-        wprintf(L"Package '%ls' set status %ls\n", packageFullName.get(), status);
+        RETURN_IF_FAILED(PackageToPackageFullName(package, packageFullNameBuffer));
+        packageFullName = packageFullNameBuffer.get();
     }
     else
     {
-        UnknownArgument(argv[argn]);
+        UnknownArgument(package);
     }
+    RETURN_IF_FAILED(SetPackageStatus(packageFullName, packageStatus));
+    wprintf(L"Package '%ls' set status %ls\n", packageFullName, status);
     return S_OK;
 }
 
