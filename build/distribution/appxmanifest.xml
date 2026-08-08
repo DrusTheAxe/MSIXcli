@@ -12,9 +12,9 @@
    IgnorableNamespaces="uap uap3 uap5 uap10 uap17 rescap desktop mp">
   <mp:PhoneIdentity PhoneProductId="00000000-0000-0000-0000-000000000000" PhonePublisherId="00000000-0000-0000-0000-000000000000" />
   <Identity Name="MSIXcli"
-    ProcessorArchitecture="x64"
+    ProcessorArchitecture="$architecture$"
     Publisher="CN=TrollCaveEnterprises"
-    Version="1.0.0.0" />
+    Version="$version$.0" />
   <Properties>
     <DisplayName>MSIXcli</DisplayName>
     <PublisherDisplayName>Troll Cave Enterprises</PublisherDisplayName>
@@ -35,7 +35,7 @@
     <rescap:Capability Name="runFullTrust"/>
   </Capabilities>
   <Applications>
-    <Application Id="msix" Executable="msix.exe" uap10:RuntimeBehvior="packagedClassicApp" uap10:TrustLevel="mediumIL">
+    <Application Id="msix" Executable="msix.exe" uap10:RuntimeBehavior="packagedClassicApp" uap10:TrustLevel="mediumIL">
       <uap3:VisualElements
             BackgroundColor="transparent"
             DisplayName="MSIX CLI"
@@ -54,7 +54,7 @@
         </uap3:Extension>
       </Extensions>
     </Application>
-    <Application Id="msixadmin" Executable="msixadmin.exe" uap10:RuntimeBehvior="packagedClassicApp" uap10:TrustLevel="mediumIL">
+    <Application Id="msixadmin" Executable="msixadmin.exe" uap10:RuntimeBehavior="packagedClassicApp" uap10:TrustLevel="mediumIL">
       <uap3:VisualElements
             BackgroundColor="transparent"
             DisplayName="MSIX Admin CLI"

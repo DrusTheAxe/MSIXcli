@@ -4,13 +4,15 @@ SETLOCAL
 IF %1x == x GoTo Help
 IF %2x == x GoTo Help
 
-SET VER=%1
+SET VERSION="%1"
 SET ARCH=%2
 
-SET ROOTDIR=%~dp0\..
+ECHO === MakeMSIX Version=%VERSION% Architecture=%ARCH% ===
+
+SET ROOTDIR=%~dp0..\..
 SET BINDIR=%ROOTDIR%\bin\Release\%ARCH%
 SET TARGETDIR=%ROOTDIR%\Release
-SET TARGET=%TARGETDIR%\AppData-%VER%-%ARCH%.msix
+SET TARGET=%TARGETDIR%\msixcli-%VERSION%-%ARCH%.msix
 
 SET SCRATCH="%TEMP%\appxdata-temp-msix"
 IF EXIST %SCRATCH% RD /s/q %SCRATCH%
@@ -18,14 +20,14 @@ MD %SCRATCH% 2>&1 >NUL
 COPY %BINDIR%\msix\msix.exe %SCRATCH%\*
 COPY %BINDIR%\msixadmin\msixadmin.exe %SCRATCH%\*
 COPY %BINDIR%\MSIXPropertySheet\MSIXPropertySheet.dll %SCRATCH%\*
-COPY %ROOTDIR%\build\appxmanifest.xml %SCRATCH%\*
+COPY %ROOTDIR%\build\distribution\appxmanifest.xml %SCRATCH%\*
+pwsh.exe -NoProfile -Command "$p='%SCRATCH%\appxmanifest.xml'; $s=[IO.File]::ReadAllText($p); [IO.File]::WriteAllText($p,$s.Replace('$version$','%VERSION%').Replace('$architecture$','%ARCH%'))"
 COPY %ROOTDIR%\LICENSE %SCRATCH%\*
 COPY %ROOTDIR%\README.md %SCRATCH%\*
-COPY %ROOTDIR%\README.html %SCRATCH%\*
-COPY %ROOTDIR%\src\msixcli-64x64.png %SCRATCH%\*
-COPY %ROOTDIR%\src\msixcli-100x100.png %SCRATCH%\*
-COPY %ROOTDIR%\src\msixadmin-48x48.png %SCRATCH%\*
-COPY %ROOTDIR%\src\msixadmin-100x100.png %SCRATCH%\*
+COPY %ROOTDIR%\images\msixcli-48x48.png %SCRATCH%\*
+COPY %ROOTDIR%\images\msixcli-100x100.png %SCRATCH%\*
+COPY %ROOTDIR%\images\msixadmin-48x48.png %SCRATCH%\*
+COPY %ROOTDIR%\images\msixadmin-100x100.png %SCRATCH%\*
 
 SET MAKEAPPX=makeappx.exe
 SET MAKEAPPX_OPTS=pack /v /o /d %SCRATCH% /p %TARGET%

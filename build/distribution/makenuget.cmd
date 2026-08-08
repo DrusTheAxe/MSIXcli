@@ -1,18 +1,19 @@
 @ECHO Off
 SETLOCAL
-PUSHD .
 
 IF %1x == x GoTo Help
 
-SET VER=%1
+SET VERSION=%1
+
+ECHO === MakeNuget Version=%VERSION% ===
 
 SET ROOTDIR=%~dp0..\..
 SET TARGETDIR=%ROOTDIR%\Release
-SET TARGET=%TARGETDIR%\msixcli-%VER%.nupkg
+SET TARGET=%TARGETDIR%\msixcli-%VERSION%.nupkg
 SET NUSPEC=%~dp0msixcli.nuspec
 
 IF "%NUGETEXE%" == "" SET NUGETEXE=C:\Util.W32\nuget\nuget.exe
-SET NUGETOPTS=pack %NUSPEC% -Version %VER% -BasePath %ROOTDIR% -OutputDirectory %TARGETDIR% -Verbosity detailed
+SET NUGETOPTS=pack %NUSPEC% -Version %VERSION% -BasePath %ROOTDIR% -OutputDirectory %TARGETDIR% -Verbosity detailed
 
 IF NOT EXIST %TARGETDIR% MD %TARGETDIR% 2>&1 >NUL
 IF EXIST %TARGET% DEL /Q %TARGET%
@@ -26,5 +27,4 @@ GoTo TheEnd
 ECHO Usage: MAKENUGET version
 
 :TheEnd
-POPD
 ENDLOCAL
