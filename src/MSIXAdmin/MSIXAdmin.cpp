@@ -249,12 +249,12 @@ enum class Status
     Tampered             = 0x00010008,
 
     NotAvailable         = 0x00020000,
-    Disabled             = 0x00020001,
-    DataOffline          = 0x00020002,
-    PackageOffline       = 0x00020004,
+    Disabled             = 0x00020010,
+    DataOffline          = 0x00020020,
+    PackageOffline       = 0x00020040,
 
     Servicing            = 0x00040000,
-    DeploymentInProgress = 0x00040001,
+    DeploymentInProgress = 0x00040100,
 
     IsPartiallyStaged    = 0x00100000,
 };
@@ -291,22 +291,34 @@ void PrintPackageValue(PCWSTR key, HRESULT hr, wil::com_ptr_nothrow<ABI::Windows
                 {
                     PrintPackageKeyValueError(key, hr);
                 }
-                status |= Status::DependencyIssue;
+                if (value)
+                {
+                    status |= Status::DependencyIssue;
+                }
                 if (FAILED_LOG(hr = packageStatus->get_LicenseIssue(&value)))
                 {
                     PrintPackageKeyValueError(key, hr);
                 }
-                status |= Status::LicenseIssue;
+                if (value)
+                {
+                    status |= Status::LicenseIssue;
+                }
                 if (FAILED_LOG(hr = packageStatus->get_Modified(&value)))
                 {
                     PrintPackageKeyValueError(key, hr);
                 }
-                status |= Status::Modified;
+                if (value)
+                {
+                    status |= Status::Modified;
+                }
                 if (FAILED_LOG(hr = packageStatus->get_Tampered(&value)))
                 {
                     PrintPackageKeyValueError(key, hr);
                 }
-                status |= Status::Tampered;
+                if (value)
+                {
+                    status |= Status::Tampered;
+                }
             }
 
             if (FAILED_LOG(hr = packageStatus->get_NotAvailable(&value)))
@@ -315,22 +327,34 @@ void PrintPackageValue(PCWSTR key, HRESULT hr, wil::com_ptr_nothrow<ABI::Windows
             }
             if (value)
             {
-                status |= Status::NotAvailable;
+                if (value)
+                {
+                    status |= Status::NotAvailable;
+                }
                 if (FAILED_LOG(hr = packageStatus->get_Disabled(&value)))
                 {
                     PrintPackageKeyValueError(key, hr);
                 }
-                status |= Status::Disabled;
+                if (value)
+                {
+                    status |= Status::Disabled;
+                }
                 if (FAILED_LOG(hr = packageStatus->get_DataOffline(&value)))
                 {
                     PrintPackageKeyValueError(key, hr);
                 }
-                status |= Status::DataOffline;
+                if (value)
+                {
+                    status |= Status::DataOffline;
+                }
                 if (FAILED_LOG(hr = packageStatus->get_PackageOffline(&value)))
                 {
                     PrintPackageKeyValueError(key, hr);
                 }
-                status |= Status::PackageOffline;
+                if (value)
+                {
+                    status |= Status::PackageOffline;
+                }
             }
 
             if (FAILED_LOG(hr = packageStatus->get_Servicing(&value)))
@@ -339,12 +363,18 @@ void PrintPackageValue(PCWSTR key, HRESULT hr, wil::com_ptr_nothrow<ABI::Windows
             }
             if (value)
             {
-                status |= Status::Servicing;
+                if (value)
+                {
+                    status |= Status::Servicing;
+                }
                 if (FAILED_LOG(hr = packageStatus->get_DeploymentInProgress(&value)))
                 {
                     PrintPackageKeyValueError(key, hr);
                 }
-                status |= Status::DeploymentInProgress;
+                if (value)
+                {
+                    status |= Status::DeploymentInProgress;
+                }
             }
 
             wil::com_ptr_nothrow<ABI::Windows::ApplicationModel::IPackageStatus2> packageStatus2;
@@ -356,7 +386,10 @@ void PrintPackageValue(PCWSTR key, HRESULT hr, wil::com_ptr_nothrow<ABI::Windows
             {
                 PrintPackageKeyValueError(key, hr);
             }
-            status |= Status::IsPartiallyStaged;
+            if (value)
+            {
+                status |= Status::IsPartiallyStaged;
+            }
 
             wprintf(L"%-30ls :", key);
 
@@ -373,7 +406,7 @@ void PrintPackageValue(PCWSTR key, HRESULT hr, wil::com_ptr_nothrow<ABI::Windows
                 {
                     if (needDelimiter)
                     {
-                        wprintf(L"','");
+                        wprintf(L",");
                     }
                     wprintf(L"LicenseIssue");
                     needDelimiter = true;
@@ -382,7 +415,7 @@ void PrintPackageValue(PCWSTR key, HRESULT hr, wil::com_ptr_nothrow<ABI::Windows
                 {
                     if (needDelimiter)
                     {
-                        wprintf(L"','");
+                        wprintf(L",");
                     }
                     wprintf(L"Modified");
                     needDelimiter = true;
@@ -391,7 +424,7 @@ void PrintPackageValue(PCWSTR key, HRESULT hr, wil::com_ptr_nothrow<ABI::Windows
                 {
                     if (needDelimiter)
                     {
-                        wprintf(L"','");
+                        wprintf(L",");
                     }
                     wprintf(L"Tampered");
                 }
@@ -411,7 +444,7 @@ void PrintPackageValue(PCWSTR key, HRESULT hr, wil::com_ptr_nothrow<ABI::Windows
                 {
                     if (needDelimiter)
                     {
-                        wprintf(L"','");
+                        wprintf(L",");
                     }
                     wprintf(L"DataOffline");
                     needDelimiter = true;
@@ -420,7 +453,7 @@ void PrintPackageValue(PCWSTR key, HRESULT hr, wil::com_ptr_nothrow<ABI::Windows
                 {
                     if (needDelimiter)
                     {
-                        wprintf(L"','");
+                        wprintf(L",");
                     }
                     wprintf(L"PackageOffline");
                 }
@@ -441,6 +474,7 @@ void PrintPackageValue(PCWSTR key, HRESULT hr, wil::com_ptr_nothrow<ABI::Windows
             {
                 wprintf(L" IsPartiallyStaged");
             }
+            wprintf(L"\n");
         }
     }
 }
@@ -695,6 +729,14 @@ HRESULT ToPackageVolume(
     return S_OK;
 }
 
+bool IsPackageFileOrUri(PCWSTR fileOrUri)
+{
+    return wil::string_ends_with(fileOrUri, L".msix", true) ||
+           wil::string_ends_with(fileOrUri, L".msixbundle", true) ||
+           wil::string_ends_with(fileOrUri, L".appx", true) ||
+           wil::string_ends_with(fileOrUri, L".appxbundle", true);
+}
+
 HRESULT IsMsUupProtocol(ABI::Windows::Foundation::IUriRuntimeClass* uri, bool& isMsUup)
 {
     isMsUup = false;
@@ -828,12 +870,13 @@ constexpr PCWSTR help_Command_Package{
     L"  -?, -h, --help        Show command line help\n"
     L"\n"
     L"Commands:\n"
-    L"  add <PACKAGE>       Add a package\n"
-    L"  list                Display packages registered for the user\n"
-    L"  move <PACKAGE>      Move a package\n"
-    L"  register <PACKAGE>  Register a package\n"
-    L"  remove <PACKAGE>    Remove a package\n"
-    L"  stage <PACKAGE>     Stage a package\n"
+    L"  add <PACKAGE>               Add a package\n"
+    L"  list                        Display packages registered for the user\n"
+    L"  move <PACKAGE>              Move a package\n"
+    L"  register <PACKAGE>          Register a package\n"
+    L"  remove <PACKAGE>            Remove a package\n"
+    L"  stage <PACKAGE>             Stage a package\n"
+    L"  status                      Display or modify package status\n"
     L"\n"
     L"Arguments:\n"
     L"  <PACKAGE> = PackageFamilyName|PackageFullName|file|URI\n"
@@ -969,6 +1012,54 @@ constexpr PCWSTR help_Command_Package_Stage{
     L"  <PACKAGE>  = file|URI\n"
     L"  <PRIORITY> = low|normal|high\n"
     L"  <STUB>     = default|full|stub|preference\n"
+};
+
+constexpr PCWSTR help_Command_Package_Status{
+    L"Description:\n"
+    L"  View or modify package's status\n"
+    L"\n"
+    L"Usage:\n"
+    L"  " MSIX_EXE_NAME L" package status <command> [options]\n"
+    L"\n"
+    L"Options:\n"
+    L"  -nologo, --no-logo         Do not display startup banner or copyright message\n"
+    L"  -?, -h, --help             Show command line help\n"
+    L"\n"
+    L"Commands:\n"
+    L"  clear <PACKAGE>  Clear package status\n"
+    L"  set <PACKAGE>    Set packages status\n"
+};
+
+constexpr PCWSTR help_Command_Package_Status_Clear{
+    L"Description:\n"
+    L"  Clear a package's status\n"
+    L"\n"
+    L"Usage:\n"
+    L"  " MSIX_EXE_NAME L" package status clear <PACKAGE> <STATUS> [options]\n"
+    L"\n"
+    L"Options:\n"
+    L"  -nologo, --no-logo            Do not display startup banner or copyright message\n"
+    L"  -?, -h, --help                Show command line help\n"
+    L"\n"
+    L"Arguments:\n"
+    L"  <PACKAGE>  = PackageFullName|file|URI\n"
+    L"  <STATUS>   = Comma-delimited list: disabled|licenseissue|modified|tampered\n"
+};
+
+constexpr PCWSTR help_Command_Package_Status_Set{
+    L"Description:\n"
+    L"  Set a package's status\n"
+    L"\n"
+    L"Usage:\n"
+    L"  " MSIX_EXE_NAME L" package status set <PACKAGE> <STATUS> [options]\n"
+    L"\n"
+    L"Options:\n"
+    L"  -nologo, --no-logo            Do not display startup banner or copyright message\n"
+    L"  -?, -h, --help                Show command line help\n"
+    L"\n"
+    L"Arguments:\n"
+    L"  <PACKAGE>  = PackageFullName|file|URI\n"
+    L"  <STATUS>   = Comma-delimited list: Disabled|LicenseIssue|Modified|Tampered\n"
 };
 
 constexpr PCWSTR help_Command_Provision{
@@ -1630,6 +1721,18 @@ HRESULT Command_Help(int argc, wchar_t* argv[])
     return S_OK;
 }
 
+HRESULT PackageToPackageFullName(PCWSTR package, wil::unique_cotaskmem_ptr<WCHAR[]>& packageFullName)
+{
+    wil::com_ptr_nothrow<IAppxPackageReader> packageReader;
+    RETURN_IF_FAILED_MSG(MSIX::Packaging::Package::Reader::Open(package, packageReader), "%ls", package);
+    wil::com_ptr_nothrow<IAppxManifestReader> manifestReader;
+    RETURN_IF_FAILED(packageReader->GetManifest(&manifestReader));
+    wil::com_ptr_nothrow<IAppxManifestPackageId> manifestPackageId;
+    RETURN_IF_FAILED(manifestReader->GetPackageId(&manifestPackageId));
+    RETURN_IF_FAILED(manifestPackageId->GetPackageFullName(wil::out_param(packageFullName)));
+    return S_OK;
+}
+
 constexpr auto PackageTypes_Error{ ABI::Windows::Management::Deployment::PackageTypes_Xap };
 ABI::Windows::Management::Deployment::PackageTypes ToPackageTypes(PCWSTR string)
 {
@@ -2132,7 +2235,7 @@ HRESULT Command_Package_Move(int argc, wchar_t* argv[])
 {
     if (argc < 5)
     {
-        Help(help_Command_Package_Stage);
+        Help(help_Command_Package_Move);
     }
 
     PCWSTR packageFullName{ argv[3] };
@@ -2150,7 +2253,7 @@ HRESULT Command_Package_Move(int argc, wchar_t* argv[])
             (CompareStringOrdinal(arg, -1, L"-h", -1, FALSE) == CSTR_EQUAL) ||
             (CompareStringOrdinal(arg, -1, L"--help", -1, FALSE) == CSTR_EQUAL))
         {
-            Help(help_Command_Package_Stage);
+            Help(help_Command_Package_Move);
         }
         else if (CompareStringOrdinal(arg, -1, L"--force", -1, FALSE) == CSTR_EQUAL)
         {
@@ -2555,14 +2658,7 @@ HRESULT Command_Package_Remove(int argc, wchar_t* argv[])
     }
     else if (SUCCEEDED(wil::is_regular_file(package, exists)) && exists)
     {
-        wil::com_ptr_nothrow<IAppxFactory> factory;
-        wil::com_ptr_nothrow<IAppxPackageReader> packageReader;
-        RETURN_IF_FAILED_MSG(MSIX::Packaging::Package::Reader::Open(package, packageReader), "%ls", package);
-        wil::com_ptr_nothrow<IAppxManifestReader> manifestReader;
-        RETURN_IF_FAILED(packageReader->GetManifest(&manifestReader));
-        wil::com_ptr_nothrow<IAppxManifestPackageId> manifestPackageId;
-        RETURN_IF_FAILED(manifestReader->GetPackageId(&manifestPackageId));
-        RETURN_IF_FAILED(manifestPackageId->GetPackageFullName(wil::out_param(packageFullNameBuffer)));
+        RETURN_IF_FAILED(PackageToPackageFullName(package, packageFullNameBuffer));
         packageFullName = packageFullNameBuffer.get();
     }
     else if (SUCCEEDED(wil::to_uri(package, packageUri)))
@@ -2798,6 +2894,259 @@ HRESULT Command_Package_Stage(int argc, wchar_t* argv[])
     return S_OK;
 }
 
+HRESULT ToPackageStatusToModify(PCWSTR string, ABI::Windows::Management::Deployment::PackageStatus& status)
+{
+    status = ABI::Windows::Management::Deployment::PackageStatus_OK;
+
+    RETURN_HR_IF_NULL(E_INVALIDARG, string);
+
+    for (PCWSTR s = string; *s != L'\0';)
+    {
+        if (wil::string_starts_with(s, L"disabled"))
+        {
+            WI_SetFlag(status, ABI::Windows::Management::Deployment::PackageStatus_Disabled);
+            s += ARRAYSIZE(L"disabled") - 1;
+        }
+        else if (wil::string_starts_with(s, L"licenseissue"))
+        {
+            WI_SetFlag(status, ABI::Windows::Management::Deployment::PackageStatus_LicenseIssue);
+            s += ARRAYSIZE(L"licenseissue") - 1;
+        }
+        else if (wil::string_starts_with(s, L"modified"))
+        {
+            WI_SetFlag(status, ABI::Windows::Management::Deployment::PackageStatus_Modified);
+            s += ARRAYSIZE(L"modified") - 1;
+        }
+        else if (wil::string_starts_with(s, L"tampered"))
+        {
+            WI_SetFlag(status, ABI::Windows::Management::Deployment::PackageStatus_Tampered);
+            s += ARRAYSIZE(L"tampered") - 1;
+        }
+        else
+        {
+            UnknownArgument(string);
+        }
+        if (*s)
+        {
+            if (*s++ != L',')
+            {
+                UnknownArgument(string);
+            }
+        }
+    }
+    return S_OK;
+}
+
+HRESULT ClearOrSetPackageStatus(PCWSTR packageFullName, ABI::Windows::Management::Deployment::PackageStatus packageStatus, bool setStatus)
+{
+    HSTRING_HEADER packageFullNameHeader{};
+    HSTRING packageFullNameHString{};
+    RETURN_IF_FAILED(wil::to_hstring_reference(packageFullName, packageFullNameHeader, packageFullNameHString));
+
+    wil::com_ptr_nothrow<ABI::Windows::Management::Deployment::IPackageManager3> packageManager3;
+    {
+        HSTRING_HEADER classIdHeader{};
+        HSTRING classId{};
+        RETURN_IF_FAILED(WindowsCreateStringReference(
+            RuntimeClass_Windows_Management_Deployment_PackageManager,
+            ARRAYSIZE(RuntimeClass_Windows_Management_Deployment_PackageManager) - 1,
+            &classIdHeader, &classId));
+        wil::com_ptr_nothrow<IInspectable> inspectable;
+        RETURN_IF_FAILED(RoActivateInstance(classId, inspectable.put()));
+        RETURN_IF_FAILED(inspectable->QueryInterface(IID_PPV_ARGS(packageManager3.put())));
+    }
+
+    if (setStatus)
+    {
+        RETURN_IF_FAILED(packageManager3->SetPackageStatus(packageFullNameHString, packageStatus));
+    }
+    else
+    {
+        RETURN_IF_FAILED(packageManager3->ClearPackageStatus(packageFullNameHString, packageStatus));
+    }
+    return S_OK;
+}
+
+HRESULT ClearPackageStatus(PCWSTR packageFullName, ABI::Windows::Management::Deployment::PackageStatus packageStatus)
+{
+    RETURN_IF_FAILED(ClearOrSetPackageStatus(packageFullName, packageStatus, false));
+    return S_OK;
+}
+
+HRESULT SetPackageStatus(PCWSTR packageFullName, ABI::Windows::Management::Deployment::PackageStatus packageStatus)
+{
+    RETURN_IF_FAILED(ClearOrSetPackageStatus(packageFullName, packageStatus, true));
+    return S_OK;
+}
+
+HRESULT Command_Package_Status_Clear(int argc, wchar_t* argv[])
+{
+    if (argc < 6)
+    {
+        Help(help_Command_Package_Status_Clear);
+    }
+
+    PCWSTR package{ argv[4] };
+    PCWSTR status{ argv[5] };
+
+    bool logo{ true };
+
+    int argn{ 6 };
+    for (; argn < argc; ++argn)
+    {
+        PCWSTR arg{ argv[argn] };
+        if ((CompareStringOrdinal(arg, -1, L"-?", -1, FALSE) == CSTR_EQUAL) ||
+            (CompareStringOrdinal(arg, -1, L"-h", -1, FALSE) == CSTR_EQUAL) ||
+            (CompareStringOrdinal(arg, -1, L"--help", -1, FALSE) == CSTR_EQUAL))
+        {
+            Help(help_Command_Package_Status_Clear);
+        }
+        else if ((CompareStringOrdinal(arg, -1, L"-nologo", -1, FALSE) == CSTR_EQUAL) ||
+                 (CompareStringOrdinal(arg, -1, L"--no-logo", -1, FALSE) == CSTR_EQUAL))
+        {
+            logo = false;
+        }
+        else
+        {
+            UnknownArgument(arg);
+        }
+    }
+    if (argn < argc)
+    {
+        UnknownArgument(argv[argn]);
+    }
+
+    auto packageStatus{ ABI::Windows::Management::Deployment::PackageStatus_OK };
+    RETURN_IF_FAILED(ToPackageStatusToModify(status, packageStatus));
+
+    if (logo)
+    {
+        ShowLogo();
+    }
+
+    if (::VerifyPackageFullName(package) == ERROR_SUCCESS)
+    {
+        RETURN_IF_FAILED(ClearPackageStatus(package, packageStatus));
+        wprintf(L"Package '%ls' cleared status %ls\n", package, status);
+    }
+    else if (IsPackageFileOrUri(package))
+    {
+        wil::unique_cotaskmem_ptr<WCHAR[]> packageFullName;
+        RETURN_IF_FAILED(PackageToPackageFullName(package, packageFullName));
+        RETURN_IF_FAILED(ClearPackageStatus(packageFullName.get(), packageStatus));
+        wprintf(L"Package '%ls' cleared status %ls\n", packageFullName.get(), status);
+    }
+    else
+    {
+        UnknownArgument(argv[argn]);
+    }
+    return S_OK;
+}
+
+HRESULT Command_Package_Status_Set(int argc, wchar_t* argv[])
+{
+    if (argc < 6)
+    {
+        Help(help_Command_Package_Status_Set);
+    }
+
+    PCWSTR package{ argv[4] };
+    PCWSTR status{ argv[5] };
+
+    bool logo{ true };
+
+    int argn{ 6 };
+    for (; argn < argc; ++argn)
+    {
+        PCWSTR arg{ argv[argn] };
+        if ((CompareStringOrdinal(arg, -1, L"-?", -1, FALSE) == CSTR_EQUAL) ||
+            (CompareStringOrdinal(arg, -1, L"-h", -1, FALSE) == CSTR_EQUAL) ||
+            (CompareStringOrdinal(arg, -1, L"--help", -1, FALSE) == CSTR_EQUAL))
+        {
+            Help(help_Command_Package_Status_Set);
+        }
+        else if ((CompareStringOrdinal(arg, -1, L"-nologo", -1, FALSE) == CSTR_EQUAL) ||
+                 (CompareStringOrdinal(arg, -1, L"--no-logo", -1, FALSE) == CSTR_EQUAL))
+        {
+            logo = false;
+        }
+        else
+        {
+            UnknownArgument(arg);
+        }
+    }
+    if (argn < argc)
+    {
+        UnknownArgument(argv[argn]);
+    }
+
+    auto packageStatus{ ABI::Windows::Management::Deployment::PackageStatus_OK };
+    RETURN_IF_FAILED(ToPackageStatusToModify(status, packageStatus));
+
+    if (logo)
+    {
+        ShowLogo();
+    }
+
+    HSTRING_HEADER packageFullNameHeader{};
+    HSTRING packageFullNameHString{};
+    RETURN_IF_FAILED(wil::to_hstring_reference(package, packageFullNameHeader, packageFullNameHString));
+
+    wil::com_ptr_nothrow<ABI::Windows::Management::Deployment::IPackageManager3> packageManager3;
+    {
+        HSTRING_HEADER classIdHeader{};
+        HSTRING classId{};
+        RETURN_IF_FAILED(WindowsCreateStringReference(
+            RuntimeClass_Windows_Management_Deployment_PackageManager,
+            ARRAYSIZE(RuntimeClass_Windows_Management_Deployment_PackageManager) - 1,
+            &classIdHeader, &classId));
+        wil::com_ptr_nothrow<IInspectable> inspectable;
+        RETURN_IF_FAILED(RoActivateInstance(classId, inspectable.put()));
+        RETURN_IF_FAILED(inspectable->QueryInterface(IID_PPV_ARGS(packageManager3.put())));
+    }
+
+    if (::VerifyPackageFullName(package) == ERROR_SUCCESS)
+    {
+        RETURN_IF_FAILED(SetPackageStatus(package, packageStatus));
+        wprintf(L"Package '%ls' set status %ls\n", package, status);
+    }
+    else if (IsPackageFileOrUri(package))
+    {
+        wil::unique_cotaskmem_ptr<WCHAR[]> packageFullName;
+        RETURN_IF_FAILED(PackageToPackageFullName(package, packageFullName));
+        RETURN_IF_FAILED(SetPackageStatus(packageFullName.get(), packageStatus));
+        wprintf(L"Package '%ls' set status %ls\n", packageFullName.get(), status);
+    }
+    else
+    {
+        UnknownArgument(argv[argn]);
+    }
+    return S_OK;
+}
+
+HRESULT Command_Package_Status(int argc, wchar_t* argv[])
+{
+    if (argc < 4)
+    {
+        Help(help_Command_Package_Status);
+    }
+
+    PCWSTR command{ argv[3] };
+    if (CompareStringOrdinal(command, -1, L"clear", -1, FALSE) == CSTR_EQUAL)
+    {
+        RETURN_IF_FAILED(Command_Package_Status_Clear(argc, argv));
+    }
+    else if (CompareStringOrdinal(command, -1, L"set", -1, FALSE) == CSTR_EQUAL)
+    {
+        RETURN_IF_FAILED(Command_Package_Status_Set(argc, argv));
+    }
+    else
+    {
+        Help(help_Command_Package_Status);
+    }
+    return S_OK;
+}
+
 HRESULT Command_Package(int argc, wchar_t* argv[])
 {
     if (argc < 3)
@@ -2825,6 +3174,10 @@ HRESULT Command_Package(int argc, wchar_t* argv[])
     else if (CompareStringOrdinal(command, -1, L"stage", -1, FALSE) == CSTR_EQUAL)
     {
         RETURN_IF_FAILED(Command_Package_Stage(argc, argv));
+    }
+    else if (CompareStringOrdinal(command, -1, L"status", -1, FALSE) == CSTR_EQUAL)
+    {
+        RETURN_IF_FAILED(Command_Package_Status(argc, argv));
     }
     else
     {
