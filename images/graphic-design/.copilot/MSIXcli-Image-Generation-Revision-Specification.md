@@ -1,213 +1,103 @@
-# MSIXcli Image Generation Revision Specification
+# MSIXcli Image Generation Workflow
 
-## Objective
+## Purpose
 
-Create a cohesive Microsoft\-style icon family for the MSIXcli tool suite. The blue MSIX package is the shared product identity; a small, consistently positioned badge identifies each tool's role.
+This document defines the overall MSIXcli image-generation workflow.
 
----
+Run the numbered steps in ascending order. The detailed requirements, generation instructions, and validation criteria in each numbered step file are authoritative.
 
-## Global Icon\-Family Requirements
+Do not duplicate the complete step specifications in this document. Update the relevant numbered step file when its requirements change.
 
-Apply the following requirements consistently to every tool icon:
+## Plan Location and Naming
 
-- Use the exact same blue MSIX package artwork.
-- Keep the same package size, perspective, angle, lighting, highlights, shadows, and placement.
-- Keep the package as the primary visual element.
-- Use the same badge size, position, shape, lighting, border treatment, corner radius, and shadow across the family.
-- Place each role badge at the lower\-right of the package, matching the position used by the msix.exe terminal badge.
-- Treat badges as small role indicators, not competing primary elements.
-- Preserve clarity and visual recognition at 256x256, 64x64, 32x32, and 16x16 sizes.
-- Maintain a clean Windows 11 Fluent\-style appearance.
+The workflow plans are stored in:
 
----
+`D:\source\repos\msixcli\images\graphic-design\.copilot`
 
-## Family Relationship Constraint
+Plan filenames use:
 
-The viewer should immediately recognize that all five icons belong to the same product family.
+`MSIXcli-Image-Generate-Step-<n>-<name>.md`
 
-- The blue MSIX package should occupy approximately 80% of the visual weight.
-- The role badge should occupy approximately 20% of the visual weight.
-- The package should always be recognized before the badge.
-- The blue package is the product identity.
-- The badge only communicates the tool's role.
+Where:
 
----
+- `<n>` is the execution order.
+- `<name>` is a short description of the work performed by that step.
 
-## Badge Consistency Requirements
+## Execution Flow
 
-All badges must:
+Execute every required step in order:
 
-- Use the same badge background color.
-- Use the same badge dimensions.
-- Use the same badge corner radius.
-- Use the same badge border thickness.
-- Use the same badge shadow.
-- Use the same badge placement.
-- Use the same visual style.
+1. [Generate the icon family](MSIXcli-Image-Generate-Step-1-Icon-family.md)
+   - Generate the approved open-package component icons and color families.
+   - Default `PRIMARY` output: `D:\source\repos\msixcli\images\graphic-design\step1`
+2. [Approve the icons](MSIXcli-Image-Generate-Step-2-Approve-icons.md)
+   - Review the Step 1 artwork before allowing downstream production work.
+   - Read artwork from `step1`.
+   - Save generated review images in `step2` unless another location is explicitly requested.
+3. [Generate production icons](MSIXcli-Image-Generate-Step-3-Generate-production-icons.md)
+   - Promote approved Step 1 component artwork into production SVG and PNG masters.
+   - Default `PRIMARY` output: `D:\source\repos\msixcli\images\graphic-design\step3`
+4. [Generate the project logo](MSIXcli-Image-Generate-Step-4-Generate-project-logo.md)
+   - Derive the badge-free project logo from approved Step 3 artwork.
+   - Default `PRIMARY` output: `D:\source\repos\msixcli\images\graphic-design\step4`
+5. [Generate the README banner](MSIXcli-Image-Generate-Step-5-Generate-README-banner.md)
+   - Combine approved Step 3 icons and the Step 4 logo using the approved banner layout.
+   - Default `PRIMARY` output: `D:\source\repos\msixcli\images\graphic-design\step5`
 
-Badge differences are limited to the internal glyph only.
+Do not run a later step until all required generation and validation work in the preceding step is complete.
 
----
+## Shared Generation Configuration
 
-## Tool\-Specific Revisions
+Image-generation steps support:
 
-### msix.exe
+```text
+GENERATION_MODE = PRIMARY
+PRIMARY_COLOR = cyan
+```
 
-- Use the blue MSIX package as the base icon.
-- Use a small dark\-blue badge containing a clear white >\_ prompt.
-- Retain this icon as the reference composition for package scale, lighting, perspective, badge size, and badge placement.
+- `PRIMARY` generates only `PRIMARY_COLOR`.
+- `ALL` generates all approved palette colors.
+- `PRIMARY` is the default mode.
+- Filenames remain color-qualified in both modes.
+- `PRIMARY_COLOR` must exist in the approved palette.
 
----
+The numbered step files define the authoritative palette, filenames, dimensions, counts, artwork constraints, and validation requirements.
 
-### msixadmin.exe
+## Output Directory Rules
 
-- Make the icon visually identical to msix.exe.
-- Retain the same package and terminal badge without changing their size, perspective, lighting, shadow, or placement.
-- Add a small, clean Windows UAC shield at the lower\-right corner of the terminal badge.
-- Make the shield approximately 30% smaller than the shield used in previous revisions.
-- Use the familiar Windows administrator shield shape with clean blue and yellow quadrants.
-- Remove decorative borders, bevels, crests, umbrella\-like shapes, stars, and ornamental details.
-- The shield must read strictly as a secondary elevation indicator.
+When `GENERATION_MODE = PRIMARY`:
 
----
+- Use the corresponding `step<n>` directory by default.
+- An explicitly supplied output directory overrides the default.
 
-### msixui.exe
+When `GENERATION_MODE = ALL`:
 
-- Make the icon visually identical to msix.exe except for the role badge.
-- Replace the terminal badge with a Windows application\-window badge.
-- Keep the exact same package artwork, perspective, size, lighting, highlights, shadow, and placement.
-- Keep the application\-window badge in the exact same location and at the exact same size as the msix.exe terminal badge.
-- Use one white application\-window rectangle with a simple title bar and a single content area.
-- The badge contains exactly one window rectangle.
-- Combine the previous two white rectangles into one white rectangle.
-- Do not use multiple panes.
-- Do not use split views.
-- Do not use side\-by\-side rectangles.
-- Do not use Windows\-logo quadrants.
-- Do not use a large frame surrounding the package.
-- The icon must read as the GUI counterpart to msix.exe, not as a separate product.
+- Require an explicit output directory before generation begins.
+- Do not use a default `step<n>` directory.
+- Do not infer or invent an output path.
 
----
+## Approved Stage Directories
 
-### MSIXPropertySheet.dll
+The approved artwork stages are:
 
-- Use the same blue MSIX package base as the other tool icons.
-- Replace the full\-page or full\-document composition with a small property\-sheet badge.
-- Position and size the property\-sheet badge exactly like the msix.exe terminal badge.
-- Use the same dark\-blue badge background as the other badges.
+| Step | Directory |
+| --- | --- |
+| 1 | `D:\source\repos\msixcli\images\graphic-design\step1` |
+| 2 | `D:\source\repos\msixcli\images\graphic-design\step2` |
+| 3 | `D:\source\repos\msixcli\images\graphic-design\step3` |
+| 4 | `D:\source\repos\msixcli\images\graphic-design\step4` |
+| 5 | `D:\source\repos\msixcli\images\graphic-design\step5` |
 
-#### Property\-sheet Badge Appearance
+## Validation Rule
 
-- Display a small property\-page dialog.
-- Display a single highlighted tab.
-- Display 2–3 horizontal property lines.
-- The property\-sheet badge must fit entirely inside the badge.
-- Keep the badge readable at small icon sizes.
-- Do not use a document as the primary icon.
-- Do not use a full property dialog as the primary icon.
-- The MSIX package remains the primary visual element.
+AI-generated artwork is untrusted until validated.
 
----
+For every step:
 
-### MSIXTray.exe
+1. Generate the required artifacts.
+2. Run every validation specified by that step.
+3. Correct any failure.
+4. Repeat generation and validation until all requirements pass.
+5. Proceed to the next numbered step only after the current step is approved.
 
-- Use the exact same blue MSIX package artwork as msix.exe.
-- Use the exact same badge size, style, border, corner radius, shadow, and position as the msix.exe terminal badge.
-- Replace the terminal glyph with a single activity\-monitor waveform glyph.
-
-#### Badge Appearance
-
-- Use a dark\-blue badge background.
-- Use a single cyan waveform glyph.
-- The waveform glyph is the ONLY symbol inside the badge.
-- The waveform must occupy approximately 65% of the badge width.
-- Use a waveform visually similar to:
-
-\_\_/\\\_\_\_\_/\\\_\_
-
-- Do not substitute any other glyph.
-
-#### Do NOT Use
-
-- Bells
-- Notification icons
-- Alarm icons
-- Inbox icons
-- Mail icons
-- Message icons
-- Toast\-notification metaphors
-- Sound\-wave icons
-- Speaker icons
-- Wi-Fi icons
-- Radar icons
-- Broadcast icons
-- Radiating rings
-- Circles around the package
-- Sparkles
-- Stars
-- Pulsing dots
-- Secondary package overlays
-- Heartbeat symbols outside the badge
-
-#### Composition
-
-The icon must be:
-
-MSIX Package
-
-      \+
-
- Activity Badge
-
-The activity badge must be visually identical in size and placement to the msix.exe terminal badge.
-
-The package remains the primary visual element.
-
-#### Design Intent
-
-The icon should communicate:
-
-- Monitoring
-- Telemetry
-- Activity tracking
-- Event observation
-
-It should feel similar to:
-
-- Performance Monitor
-- Process Monitor
-- WPA
-- ETW tracing
-- Diagnostics tooling
-
-It should NOT feel similar to:
-
-- Outlook
-- Teams
-- Notification Center
-- Messaging applications
-- Alerting applications
-
----
-
-## Final Icon Mapping
-
-| Tool | Base | Role Badge |
-| --- | --- | --- |
-| msix.exe | Blue MSIX package | Terminal prompt \(>\_\) |
-| msixadmin.exe | Blue MSIX package | Terminal prompt \+ small UAC shield |
-| msixui.exe | Blue MSIX package | Single application\-window badge |
-| MSIXPropertySheet.dll | Blue MSIX package | Property\-sheet badge |
-| MSIXTray.exe | Blue MSIX package | Activity\-waveform badge |
-
----
-
-## Image Generation Constraint
-
-Do not redesign the package separately for each tool.
-
-All icons must look as though the exact same package artwork was duplicated and only the small lower\-right role badge was changed.
-
-The resulting icon family must appear to be one coherent Windows tool suite.
-
-The package artwork, lighting, perspective, scale, badge placement, and visual hierarchy must remain consistent across all icons.
+Never treat generation alone as completion.
