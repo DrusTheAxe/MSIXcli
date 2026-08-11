@@ -30,19 +30,57 @@ Supported modes:
 
 The selected color set must match the Step 1 run being promoted to production. Do not silently export additional colors or omit selected colors.
 
-Always retain the color in production filenames, including `PRIMARY` mode.
+In `PRIMARY` mode:
+
+- SVG filenames do not include `-<color>`.
+- Individual PNG filenames include both `-<color>` and `-<size>`.
+
+In `ALL` mode:
+
+- SVG filenames include `-<color>`.
+- Individual PNG filenames include both `-<color>` and `-<size>`.
+
+## PNG Size Configuration
+
+When `GENERATION_MODE = PRIMARY`, always generate every individual icon PNG at these sizes:
+
+- `32x32`
+- `48x48`
+- `64x64`
+- `96x96`
+- `100x100`
+- `256x256`
+- `512x512`
+- `1024x1024`
+
+When `GENERATION_MODE = ALL`, require an explicit size selection before generation begins.
+
+The user must either:
+
+- Provide one or more explicit dimensions, or
+- Specify `reference`, which means generate only `1024x1024`.
+
+Do not infer sizes for `ALL`. Do not begin `ALL` generation without both an explicit output directory and an explicit size selection.
 
 ## Source of Truth
 
 Follow:
 
-`D:\source\repos\msixcli\images\graphic-design\.copilot\MSIXcli-Image-Generate-Step-1-Icon-family.md`
+`D:\source\repos\msixcli\images\graphic-design\.copilot\MSIXcli-Image-Generate-Step-1-Preview.md`
 
 Use the approved individual SVG artwork in:
 
 `D:\source\repos\msixcli\images\graphic-design\step1`
 
-Source filenames use:
+In `PRIMARY` mode, source filenames use:
+
+- `msix.svg`
+- `msixadmin.svg`
+- `msixui.svg`
+- `MSIXPropertySheet.svg`
+- `MSIXTray.svg`
+
+In `ALL` mode, source filenames use:
 
 - `msix-<color>.svg`
 - `msixadmin-<color>.svg`
@@ -104,31 +142,56 @@ Do not create alternate spellings such as:
 
 ## Production Output
 
-For every component and color, create:
+For every selected component, create:
 
 - One matching SVG master.
-- One 1024x1024 transparent PNG master.
+- One transparent PNG master for every required or explicitly selected size.
 
-Preserve the Step 1 filenames exactly:
+In `PRIMARY` mode, preserve these Step 1 filenames exactly:
 
-- `msix-<color>.svg` and `msix-<color>.png`
-- `msixadmin-<color>.svg` and `msixadmin-<color>.png`
-- `msixui-<color>.svg` and `msixui-<color>.png`
-- `MSIXPropertySheet-<color>.svg` and `MSIXPropertySheet-<color>.png`
-- `MSIXTray-<color>.svg` and `MSIXTray-<color>.png`
+- `msix.svg`
+- `msixadmin.svg`
+- `msixui.svg`
+- `MSIXPropertySheet.svg`
+- `MSIXTray.svg`
+
+For each required `PRIMARY` PNG size, preserve:
+
+- `msix-<color>-<size>.png`
+- `msixadmin-<color>-<size>.png`
+- `msixui-<color>-<size>.png`
+- `MSIXPropertySheet-<color>-<size>.png`
+- `MSIXTray-<color>-<size>.png`
+
+In `ALL` mode, preserve these Step 1 filenames exactly:
+
+- `msix-<color>.svg`
+- `msixadmin-<color>.svg`
+- `msixui-<color>.svg`
+- `MSIXPropertySheet-<color>.svg`
+- `MSIXTray-<color>.svg`
+
+For every explicitly selected `ALL` size, preserve:
+
+- `msix-<color>-<size>.png`
+- `msixadmin-<color>-<size>.png`
+- `msixui-<color>-<size>.png`
+- `MSIXPropertySheet-<color>-<size>.png`
+- `MSIXTray-<color>-<size>.png`
 
 Examples:
 
-- `msix-red.png`
-- `msixadmin-gold.png`
-- `msixui-darkslategray.png`
-- `MSIXPropertySheet-mocha.png`
-- `MSIXTray-fuchsia.png`
+- `msix-cyan-32x32.png`
+- `msix-cyan-1024x1024.png`
+- `msixadmin-gold-64x64.png`
+- `MSIXTray-fuchsia-256x256.png`
 
 In `PRIMARY` mode, save all files in the Step 3 default output directory unless the user explicitly requests another location. In `ALL` mode, save all files only in the explicitly supplied output directory.
 
 Do not copy or generate:
 
+- `MSIXcli-icon-family.svg`
+- `MSIXcli-icon-family.png`
 - `MSIXcli-icon-family-<color>.svg`
 - `MSIXcli-icon-family-<color>.png`
 - Any side-by-side comparison sheet.
@@ -137,7 +200,7 @@ Do not copy or generate:
 
 Every PNG must be:
 
-- Exactly 1024x1024 pixels.
+- Exactly the dimensions encoded in its `<size>` filename token.
 - 32-bit RGBA.
 - Rendered on a genuinely transparent background.
 - Fully transparent in all four canvas corners.
@@ -150,7 +213,7 @@ Do not use a browser screenshot renderer if it replaces transparency with an opa
 
 Every SVG must:
 
-- Match its PNG exactly.
+- Match every corresponding PNG size exactly, apart from raster dimensions.
 - Remain editable vector artwork.
 - Preserve the approved gradients, filters, clipping, and layer order.
 - Contain no external file references.
@@ -160,27 +223,34 @@ Every SVG must:
 When `GENERATION_MODE = PRIMARY`, generate exactly:
 
 - 5 SVG production masters.
-- 5 PNG production masters.
-- 10 total production files.
+- 40 PNG production masters: 5 components at 8 required sizes.
+- 45 total production files.
 
 When `GENERATION_MODE = ALL`, generate exactly:
 
 - 195 SVG production masters.
-- 195 PNG production masters.
-- 390 total production files.
+- `195 × number of explicitly selected sizes` PNG production masters.
+- `195 + (195 × number of explicitly selected sizes)` total production files.
+
+When `ALL` uses `reference`, generate 195 SVG and 195 PNG production masters, for 390 total production files.
 
 ## Validation
 
 After export, verify:
 
-- `GENERATION_MODE` and `PRIMARY_COLOR` match Step 1.
+- `GENERATION_MODE`, `PRIMARY_COLOR`, and the selected PNG sizes match Step 1.
 - `ALL` has an explicitly supplied output directory before generation begins.
+- `ALL` has an explicitly supplied size selection before generation begins.
+- `reference` resolves to only `1024x1024`.
+- `PRIMARY` individual PNG filenames contain the primary color and exact dimensions.
+- `ALL` individual PNG filenames contain their normalized color and exact dimensions.
+- SVG filenames follow their mode-specific naming rules.
 - `PRIMARY` contains only the configured primary color.
 - `ALL` contains all 39 normalized colors.
 - Every selected color has all five components.
-- File counts equal `selected colors × 5 components × 2 formats`.
+- PNG counts equal `selected colors × 5 components × selected sizes`.
 - No family-sheet files exist in the Step 3 output directory.
-- Every PNG is exactly 1024x1024.
+- Every PNG matches the dimensions encoded in its filename.
 - Every PNG contains a 32-bit alpha channel.
 - All four corners of every PNG are fully transparent.
 - Every SVG and its corresponding PNG depict identical artwork.

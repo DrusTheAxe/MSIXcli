@@ -1,4 +1,4 @@
-# Step 2: Approve the icons
+# Step 2: Approve Icon Previews
 
 Do not proceed until these are correct.
 

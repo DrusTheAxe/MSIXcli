@@ -1,4 +1,4 @@
-# Step 1: Generate Open-Package Color Icon Families
+# Step 1: Generate Open-Package Color Icon Previews
 
 Generate Windows 11 Fluent-style color variants for the complete MSIXcli icon family.
 
@@ -35,17 +35,47 @@ Resolve the selected color set before generating:
 
 Do not hard-code cyan throughout the generator. All primary-color selection must resolve through `PRIMARY_COLOR` so the primary color can be changed in one place later.
 
-Always retain the color in output filenames, including `PRIMARY` mode.
+In `PRIMARY` mode:
+
+- SVG and family-sheet filenames do not include `-<color>`.
+- Individual PNG filenames include both `-<color>` and `-<size>`.
+
+In `ALL` mode:
+
+- SVG and family-sheet filenames include `-<color>`.
+- Individual PNG filenames include both `-<color>` and `-<size>`.
+
+## PNG Size Configuration
+
+When `GENERATION_MODE = PRIMARY`, always generate every individual icon PNG at these sizes:
+
+- `32x32`
+- `48x48`
+- `64x64`
+- `96x96`
+- `100x100`
+- `256x256`
+- `512x512`
+- `1024x1024`
+
+When `GENERATION_MODE = ALL`, require an explicit size selection before generation begins.
+
+The user must either:
+
+- Provide one or more explicit dimensions, or
+- Specify `reference`, which means generate only `1024x1024`.
+
+Do not infer sizes for `ALL`. Do not begin `ALL` generation without both an explicit output directory and an explicit size selection.
 
 ## Canonical Artwork
 
 Use the approved open-package artwork from:
 
-- `D:\source\repos\msixcli\images\graphic-design\step1\msix-cyan.svg`
-- `D:\source\repos\msixcli\images\graphic-design\step1\msixadmin-cyan.svg`
-- `D:\source\repos\msixcli\images\graphic-design\step1\msixui-cyan.svg`
-- `D:\source\repos\msixcli\images\graphic-design\step1\MSIXPropertySheet-cyan.svg`
-- `D:\source\repos\msixcli\images\graphic-design\step1\MSIXTray-cyan.svg`
+- `D:\source\repos\msixcli\images\graphic-design\step1\msix.svg`
+- `D:\source\repos\msixcli\images\graphic-design\step1\msixadmin.svg`
+- `D:\source\repos\msixcli\images\graphic-design\step1\msixui.svg`
+- `D:\source\repos\msixcli\images\graphic-design\step1\MSIXPropertySheet.svg`
+- `D:\source\repos\msixcli\images\graphic-design\step1\MSIXTray.svg`
 
 The canonical package contains:
 
@@ -206,25 +236,54 @@ Do not create alternate spellings such as:
 
 ## Output Naming
 
-Generate one SVG and one PNG for every icon and color.
+In `PRIMARY` mode, use:
 
-Use:
+- `msix.svg`
+- `msixadmin.svg`
+- `msixui.svg`
+- `MSIXPropertySheet.svg`
+- `MSIXTray.svg`
+- `MSIXcli-icon-family.svg` and `MSIXcli-icon-family.png`
 
-- `msix-<color>.svg` and `msix-<color>.png`
-- `msixadmin-<color>.svg` and `msixadmin-<color>.png`
-- `msixui-<color>.svg` and `msixui-<color>.png`
-- `MSIXPropertySheet-<color>.svg` and `MSIXPropertySheet-<color>.png`
-- `MSIXTray-<color>.svg` and `MSIXTray-<color>.png`
+For each required `PRIMARY` PNG size, use:
+
+- `msix-<color>-<size>.png`
+- `msixadmin-<color>-<size>.png`
+- `msixui-<color>-<size>.png`
+- `MSIXPropertySheet-<color>-<size>.png`
+- `MSIXTray-<color>-<size>.png`
 
 Examples:
 
-- `msix-red.png`
-- `msixadmin-gold.png`
-- `msixui-darkslategray.png`
-- `MSIXPropertySheet-mocha.png`
-- `MSIXTray-fuchsia.png`
+- `msix-cyan-32x32.png`
+- `msix-cyan-1024x1024.png`
+- `MSIXTray-cyan-256x256.png`
 
-Generate one side-by-side family sheet for every color:
+In `ALL` mode, generate one SVG for every icon and color.
+
+Use:
+
+- `msix-<color>.svg`
+- `msixadmin-<color>.svg`
+- `msixui-<color>.svg`
+- `MSIXPropertySheet-<color>.svg`
+- `MSIXTray-<color>.svg`
+
+For every explicitly selected `ALL` size, use:
+
+- `msix-<color>-<size>.png`
+- `msixadmin-<color>-<size>.png`
+- `msixui-<color>-<size>.png`
+- `MSIXPropertySheet-<color>-<size>.png`
+- `MSIXTray-<color>-<size>.png`
+
+Examples:
+
+- `msix-red-1024x1024.png`
+- `msixadmin-gold-64x64.png`
+- `MSIXTray-fuchsia-256x256.png`
+
+In `ALL` mode, generate one side-by-side family sheet for every color:
 
 - `MSIXcli-icon-family-<color>.svg`
 - `MSIXcli-icon-family-<color>.png`
@@ -240,7 +299,7 @@ Each family sheet must:
 
 Each individual PNG must be:
 
-- Exactly 1024x1024 pixels.
+- Exactly the dimensions encoded in its `<size>` filename token.
 - 32-bit RGBA.
 - Rendered on a transparent background.
 - Fully transparent in all four canvas corners.
@@ -256,16 +315,18 @@ Each family-sheet PNG must be:
 When `GENERATION_MODE = PRIMARY`, generate:
 
 - 5 individual SVG icons.
-- 5 individual PNG icons.
+- 40 individual PNG icons: 5 components at 8 required sizes.
 - 1 family-sheet SVG file.
 - 1 family-sheet PNG file.
 
 When `GENERATION_MODE = ALL`, generate:
 
 - 195 individual SVG icons.
-- 195 individual PNG icons.
+- `195 × number of explicitly selected sizes` individual PNG icons.
 - 39 family-sheet SVG files.
 - 39 family-sheet PNG files.
+
+When `ALL` uses `reference`, generate 195 individual PNG icons at `1024x1024`.
 
 ## Validation
 
@@ -274,13 +335,18 @@ After generation, verify:
 - `GENERATION_MODE` is exactly `PRIMARY` or `ALL`.
 - `PRIMARY_COLOR` is a normalized color in the approved palette.
 - `ALL` has an explicitly supplied output directory before generation begins.
+- `ALL` has an explicitly supplied size selection before generation begins.
+- `reference` resolves to only `1024x1024`.
+- `PRIMARY` individual PNG filenames contain the primary color and exact dimensions.
+- `ALL` individual PNG filenames contain their normalized color and exact dimensions.
+- SVG and family-sheet filenames follow their mode-specific naming rules.
 - The selected color set matches the configured generation mode.
 - `PRIMARY` produces only the configured primary color.
 - `ALL` produces all 39 normalized colors.
 - Every selected color has all five icons.
 - Every selected color has one family sheet.
-- Actual file counts match `selected colors × components × formats`, plus one SVG/PNG family sheet per selected color.
-- Every individual PNG is 1024x1024 RGBA.
+- Actual PNG counts match `selected colors × 5 components × selected sizes`.
+- Every individual PNG is 32-bit RGBA and matches the dimensions in its filename.
 - Every individual PNG has four fully transparent corners.
 - Every family sheet is 1800x450.
 - The outer package and badge artwork are unchanged across all variants.

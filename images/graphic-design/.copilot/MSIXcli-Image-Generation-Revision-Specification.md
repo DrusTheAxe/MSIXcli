@@ -27,10 +27,10 @@ Where:
 
 Execute every required step in order:
 
-1. [Generate the icon family](MSIXcli-Image-Generate-Step-1-Icon-family.md)
+1. [Generate icon previews](MSIXcli-Image-Generate-Step-1-Preview.md)
    - Generate the approved open-package component icons and color families.
    - Default `PRIMARY` output: `D:\source\repos\msixcli\images\graphic-design\step1`
-2. [Approve the icons](MSIXcli-Image-Generate-Step-2-Approve-icons.md)
+2. [Approve icon previews](MSIXcli-Image-Generate-Step-2-Approve.md)
    - Review the Step 1 artwork before allowing downstream production work.
    - Read artwork from `step1`.
    - Save generated review images in `step2` unless another location is explicitly requested.
@@ -58,7 +58,8 @@ PRIMARY_COLOR = cyan
 - `PRIMARY` generates only `PRIMARY_COLOR`.
 - `ALL` generates all approved palette colors.
 - `PRIMARY` is the default mode.
-- Filenames remain color-qualified in both modes.
+- `PRIMARY` filenames do not include a color suffix unless a numbered step explicitly defines a size-qualified filename.
+- `ALL` filenames include `-<color>` before the extension.
 - `PRIMARY_COLOR` must exist in the approved palette.
 
 The numbered step files define the authoritative palette, filenames, dimensions, counts, artwork constraints, and validation requirements.

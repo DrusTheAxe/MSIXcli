@@ -1,33 +1,76 @@
+<?xml version="1.0" encoding="utf-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 512 512">
   <defs>
-    <linearGradient id="topFace" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#75D9FF"/>
-      <stop offset="0.48" stop-color="#32A9F1"/>
-      <stop offset="1" stop-color="#1684D5"/>
-    </linearGradient>
     <linearGradient id="leftFace" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#249BE5"/>
-      <stop offset="1" stop-color="#0866B7"/>
+      <stop offset="0" stop-color="#249BE5" />
+      <stop offset="1" stop-color="#0756A4" />
     </linearGradient>
     <linearGradient id="rightFace" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#117BC9"/>
-      <stop offset="1" stop-color="#064A91"/>
+      <stop offset="0" stop-color="#147FCB" />
+      <stop offset="1" stop-color="#043E7B" />
     </linearGradient>
-    <filter id="packageShadow" x="-30%" y="-30%" width="170%" height="190%">
-      <feDropShadow dx="0" dy="18" stdDeviation="18" flood-color="#032A52" flood-opacity="0.28"/>
+    <linearGradient id="leftFlap" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#44BCF5" />
+      <stop offset="1" stop-color="#137BC8" />
+    </linearGradient>
+    <linearGradient id="rightFlap" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#2EA7E9" />
+      <stop offset="1" stop-color="#075BA7" />
+    </linearGradient>
+    <linearGradient id="cubeTop" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#4CFFFF" />
+      <stop offset="0.5" stop-color="#00C7C7" />
+      <stop offset="1" stop-color="#007373" />
+    </linearGradient>
+    <linearGradient id="cubeLeft" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#2EFFFF" />
+      <stop offset="1" stop-color="#006161" />
+    </linearGradient>
+    <linearGradient id="cubeRight" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#00E0E0" />
+      <stop offset="1" stop-color="#004747" />
+    </linearGradient>
+    <radialGradient id="cubeCoreGlow">
+      <stop offset="0" stop-color="#EBFFFF" />
+      <stop offset="0.2" stop-color="#B8FFFF" />
+      <stop offset="0.52" stop-color="#61FFFF" stop-opacity="0.84" />
+      <stop offset="1" stop-color="#14FFFF" stop-opacity="0" />
+    </radialGradient>
+    <filter id="packageShadow" x="-35%" y="-35%" width="180%" height="205%">
+      <feDropShadow dx="0" dy="18" stdDeviation="18" flood-color="#032A52" flood-opacity="0.3" />
     </filter>
+    <filter id="cubeShadow" x="-80%" y="-80%" width="260%" height="280%">
+      <feDropShadow dx="0" dy="8" stdDeviation="22.5" flood-color="#61FFFF" flood-opacity="0.9" />
+    </filter>
+    <clipPath id="cubeTopClip">
+      <path d="M248 180 L338 225 L248 270 L158 225 Z" />
+    </clipPath>
+    <clipPath id="cubeLeftClip">
+      <path d="M158 225 L248 270 L248 340 L158 295 Z" />
+    </clipPath>
+    <clipPath id="cubeRightClip">
+      <path d="M248 270 L338 225 L338 295 L248 340 Z" />
+    </clipPath>
   </defs>
   <g filter="url(#packageShadow)">
-    <path d="M58 170 L248 67 L438 170 L248 274 Z" fill="url(#topFace)" stroke="#BDEBFF" stroke-width="5" stroke-linejoin="round"/>
-    <path d="M58 170 L248 274 L248 466 L58 359 Z" fill="url(#leftFace)" stroke="#075DA6" stroke-width="5" stroke-linejoin="round"/>
-    <path d="M248 274 L438 170 L438 359 L248 466 Z" fill="url(#rightFace)" stroke="#043F7C" stroke-width="5" stroke-linejoin="round"/>
-    <g fill="none" stroke="#C9EDFF" stroke-width="5" stroke-linecap="round" opacity="0.58">
-      <path d="M151 170 H345"/>
-      <path d="M248 117 V223"/>
+    <path d="M72 218 L248 124 L213 62 L40 153 Z" fill="url(#leftFlap)" stroke="#8EDFFF" stroke-width="5" stroke-linejoin="round" />
+    <path d="M248 124 L424 218 L456 153 L283 62 Z" fill="url(#rightFlap)" stroke="#66C9F6" stroke-width="5" stroke-linejoin="round" />
+    <path d="M72 218 L248 124 L424 218 L248 312 Z" fill="#052E5C" stroke="#0C67AD" stroke-width="5" stroke-linejoin="round" />
+    <g filter="url(#cubeShadow)">
+      <path d="M248 180 L338 225 L248 270 L158 225 Z" fill="url(#cubeTop)" stroke="#94FFFF" stroke-width="4" stroke-linejoin="round" />
+      <ellipse cx="248" cy="225" rx="162" ry="85.5" fill="url(#cubeCoreGlow)" clip-path="url(#cubeTopClip)" />
+      <path d="M158 225 L248 270 L248 340 L158 295 Z" fill="url(#cubeLeft)" stroke="#94FFFF" stroke-width="4" stroke-linejoin="round" />
+      <ellipse cx="203" cy="282" rx="112.5" ry="118.5" fill="url(#cubeCoreGlow)" clip-path="url(#cubeLeftClip)" opacity="0.9" />
+      <path d="M248 270 L338 225 L338 295 L248 340 Z" fill="url(#cubeRight)" stroke="#61FFFF" stroke-width="4" stroke-linejoin="round" />
+      <ellipse cx="293" cy="282" rx="112.5" ry="118.5" fill="url(#cubeCoreGlow)" clip-path="url(#cubeRightClip)" opacity="0.9" />
+      <path d="M158 225 L248 270 L338 225" fill="none" stroke="#B8FFFF" stroke-width="3" opacity="0.78" />
     </g>
-    <path d="M248 274 L438 170" fill="none" stroke="#74C7F3" stroke-width="4" opacity="0.7"/>
-    <path d="M248 274 L58 170" fill="none" stroke="#D1F2FF" stroke-width="4" opacity="0.52"/>
-    <path d="M77 180 L77 345 L232 433" fill="none" stroke="#67BCEA" stroke-width="5" opacity="0.42"/>
-    <path d="M420 180 L420 344 L265 431" fill="none" stroke="#3094D4" stroke-width="5" opacity="0.35"/>
+    <path d="M72 218 L248 312 L248 468 L72 369 Z" fill="url(#leftFace)" stroke="#075DA6" stroke-width="5" stroke-linejoin="round" />
+    <path d="M248 312 L424 218 L424 369 L248 468 Z" fill="url(#rightFace)" stroke="#043F7C" stroke-width="5" stroke-linejoin="round" />
+    <path d="M72 218 L248 312 L205 358 L38 267 Z" fill="url(#leftFlap)" stroke="#69C9F4" stroke-width="5" stroke-linejoin="round" />
+    <path d="M248 312 L424 218 L458 267 L291 358 Z" fill="url(#rightFlap)" stroke="#3B9ED8" stroke-width="5" stroke-linejoin="round" />
+    <path d="M89 279 V355 L231 435" fill="none" stroke="#64BCE9" stroke-width="5" opacity="0.42" />
+    <path d="M407 279 V355 L265 435" fill="none" stroke="#2F92D2" stroke-width="5" opacity="0.38" />
+    <path d="M248 312 V468" stroke="#0B64AB" stroke-width="4" opacity="0.8" />
   </g>
 </svg>

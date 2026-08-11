@@ -28,7 +28,9 @@ Supported modes:
 
 `PRIMARY` is the default mode.
 
-Only process colors present in the selected Step 3 production set. Always retain the color in logo filenames, including `PRIMARY` mode.
+Only process colors present in the selected Step 3 production set.
+
+In `PRIMARY` mode, do not include `-<color>` in logo filenames. In `ALL` mode, include `-<color>`.
 
 ## Source of Truth
 
@@ -40,7 +42,11 @@ Use only the approved `msix` SVG production masters in:
 
 `D:\source\repos\msixcli\images\graphic-design\step3`
 
-Source filenames use:
+In `PRIMARY` mode, the source filename is:
+
+`msix.svg`
+
+In `ALL` mode, source filenames use:
 
 `msix-<color>.svg`
 
@@ -109,7 +115,12 @@ Do not create alternate spellings such as:
 
 ## Output Naming
 
-For every color, create:
+In `PRIMARY` mode, create:
+
+- `MSIXcli-logo.svg`
+- `MSIXcli-logo.png`
+
+In `ALL` mode, create for every color:
 
 - `MSIXcli-logo-<color>.svg`
 - `MSIXcli-logo-<color>.png`
@@ -167,6 +178,8 @@ After export, verify:
 
 - `GENERATION_MODE` and `PRIMARY_COLOR` match Steps 1 and 3.
 - `ALL` has an explicitly supplied output directory before generation begins.
+- `PRIMARY` filenames contain no color suffix.
+- `ALL` filenames contain their normalized color suffix.
 - `PRIMARY` contains only the configured primary-color logo.
 - `ALL` contains all 39 color logos.
 - Every selected color has one SVG and one PNG logo.
@@ -178,7 +191,7 @@ After export, verify:
 - No badge, badge shadow, badge glyph, text, or background remains.
 - The outer package artwork is identical across all colors.
 - Only the inner cube and its centered glow differ by color.
-- Each logo exactly matches its corresponding Step 3 `msix-<color>.svg` package artwork.
+- Each logo exactly matches its corresponding Step 3 `msix.svg` or `msix-<color>.svg` package artwork, according to generation mode.
 - The inner cube remains centered with dark-blue interior space around every side.
 - The package walls completely occlude the hidden portion of the cube.
 - No cube pixels appear through any solid package wall or lower corner.

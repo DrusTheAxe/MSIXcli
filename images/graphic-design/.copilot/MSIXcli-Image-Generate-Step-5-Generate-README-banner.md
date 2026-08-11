@@ -28,7 +28,9 @@ Supported modes:
 
 `PRIMARY` is the default mode.
 
-Only process colors present in both the selected Step 3 icon set and Step 4 logo set. Always retain the color in banner filenames, including `PRIMARY` mode.
+Only process colors present in both the selected Step 3 icon set and Step 4 logo set.
+
+In `PRIMARY` mode, do not include `-<color>` in banner filenames. In `ALL` mode, include `-<color>`.
 
 ## Sources of Truth
 
@@ -43,7 +45,16 @@ Use the approved SVG artwork from:
 - Step 3 production icons in `D:\source\repos\msixcli\images\graphic-design\step3`
 - Step 5 banner layout in `D:\source\repos\msixcli\images\graphic-design\step5\MSIXcli-README-banner.svg`
 
-For each selected color, use:
+In `PRIMARY` mode, use:
+
+- `MSIXcli-logo.svg`
+- `msix.svg`
+- `msixadmin.svg`
+- `msixui.svg`
+- `MSIXPropertySheet.svg`
+- `MSIXTray.svg`
+
+In `ALL` mode, use for each selected color:
 
 - `MSIXcli-logo-<color>.svg`
 - `msix-<color>.svg`
@@ -102,9 +113,9 @@ The background must remain identical across all 39 color variants.
 
 ## Locked Layout
 
-For every color:
+For every selected color:
 
-- Place `MSIXcli-logo-<color>.svg` on the left.
+- Place the matching `MSIXcli-logo.svg` or `MSIXcli-logo-<color>.svg` on the left, according to generation mode.
 - Separate the logo area from the content with a subtle vertical divider.
 - Place the title and subtitle in the upper content area.
 - Place the feature list below the subtitle.
@@ -154,7 +165,12 @@ Do not add:
 
 ## Output Naming
 
-For every color, create:
+In `PRIMARY` mode, create:
+
+- `MSIXcli-README-banner.svg`
+- `MSIXcli-README-banner.png`
+
+In `ALL` mode, create for every color:
 
 - `MSIXcli-README-banner-<color>.svg`
 - `MSIXcli-README-banner-<color>.png`
@@ -208,6 +224,8 @@ After export, verify:
 
 - `GENERATION_MODE` and `PRIMARY_COLOR` match Steps 1, 3, and 4.
 - `ALL` has an explicitly supplied output directory before generation begins.
+- `PRIMARY` filenames contain no color suffix.
+- `ALL` filenames contain their normalized color suffix.
 - `PRIMARY` contains only the configured primary-color banner.
 - `ALL` contains all 39 color banners.
 - Every selected color has one SVG and one PNG banner.
