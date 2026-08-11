@@ -1,4 +1,4 @@
-# MSIXcli Image Generation Workflow
+# MSIXcli Image Generation Specification
 
 ## Purpose
 
