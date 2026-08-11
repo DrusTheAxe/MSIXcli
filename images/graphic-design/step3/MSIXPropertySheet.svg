@@ -1,0 +1,58 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="topFace" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#75D9FF"/>
+      <stop offset="0.48" stop-color="#32A9F1"/>
+      <stop offset="1" stop-color="#1684D5"/>
+    </linearGradient>
+    <linearGradient id="leftFace" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#249BE5"/>
+      <stop offset="1" stop-color="#0866B7"/>
+    </linearGradient>
+    <linearGradient id="rightFace" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#117BC9"/>
+      <stop offset="1" stop-color="#064A91"/>
+    </linearGradient>
+    <linearGradient id="badgeFill" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#163B62"/>
+      <stop offset="1" stop-color="#0A213B"/>
+    </linearGradient>
+    <linearGradient id="ribbonFill" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#D9F4FF"/>
+      <stop offset="1" stop-color="#8ED8FA"/>
+    </linearGradient>
+    <filter id="packageShadow" x="-30%" y="-30%" width="170%" height="190%">
+      <feDropShadow dx="0" dy="18" stdDeviation="18" flood-color="#032A52" flood-opacity="0.28"/>
+    </filter>
+    <filter id="badgeShadow" x="-40%" y="-40%" width="200%" height="220%">
+      <feDropShadow dx="0" dy="9" stdDeviation="9" flood-color="#00162C" flood-opacity="0.38"/>
+    </filter>
+    <clipPath id="shieldClip">
+      <path d="M0 8 L24 0 L48 8 V33 C48 52 36 66 24 72 C12 66 0 52 0 33 Z"/>
+    </clipPath>
+  </defs>
+  <g filter="url(#packageShadow)">
+    <path d="M58 170 L248 67 L438 170 L248 274 Z" fill="url(#topFace)" stroke="#BDEBFF" stroke-width="5" stroke-linejoin="round"/>
+    <path d="M58 170 L248 274 L248 466 L58 359 Z" fill="url(#leftFace)" stroke="#075DA6" stroke-width="5" stroke-linejoin="round"/>
+    <path d="M248 274 L438 170 L438 359 L248 466 Z" fill="url(#rightFace)" stroke="#043F7C" stroke-width="5" stroke-linejoin="round"/>
+    <g fill="none" stroke="#C9EDFF" stroke-width="5" stroke-linecap="round" opacity="0.58">
+      <path d="M151 170 H345"/>
+      <path d="M248 117 V223"/>
+    </g>
+    <path d="M248 274 L438 170" fill="none" stroke="#74C7F3" stroke-width="4" opacity="0.7"/>
+    <path d="M248 274 L58 170" fill="none" stroke="#D1F2FF" stroke-width="4" opacity="0.52"/>
+    <path d="M77 180 L77 345 L232 433" fill="none" stroke="#67BCEA" stroke-width="5" opacity="0.42"/>
+    <path d="M420 180 L420 344 L265 431" fill="none" stroke="#3094D4" stroke-width="5" opacity="0.35"/>
+  </g>
+  <g filter="url(#badgeShadow)">
+    <rect x="284" y="300" width="190" height="154" rx="30" fill="url(#badgeFill)" stroke="#8BCDF2" stroke-width="6"/>
+    <path d="M307 317 H451" stroke="#B9E5FC" stroke-width="3" stroke-linecap="round" opacity="0.24"/>
+  </g>
+  <g fill="none" stroke="#FFFFFF" stroke-width="9" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M321 362 V414 H438 V346 H366"/>
+    <path d="M321 362 H366 V342 H332 Q321 342 321 352 Z" fill="#FFFFFF" stroke="none"/>
+    <path d="M343 381 H414"/>
+    <path d="M343 399 H401"/>
+  </g>
+</svg>
+

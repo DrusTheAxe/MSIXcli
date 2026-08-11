@@ -1,0 +1,226 @@
+# Step 5: Generate Open-Package Color README Banners
+
+Generate one GitHub README banner for every approved open-package color family.
+
+## Default Output Directory
+
+When `GENERATION_MODE = PRIMARY`, save every generated image in:
+
+`D:\source\repos\msixcli\images\graphic-design\step5`
+
+The user may explicitly specify a different output directory.
+
+When `GENERATION_MODE = ALL`, require the user to provide an explicit output directory before generation begins. Do not use `step5` or infer an output directory for `ALL`.
+
+## Generation Configuration
+
+Use the same generation configuration as Steps 1, 3, and 4:
+
+```text
+GENERATION_MODE = PRIMARY
+PRIMARY_COLOR = cyan
+```
+
+Supported modes:
+
+- `PRIMARY` — generate only the configured primary-color banner.
+- `ALL` — generate banners for all 39 approved colors.
+
+`PRIMARY` is the default mode.
+
+Only process colors present in both the selected Step 3 icon set and Step 4 logo set. Always retain the color in banner filenames, including `PRIMARY` mode.
+
+## Sources of Truth
+
+Follow:
+
+- `D:\source\repos\msixcli\images\graphic-design\.copilot\MSIXcli-Image-Generate-Step-4-Generate-project-logo.md`
+- `D:\source\repos\msixcli\images\graphic-design\.copilot\MSIXcli-Image-Generate-Step-3-Generate-production-icons.md`
+
+Use the approved SVG artwork from:
+
+- Step 4 project logos in `D:\source\repos\msixcli\images\graphic-design\step4`
+- Step 3 production icons in `D:\source\repos\msixcli\images\graphic-design\step3`
+- Step 5 banner layout in `D:\source\repos\msixcli\images\graphic-design\step5\MSIXcli-README-banner.svg`
+
+For each selected color, use:
+
+- `MSIXcli-logo-<color>.svg`
+- `msix-<color>.svg`
+- `msixadmin-<color>.svg`
+- `msixui-<color>.svg`
+- `MSIXPropertySheet-<color>.svg`
+- `MSIXTray-<color>.svg`
+
+Use only matching colors within a banner. Never mix artwork from different color variants.
+
+Do not use PNG files as source artwork when the matching SVG exists.
+
+Use the approved Step 5 SVG as the immutable source for the banner canvas, background, layout, typography, spacing, divider, and decorative treatment. Replace only its embedded logo and icon artwork with the matching selected-color SVGs.
+
+## Locked Artwork
+
+Do not redraw, reinterpret, recolor, crop, or alter the logo or icons.
+
+Preserve exactly:
+
+- Outer package geometry and color.
+- Open-flap geometry.
+- Dark interior opening.
+- Inner-cube geometry, color, centered glow, and placement.
+- Solid-wall occlusion.
+- Badge geometry, placement, lighting, and glyphs.
+- All gradients, filters, clipping, highlights, and shadows.
+
+The package walls must continue to hide the lower portion of the inner cube.
+
+No cube pixels may appear through any solid package wall or lower package corner.
+
+## Required Colors
+
+In `ALL` mode, generate a banner for these 39 normalized color names:
+
+`red`, `green`, `blue`, `cyan`, `magenta`, `yellow`, `white`, `black`, `gray`, `orange`, `violet`, `pink`, `salmon`, `goldenrod`, `brown`, `sienna`, `maroon`, `wheat`, `coral`, `darkslategray`, `silver`, `purple`, `indigo`, `lime`, `fuchsia`, `gold`, `tortilla`, `sepia`, `ecru`, `espresso`, `mocha`, `coffee`, `walnut`, `brunette`, `sangria`, `shadow`, `charcoal`, `iron`, `hickory`.
+
+Do not create alternate spellings such as:
+
+- `bluw`
+- `ywllow`
+- `fuschia`
+
+## Canvas and Background
+
+Every banner must:
+
+- Be exactly 1600x600 pixels.
+- Use the approved dark-blue Windows-style gradient background.
+- Use only a subtle low-contrast grid texture.
+- Use rounded outer corners.
+- Contain no photographs, screenshots, fictional windows, or invented UI.
+
+The background must remain identical across all 39 color variants.
+
+## Locked Layout
+
+For every color:
+
+- Place `MSIXcli-logo-<color>.svg` on the left.
+- Separate the logo area from the content with a subtle vertical divider.
+- Place the title and subtitle in the upper content area.
+- Place the feature list below the subtitle.
+- Display all five matching Step 3 icons in one evenly spaced horizontal row beneath the text.
+
+Preserve this icon order:
+
+1. `msix`
+2. `msixadmin`
+3. `msixui`
+4. `MSIXPropertySheet`
+5. `MSIXTray`
+
+The layout, scale, spacing, and text placement must be identical across every color banner.
+
+## Exact Text
+
+Title:
+
+`MSIXcli`
+
+Subtitle:
+
+`View, manage and monitor MSIX packages and packaged content`
+
+Feature list, in this exact order:
+
+`Inspect` · `Manage` · `Add/Update/Remove` · `(De)Provision` · `Repair` · `Reset` · `Monitor`
+
+Feature-list spacing requirements:
+
+- Keep all feature labels and separators on one line.
+- Use identical visual spacing between every label and its adjacent separators.
+- Measure or account for rendered text width.
+- Do not position separators using guessed per-label coordinates.
+- Prefer one flowing text element with preserved spaces and colored separator spans.
+
+Do not add:
+
+- Marketing copy.
+- Slogans.
+- Calls to action.
+- Version numbers.
+- URLs.
+- Color names.
+- Additional text.
+
+## Output Naming
+
+For every color, create:
+
+- `MSIXcli-README-banner-<color>.svg`
+- `MSIXcli-README-banner-<color>.png`
+
+Examples:
+
+- `MSIXcli-README-banner-red.png`
+- `MSIXcli-README-banner-gold.png`
+- `MSIXcli-README-banner-darkslategray.png`
+- `MSIXcli-README-banner-mocha.png`
+- `MSIXcli-README-banner-fuchsia.png`
+
+In `PRIMARY` mode, save all files in the Step 5 default output directory unless the user explicitly requests another location. In `ALL` mode, save all files only in the explicitly supplied output directory.
+
+## SVG Requirements
+
+Every SVG must:
+
+- Be self-contained.
+- Embed the matching Step 4 logo and all five matching Step 3 icons.
+- Contain no external file references.
+- Preserve the canonical artwork unchanged.
+- Match its corresponding PNG exactly.
+
+## PNG Requirements
+
+Every PNG must:
+
+- Be exactly 1600x600 pixels.
+- Be 32-bit RGBA.
+- Match its corresponding SVG.
+- Preserve the approved rounded banner corners.
+
+## Required Counts
+
+When `GENERATION_MODE = PRIMARY`, generate exactly:
+
+- 1 SVG README banner.
+- 1 PNG README banner.
+- 2 total banner files.
+
+When `GENERATION_MODE = ALL`, generate exactly:
+
+- 39 SVG README banners.
+- 39 PNG README banners.
+- 78 total banner files.
+
+## Validation
+
+After export, verify:
+
+- `GENERATION_MODE` and `PRIMARY_COLOR` match Steps 1, 3, and 4.
+- `ALL` has an explicitly supplied output directory before generation begins.
+- `PRIMARY` contains only the configured primary-color banner.
+- `ALL` contains all 39 color banners.
+- Every selected color has one SVG and one PNG banner.
+- File counts equal `selected colors × 2 formats`.
+- Every PNG is exactly 1600x600.
+- Every banner uses one matching Step 4 logo.
+- Every banner uses all five matching Step 3 icons exactly once.
+- No banner mixes color variants.
+- The icon order is correct.
+- The title, subtitle, and feature text match this specification exactly.
+- Every feature label has consistent visual spacing from adjacent separators.
+- The background and layout are identical across all colors.
+- Every SVG is self-contained.
+- The logo and icons match their canonical Step 3 and Step 4 sources.
+- The solid package walls correctly occlude the inner cube in every embedded asset.
+- No screenshots, fictional UI, color labels, extra text, or marketing content were introduced.
