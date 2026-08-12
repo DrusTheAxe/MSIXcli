@@ -39,11 +39,8 @@
   </g>  <g filter="url(#badgeShadow)">
     <rect x="284" y="300" width="190" height="154" rx="30" fill="url(#badgeFill)" stroke="#8BCDF2" stroke-width="6"/>
     <path d="M307 317 H451" stroke="#B9E5FC" stroke-width="3" stroke-linecap="round" opacity="0.24"/>
-  </g>  <g fill="none" stroke="#FFFFFF" stroke-width="14" stroke-linecap="round" stroke-linejoin="round">
-    <path d="M316 347 L350 370 L316 393"/>
-    <path d="M362 399 H405"/>
   </g>
-  <g transform="translate(425 384) scale(0.88)">
+  <g transform="translate(333.83 315.4) scale(1.882222 1.711111)">
     <g clip-path="url(#shieldClip)">
       <rect width="24" height="36" fill="#49A8E8"/>
       <rect x="24" width="24" height="36" fill="#FFD447"/>
@@ -53,4 +50,3 @@
     <path d="M0 8 L24 0 L48 8 V33 C48 52 36 66 24 72 C12 66 0 52 0 33 Z" fill="none" stroke="#FFFFFF" stroke-width="4"/>
   </g>
 </svg>
-

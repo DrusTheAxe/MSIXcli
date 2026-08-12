@@ -32,8 +32,8 @@ The selected color set must match the Step 1 run being promoted to production. D
 
 In `PRIMARY` mode:
 
-- SVG filenames do not include `-<color>`.
-- Individual PNG filenames include both `-<color>` and `-<size>`.
+- No filename includes `-<color>`.
+- Individual PNG filenames include `-<size>` only.
 
 In `ALL` mode:
 
@@ -99,7 +99,7 @@ Do not:
 - Redraw, reinterpret, or approximate any artwork.
 - Recolor any source.
 - Change the outer package, flaps, interior opening, or inner cube.
-- Change the centered glow.
+- Change any top-, left-, or right-face glow geometry, clipping, opacity, position, or blur.
 - Change package or cube geometry, perspective, scale, or placement.
 - Change badge dimensions, placement, background, border, lighting, or shadow.
 - Change any badge glyph.
@@ -157,11 +157,11 @@ In `PRIMARY` mode, preserve these Step 1 filenames exactly:
 
 For each required `PRIMARY` PNG size, preserve:
 
-- `msix-<color>-<size>.png`
-- `msixadmin-<color>-<size>.png`
-- `msixui-<color>-<size>.png`
-- `MSIXPropertySheet-<color>-<size>.png`
-- `MSIXTray-<color>-<size>.png`
+- `msix-<size>.png`
+- `msixadmin-<size>.png`
+- `msixui-<size>.png`
+- `MSIXPropertySheet-<size>.png`
+- `MSIXTray-<size>.png`
 
 In `ALL` mode, preserve these Step 1 filenames exactly:
 
@@ -181,8 +181,8 @@ For every explicitly selected `ALL` size, preserve:
 
 Examples:
 
-- `msix-cyan-32x32.png`
-- `msix-cyan-1024x1024.png`
+- `msix-32x32.png`
+- `msix-1024x1024.png`
 - `msixadmin-gold-64x64.png`
 - `MSIXTray-fuchsia-256x256.png`
 
@@ -242,7 +242,7 @@ After export, verify:
 - `ALL` has an explicitly supplied output directory before generation begins.
 - `ALL` has an explicitly supplied size selection before generation begins.
 - `reference` resolves to only `1024x1024`.
-- `PRIMARY` individual PNG filenames contain the primary color and exact dimensions.
+- `PRIMARY` individual PNG filenames contain exact dimensions and no color suffix.
 - `ALL` individual PNG filenames contain their normalized color and exact dimensions.
 - SVG filenames follow their mode-specific naming rules.
 - `PRIMARY` contains only the configured primary color.
@@ -255,7 +255,8 @@ After export, verify:
 - All four corners of every PNG are fully transparent.
 - Every SVG and its corresponding PNG depict identical artwork.
 - The outer package and badge artwork remain unchanged across all colors.
-- Only the inner cube and its centered glow vary by color.
+- Only the inner cube and its approved three-face glow vary by color.
+- The top, left, and right glow fields match the Step 1 geometry, clipping, opacity, and blur exactly.
 - The inner cube remains centered with dark-blue interior space around every side.
 - The package walls completely occlude the hidden portion of the cube.
 - No cube pixels appear through any solid package wall or lower corner.

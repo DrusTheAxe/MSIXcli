@@ -73,7 +73,7 @@ The resulting logo contains:
 - Four open package flaps.
 - One dark interior opening.
 - One centered colored inner cube.
-- One concentrated glow centered inside the cube's top face.
+- Enlarged clipped glow fields visible through the top, left, and right cube faces.
 - Clear dark-blue interior space around every side of the cube.
 - No badge, glyph, text, or background.
 
@@ -84,7 +84,7 @@ Do not:
 - Redraw, reinterpret, or approximate the package.
 - Recolor any source.
 - Change the outer package, flaps, interior opening, or inner cube.
-- Change the centered glow.
+- Change any top-, left-, or right-face glow geometry, clipping, opacity, position, or blur.
 - Change package or cube geometry, perspective, scale, or placement.
 - Change gradients, edge highlights, lighting, filters, clipping, shadows, or layer order.
 - Scale, reposition, crop, or rotate the package.
@@ -190,7 +190,8 @@ After export, verify:
 - Every SVG and corresponding PNG depict identical artwork.
 - No badge, badge shadow, badge glyph, text, or background remains.
 - The outer package artwork is identical across all colors.
-- Only the inner cube and its centered glow differ by color.
+- Only the inner cube and its approved three-face glow differ by color.
+- The top, left, and right glow fields exactly match their corresponding Step 3 source.
 - Each logo exactly matches its corresponding Step 3 `msix.svg` or `msix-<color>.svg` package artwork, according to generation mode.
 - The inner cube remains centered with dark-blue interior space around every side.
 - The package walls completely occlude the hidden portion of the cube.

@@ -37,8 +37,8 @@ Do not hard-code cyan throughout the generator. All primary-color selection must
 
 In `PRIMARY` mode:
 
-- SVG and family-sheet filenames do not include `-<color>`.
-- Individual PNG filenames include both `-<color>` and `-<size>`.
+- No filename includes `-<color>`.
+- Individual PNG filenames include `-<size>` only.
 
 In `ALL` mode:
 
@@ -83,7 +83,7 @@ The canonical package contains:
 - Four open package flaps.
 - One dark interior opening.
 - One centered inner cube.
-- A concentrated glow centered inside the top face of the inner cube.
+- Enlarged clipped glow fields visible through the top, left, and right cube faces.
 - Clear dark-blue interior space around every side of the inner cube.
 
 There is no second inner box or nested package.
@@ -126,7 +126,7 @@ Only these inner-cube properties may change between color variants:
 - Left-face gradient.
 - Right-face gradient.
 - Cube edge highlights.
-- Centered glow color.
+- Top-, left-, and right-face glow color.
 - Cube glow shadow.
 
 Do not recolor the outer package, interior opening, role badge, or badge glyph.
@@ -134,8 +134,12 @@ Do not recolor the outer package, interior opening, role badge, or badge glyph.
 Each color variant must retain:
 
 - Darker cube faces.
-- A brighter glow centered inside the cube's top face.
-- The same glow size and position.
+- Bright glow visible through all three visible cube faces.
+- A top-face glow ellipse with `rx=162` and `ry=85.5`.
+- Left- and right-face glow ellipses with `rx=112.5` and `ry=118.5`.
+- Face clipping that prevents each glow from extending outside its cube face.
+- Cube-glow shadow blur with `stdDeviation=22.5`.
+- The same three-face glow size, position, clipping, opacity, and blur.
 - The same cube geometry and visibility.
 
 ## Icon Family
@@ -159,9 +163,12 @@ Within each color family, the package and inner cube must be identical. Only the
 
 #### msixadmin
 
-- Same terminal badge as `msix`.
-- Small blue-and-yellow Windows UAC shield.
-- Shield remains entirely inside the badge.
+- Same badge background, border, dimensions, lighting, and shadow as `msix`.
+- Do not include the `>_` terminal glyph.
+- Blue-and-yellow Windows UAC shield with a nominal height equal to 80% of the badge height.
+- Make the shield 10% wider than its proportional width at that height.
+- Center the shield horizontally and vertically inside the badge.
+- The shield is the only glyph inside the badge.
 
 #### msixui
 
@@ -247,17 +254,17 @@ In `PRIMARY` mode, use:
 
 For each required `PRIMARY` PNG size, use:
 
-- `msix-<color>-<size>.png`
-- `msixadmin-<color>-<size>.png`
-- `msixui-<color>-<size>.png`
-- `MSIXPropertySheet-<color>-<size>.png`
-- `MSIXTray-<color>-<size>.png`
+- `msix-<size>.png`
+- `msixadmin-<size>.png`
+- `msixui-<size>.png`
+- `MSIXPropertySheet-<size>.png`
+- `MSIXTray-<size>.png`
 
 Examples:
 
-- `msix-cyan-32x32.png`
-- `msix-cyan-1024x1024.png`
-- `MSIXTray-cyan-256x256.png`
+- `msix-32x32.png`
+- `msix-1024x1024.png`
+- `MSIXTray-256x256.png`
 
 In `ALL` mode, generate one SVG for every icon and color.
 
@@ -337,7 +344,7 @@ After generation, verify:
 - `ALL` has an explicitly supplied output directory before generation begins.
 - `ALL` has an explicitly supplied size selection before generation begins.
 - `reference` resolves to only `1024x1024`.
-- `PRIMARY` individual PNG filenames contain the primary color and exact dimensions.
+- `PRIMARY` individual PNG filenames contain exact dimensions and no color suffix.
 - `ALL` individual PNG filenames contain their normalized color and exact dimensions.
 - SVG and family-sheet filenames follow their mode-specific naming rules.
 - The selected color set matches the configured generation mode.
@@ -351,7 +358,8 @@ After generation, verify:
 - Every family sheet is 1800x450.
 - The outer package and badge artwork are unchanged across all variants.
 - The inner cube remains centered with dark-blue space visible around every side.
-- The glow remains centered inside the cube.
+- The enlarged glow remains visible through the top, left, and right cube faces.
+- All three glow fields retain their approved dimensions, clipping, opacity, and blur.
 - The package walls completely occlude the hidden portion of the cube.
 - No cube pixels appear through the solid sides or lower package corner.
 - Only the inner cube and its glow change color.

@@ -78,7 +78,7 @@ Preserve exactly:
 - Outer package geometry and color.
 - Open-flap geometry.
 - Dark interior opening.
-- Inner-cube geometry, color, centered glow, and placement.
+- Inner-cube geometry, color, placement, and enlarged clipped glow through the top, left, and right faces.
 - Solid-wall occlusion.
 - Badge geometry, placement, lighting, and glyphs.
 - All gradients, filters, clipping, highlights, and shadows.

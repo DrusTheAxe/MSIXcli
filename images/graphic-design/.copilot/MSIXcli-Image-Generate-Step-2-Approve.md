@@ -18,7 +18,9 @@ Check:
 - Same package everywhere
 - Same badge position everywhere
 - Same badge size everywhere
+- Glow is visible through the top, left, and right faces of every inner cube
+- Three-face glow size, clipping, opacity, and blur are identical everywhere
 - msixui.exe has one window rectangle
 - MSIXTray uses pulse waveform only
-- msixadmin shield is small
+- msixadmin badge contains only a centered shield that is 80% of the badge height and 10% wider than proportional
 - PropertySheet is a badge, not a document

@@ -58,7 +58,8 @@ PRIMARY_COLOR = cyan
 - `PRIMARY` generates only `PRIMARY_COLOR`.
 - `ALL` generates all approved palette colors.
 - `PRIMARY` is the default mode.
-- `PRIMARY` filenames do not include a color suffix unless a numbered step explicitly defines a size-qualified filename.
+- `PRIMARY` filenames never include `-<color>`.
+- Sized `PRIMARY` filenames use `-<size>` only.
 - `ALL` filenames include `-<color>` before the extension.
 - `PRIMARY_COLOR` must exist in the approved palette.
 
