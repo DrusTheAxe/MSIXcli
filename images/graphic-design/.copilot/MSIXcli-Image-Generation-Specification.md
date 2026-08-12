@@ -40,8 +40,9 @@ Execute every required step in order:
 4. [Generate the project logo](MSIXcli-Image-Generate-Step-4-Generate-project-logo.md)
    - Derive the badge-free project logo from approved Step 3 artwork.
    - Default `PRIMARY` output: `D:\source\repos\msixcli\images\graphic-design\step4`
-5. [Generate the README banner](MSIXcli-Image-Generate-Step-5-Generate-README-banner.md)
-   - Combine approved Step 3 icons and the Step 4 logo using the approved banner layout.
+5. [Generate the README banners](MSIXcli-Image-Generate-Step-5-Generate-README-banner.md)
+   - Generate the standard banner and the RSN variant from approved Step 3 icons and the Step 4 logo.
+   - In the RSN variant, the third and fifth icons are 90% transparent with a subtle 5% cyan glow.
    - Default `PRIMARY` output: `D:\source\repos\msixcli\images\graphic-design\step5`
 
 Do not run a later step until all required generation and validation work in the preceding step is complete.

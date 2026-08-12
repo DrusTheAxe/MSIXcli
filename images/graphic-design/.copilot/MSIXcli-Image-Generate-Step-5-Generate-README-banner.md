@@ -1,6 +1,6 @@
 # Step 5: Generate Open-Package Color README Banners
 
-Generate one GitHub README banner for every approved open-package color family.
+Generate one standard GitHub README banner and one RSN banner variant for every approved open-package color family.
 
 ## Default Output Directory
 
@@ -131,6 +131,23 @@ Preserve this icon order:
 
 The layout, scale, spacing, and text placement must be identical across every color banner.
 
+## RSN Banner Variant
+
+For every selected color, also generate an RSN banner variant.
+
+The RSN banner must be identical to the standard banner except:
+
+- Render the complete approved third icon, `msixui`, at 90% transparency (10% opacity).
+- Render the complete approved fifth icon, `MSIXTray`, at 90% transparency (10% opacity).
+- Preserve the original icon canvas, artwork, scale, placement, colors, gradients, shadows, badge, and glyph.
+- Apply opacity uniformly to each complete icon.
+- Add a subtle cyan glow behind and around each translucent icon.
+- Use 5% glow opacity.
+- Keep the glow soft and low intensity; it must not restore the apparent opacity of the icon or compete with the fully rendered icons.
+- Keep the first, second, and fourth icons unchanged.
+
+Do not redraw, simplify, outline, recolor, or otherwise alter the two translucent icons.
+
 ## Exact Text
 
 Title:
@@ -169,11 +186,15 @@ In `PRIMARY` mode, create:
 
 - `MSIXcli-README-banner.svg`
 - `MSIXcli-README-banner.png`
+- `MSIXcli-README-banner-RSN.svg`
+- `MSIXcli-README-banner-RSN.png`
 
 In `ALL` mode, create for every color:
 
 - `MSIXcli-README-banner-<color>.svg`
 - `MSIXcli-README-banner-<color>.png`
+- `MSIXcli-README-banner-RSN-<color>.svg`
+- `MSIXcli-README-banner-RSN-<color>.png`
 
 Examples:
 
@@ -182,6 +203,7 @@ Examples:
 - `MSIXcli-README-banner-darkslategray.png`
 - `MSIXcli-README-banner-mocha.png`
 - `MSIXcli-README-banner-fuchsia.png`
+- `MSIXcli-README-banner-RSN-cyan.png`
 
 In `PRIMARY` mode, save all files in the Step 5 default output directory unless the user explicitly requests another location. In `ALL` mode, save all files only in the explicitly supplied output directory.
 
@@ -208,15 +230,15 @@ Every PNG must:
 
 When `GENERATION_MODE = PRIMARY`, generate exactly:
 
-- 1 SVG README banner.
-- 1 PNG README banner.
-- 2 total banner files.
+- 2 SVG README banners.
+- 2 PNG README banners.
+- 4 total banner files.
 
 When `GENERATION_MODE = ALL`, generate exactly:
 
-- 39 SVG README banners.
-- 39 PNG README banners.
-- 78 total banner files.
+- 78 SVG README banners.
+- 78 PNG README banners.
+- 156 total banner files.
 
 ## Validation
 
@@ -226,15 +248,20 @@ After export, verify:
 - `ALL` has an explicitly supplied output directory before generation begins.
 - `PRIMARY` filenames contain no color suffix.
 - `ALL` filenames contain their normalized color suffix.
-- `PRIMARY` contains only the configured primary-color banner.
-- `ALL` contains all 39 color banners.
-- Every selected color has one SVG and one PNG banner.
-- File counts equal `selected colors × 2 formats`.
+- `PRIMARY` contains only the configured primary-color standard and RSN banner pairs.
+- `ALL` contains standard and RSN banner pairs for all 39 colors.
+- Every selected color has one standard banner pair and one RSN banner pair.
+- File counts equal `selected colors × 2 variants × 2 formats`.
 - Every PNG is exactly 1600x600.
 - Every banner uses one matching Step 4 logo.
 - Every banner uses all five matching Step 3 icons exactly once.
 - No banner mixes color variants.
 - The icon order is correct.
+- Every RSN banner renders only the third and fifth icons at 90% transparency (10% opacity).
+- The translucent icons preserve their complete source artwork, scale, and placement.
+- Each translucent icon has a subtle cyan halo behind and around its silhouette.
+- No dotted, dashed, outlined, simplified, or recolored substitute artwork appears.
+- The first, second, and fourth RSN icon positions match the standard banner exactly.
 - The title, subtitle, and feature text match this specification exactly.
 - Every feature label has consistent visual spacing from adjacent separators.
 - The background and layout are identical across all colors.

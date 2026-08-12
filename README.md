@@ -1,5 +1,7 @@
 # MSIXcli
 
+![MSIXcli](images/graphic-design/step5/MSIXcli-README-banner.png)
+
 MSIX command-line utilities to access and manage MSIX packages.
 
 This repository is based on various projects, musings, investigations and experimentation
