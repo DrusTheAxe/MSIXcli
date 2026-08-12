@@ -2,6 +2,8 @@
 
 Do not proceed until these are correct.
 
+Approval authorizes Step 3 to promote the individual SVG artwork into production SVG, PNG, and multi-resolution ICO masters. Step 2 does not generate or approve a separate ICO design.
+
 ## Default Output Directory
 
 Read the images to approve from the preceding step directory:
@@ -24,3 +26,6 @@ Check:
 - MSIXTray uses pulse waveform only
 - msixadmin badge contains only a centered shield that is 80% of the badge height and 10% wider than proportional
 - PropertySheet is a badge, not a document
+- Individual SVG artwork is approved as the canonical source for all Step 3 ICO sizes
+
+Do not proceed to Step 3 until every check passes. Step 3 remains responsible for validating the ICO container, embedded sizes, alpha transparency, and raster output.

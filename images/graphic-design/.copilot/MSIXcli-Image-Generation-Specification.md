@@ -28,14 +28,15 @@ Where:
 Execute every required step in order:
 
 1. [Generate icon previews](MSIXcli-Image-Generate-Step-1-Preview.md)
-   - Generate the approved open-package component icons and color families.
+   - Generate the approved open-package component SVG and PNG previews and color families.
    - Default `PRIMARY` output: `D:\source\repos\msixcli\images\graphic-design\step1`
 2. [Approve icon previews](MSIXcli-Image-Generate-Step-2-Approve.md)
    - Review the Step 1 artwork before allowing downstream production work.
    - Read artwork from `step1`.
    - Save generated review images in `step2` unless another location is explicitly requested.
 3. [Generate production icons](MSIXcli-Image-Generate-Step-3-Generate-production-icons.md)
-   - Promote approved Step 1 component artwork into production SVG and PNG masters.
+   - Promote approved Step 1 component artwork into production SVG, PNG, and multi-resolution Windows ICO masters.
+   - Each ICO contains 16, 20, 24, 32, 40, 48, 64, 96, 128, and 256 pixel images.
    - Default `PRIMARY` output: `D:\source\repos\msixcli\images\graphic-design\step3`
 4. [Generate the project logo](MSIXcli-Image-Generate-Step-4-Generate-project-logo.md)
    - Derive the badge-free project logo from approved Step 3 artwork.
@@ -46,6 +47,8 @@ Execute every required step in order:
    - Default `PRIMARY` output: `D:\source\repos\msixcli\images\graphic-design\step5`
 
 Do not run a later step until all required generation and validation work in the preceding step is complete.
+
+Step 1 does not generate ICO files. Step 3 is the only authoritative ICO-generation stage.
 
 ## Shared Generation Configuration
 

@@ -1,6 +1,8 @@
 // Copyright (c) Howard Kapustein
 // Licensed under the MIT License. See LICENSE in the project root for license information.
 
+#define ID_ICON     1
+
 #define IDC_STATIC                      -1
 
 #define IDD_MSIX_PROPPAGE               200
@@ -46,9 +48,10 @@
 #define IDC_EXTERNAL_PATH                   1312
 
 #define IDC_CERTIFICATE                     1401
-#define IDC_HOME                            1402
-#define IDC_INSTALLACTION                   1403
-#define IDC_INSTALL                         1404
+#define IDC_HOME_ICON                       1402
+#define IDC_HOME                            1403
+#define IDC_INSTALLACTION                   1404
+#define IDC_INSTALL                         1405
 
 #if defined(RC_INVOKED)
 #define IDC_HOME_LABEL  "<a href=""https://github.com/drustheaxe/MSIXcli"">MSIXcli home</a>"

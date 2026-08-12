@@ -1,6 +1,6 @@
-# Step 3: Generate Open-Package Color Production Icons
+# Step 3: Generate Open-Package Color SVG, PNG, and ICO Production Icons
 
-Generate production master icons from the approved Step 1 open-package color families.
+Generate SVG, PNG, and multi-resolution Windows ICO production masters from the approved Step 1 open-package color families.
 
 ## Default Output Directory
 
@@ -34,11 +34,13 @@ In `PRIMARY` mode:
 
 - No filename includes `-<color>`.
 - Individual PNG filenames include `-<size>` only.
+- ICO filenames use only the component stem.
 
 In `ALL` mode:
 
 - SVG filenames include `-<color>`.
 - Individual PNG filenames include both `-<color>` and `-<size>`.
+- ICO filenames include `-<color>`.
 
 ## PNG Size Configuration
 
@@ -61,6 +63,25 @@ The user must either:
 - Specify `reference`, which means generate only `1024x1024`.
 
 Do not infer sizes for `ALL`. Do not begin `ALL` generation without both an explicit output directory and an explicit size selection.
+
+## ICO Size Configuration
+
+For every selected component and color, generate one multi-resolution Windows icon file containing all of these embedded square images:
+
+- `16x16`
+- `20x20`
+- `24x24`
+- `32x32`
+- `40x40`
+- `48x48`
+- `64x64`
+- `96x96`
+- `128x128`
+- `256x256`
+
+These ICO sizes are fixed in both `PRIMARY` and `ALL` modes and are independent of the standalone PNG size selection.
+
+Render each embedded image directly from the approved SVG source. Do not upscale a smaller PNG or require a corresponding standalone PNG to exist.
 
 ## Source of Truth
 
@@ -146,6 +167,7 @@ For every selected component, create:
 
 - One matching SVG master.
 - One transparent PNG master for every required or explicitly selected size.
+- One multi-resolution ICO master containing every required ICO size.
 
 In `PRIMARY` mode, preserve these Step 1 filenames exactly:
 
@@ -154,6 +176,14 @@ In `PRIMARY` mode, preserve these Step 1 filenames exactly:
 - `msixui.svg`
 - `MSIXPropertySheet.svg`
 - `MSIXTray.svg`
+
+Create these `PRIMARY` ICO files:
+
+- `msix.ico`
+- `msixadmin.ico`
+- `msixui.ico`
+- `MSIXPropertySheet.ico`
+- `MSIXTray.ico`
 
 For each required `PRIMARY` PNG size, preserve:
 
@@ -171,6 +201,14 @@ In `ALL` mode, preserve these Step 1 filenames exactly:
 - `MSIXPropertySheet-<color>.svg`
 - `MSIXTray-<color>.svg`
 
+Create these `ALL` ICO files:
+
+- `msix-<color>.ico`
+- `msixadmin-<color>.ico`
+- `msixui-<color>.ico`
+- `MSIXPropertySheet-<color>.ico`
+- `MSIXTray-<color>.ico`
+
 For every explicitly selected `ALL` size, preserve:
 
 - `msix-<color>-<size>.png`
@@ -183,7 +221,9 @@ Examples:
 
 - `msix-32x32.png`
 - `msix-1024x1024.png`
+- `msix.ico`
 - `msixadmin-gold-64x64.png`
+- `msixadmin-gold.ico`
 - `MSIXTray-fuchsia-256x256.png`
 
 In `PRIMARY` mode, save all files in the Step 3 default output directory unless the user explicitly requests another location. In `ALL` mode, save all files only in the explicitly supplied output directory.
@@ -218,21 +258,36 @@ Every SVG must:
 - Preserve the approved gradients, filters, clipping, and layer order.
 - Contain no external file references.
 
+## ICO Requirements
+
+Every ICO must:
+
+- Be a valid Windows ICO container.
+- Contain exactly one 32-bit RGBA image at each required ICO size.
+- Contain no unlisted sizes or duplicate sizes.
+- Preserve genuine alpha transparency at every size.
+- Have fully transparent pixels in all four corners at every size.
+- Store every embedded image as PNG-compressed data inside the ICO.
+- Depict the same approved artwork as the corresponding SVG and PNG masters.
+- Contain one icon only, without captions, labels, borders, or background fills.
+
 ## Required Counts
 
 When `GENERATION_MODE = PRIMARY`, generate exactly:
 
 - 5 SVG production masters.
 - 40 PNG production masters: 5 components at 8 required sizes.
-- 45 total production files.
+- 5 ICO production masters: one per component, each containing 10 required sizes.
+- 50 total production files.
 
 When `GENERATION_MODE = ALL`, generate exactly:
 
 - 195 SVG production masters.
 - `195 × number of explicitly selected sizes` PNG production masters.
-- `195 + (195 × number of explicitly selected sizes)` total production files.
+- 195 ICO production masters.
+- `390 + (195 × number of explicitly selected sizes)` total production files.
 
-When `ALL` uses `reference`, generate 195 SVG and 195 PNG production masters, for 390 total production files.
+When `ALL` uses `reference`, generate 195 SVG, 195 PNG, and 195 ICO production masters, for 585 total production files.
 
 ## Validation
 
@@ -245,15 +300,23 @@ After export, verify:
 - `PRIMARY` individual PNG filenames contain exact dimensions and no color suffix.
 - `ALL` individual PNG filenames contain their normalized color and exact dimensions.
 - SVG filenames follow their mode-specific naming rules.
+- `PRIMARY` ICO filenames contain no color suffix.
+- `ALL` ICO filenames contain their normalized color.
 - `PRIMARY` contains only the configured primary color.
 - `ALL` contains all 39 normalized colors.
 - Every selected color has all five components.
 - PNG counts equal `selected colors × 5 components × selected sizes`.
+- ICO counts equal `selected colors × 5 components`.
 - No family-sheet files exist in the Step 3 output directory.
 - Every PNG matches the dimensions encoded in its filename.
 - Every PNG contains a 32-bit alpha channel.
 - All four corners of every PNG are fully transparent.
 - Every SVG and its corresponding PNG depict identical artwork.
+- Every ICO is a valid Windows ICO container with exactly the required 10 embedded sizes.
+- Every embedded ICO image is 32-bit RGBA and has genuine alpha transparency.
+- Every embedded ICO image has fully transparent pixels in all four corners.
+- Every ICO stores all 10 embedded images as PNG-compressed data.
+- Every SVG and its corresponding ICO images depict identical artwork.
 - The outer package and badge artwork remain unchanged across all colors.
 - Only the inner cube and its approved three-face glow vary by color.
 - The top, left, and right glow fields match the Step 1 geometry, clipping, opacity, and blur exactly.

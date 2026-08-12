@@ -10,11 +10,11 @@
 #if MSIXADMIN == 0
 #define MSIXCLI_FILENAME        "msix.exe"
 #define MSIXCLI_PRODUCT_NAME    "MSIX Command-Line Interface"
-1 ICON "msix.ico"
+1 ICON "..\..\docs\images\msix.ico"
 #else
 #define MSIXCLI_FILENAME        "msixadmin.exe"
 #define MSIXCLI_PRODUCT_NAME    "MSIX Admin Command-Line Interface"
-1 ICON "msixadmin.ico"
+1 ICON "..\..\docs\images\msixadmin.ico"
 #endif
 
 #include "VersionInfo.ver"

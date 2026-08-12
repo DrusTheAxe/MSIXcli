@@ -30,6 +30,8 @@ Supported modes:
 
 Only process colors present in both the selected Step 3 icon set and Step 4 logo set.
 
+Do not begin Step 5 until Step 3 has produced and validated the complete SVG, PNG, and ICO inventory and Step 4 has produced and validated the corresponding logo set.
+
 In `PRIMARY` mode, do not include `-<color>` in banner filenames. In `ALL` mode, include `-<color>`.
 
 ## Sources of Truth
@@ -66,6 +68,8 @@ In `ALL` mode, use for each selected color:
 Use only matching colors within a banner. Never mix artwork from different color variants.
 
 Do not use PNG files as source artwork when the matching SVG exists.
+
+Do not use ICO files as banner source artwork.
 
 Use the approved Step 5 SVG as the immutable source for the banner canvas, background, layout, typography, spacing, divider, and decorative treatment. Replace only its embedded logo and icon artwork with the matching selected-color SVGs.
 
@@ -246,6 +250,7 @@ After export, verify:
 
 - `GENERATION_MODE` and `PRIMARY_COLOR` match Steps 1, 3, and 4.
 - `ALL` has an explicitly supplied output directory before generation begins.
+- The selected Step 3 production set has its required SVG, PNG, and ICO files.
 - `PRIMARY` filenames contain no color suffix.
 - `ALL` filenames contain their normalized color suffix.
 - `PRIMARY` contains only the configured primary-color standard and RSN banner pairs.

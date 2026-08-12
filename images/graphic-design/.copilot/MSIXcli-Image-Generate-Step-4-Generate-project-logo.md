@@ -30,6 +30,8 @@ Supported modes:
 
 Only process colors present in the selected Step 3 production set.
 
+Do not begin Step 4 until Step 3 has produced and validated the complete SVG, PNG, and ICO inventory for every selected color.
+
 In `PRIMARY` mode, do not include `-<color>` in logo filenames. In `ALL` mode, include `-<color>`.
 
 ## Source of Truth
@@ -53,6 +55,7 @@ In `ALL` mode, source filenames use:
 Do not use:
 
 - PNG files as source artwork.
+- ICO files as source artwork.
 - Other component icons.
 - Family sheets.
 - Approved `step1` artwork when the corresponding Step 3 production master exists.
@@ -178,6 +181,7 @@ After export, verify:
 
 - `GENERATION_MODE` and `PRIMARY_COLOR` match Steps 1 and 3.
 - `ALL` has an explicitly supplied output directory before generation begins.
+- The selected Step 3 production set has its required SVG, PNG, and ICO files.
 - `PRIMARY` filenames contain no color suffix.
 - `ALL` filenames contain their normalized color suffix.
 - `PRIMARY` contains only the configured primary-color logo.

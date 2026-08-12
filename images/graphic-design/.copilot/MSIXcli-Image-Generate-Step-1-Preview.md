@@ -2,6 +2,8 @@
 
 Generate Windows 11 Fluent-style color variants for the complete MSIXcli icon family.
 
+This preview stage generates SVG and PNG artwork only. Do not generate ICO files in Step 1; Step 3 creates production ICO masters directly from the approved individual SVG artwork.
+
 ## Default Output Directory
 
 When `GENERATION_MODE = PRIMARY`, save every generated image in:
@@ -335,6 +337,8 @@ When `GENERATION_MODE = ALL`, generate:
 
 When `ALL` uses `reference`, generate 195 individual PNG icons at `1024x1024`.
 
+ICO files are not included in any Step 1 count.
+
 ## Validation
 
 After generation, verify:
@@ -353,6 +357,7 @@ After generation, verify:
 - Every selected color has all five icons.
 - Every selected color has one family sheet.
 - Actual PNG counts match `selected colors × 5 components × selected sizes`.
+- No ICO files exist in the Step 1 output directory.
 - Every individual PNG is 32-bit RGBA and matches the dimensions in its filename.
 - Every individual PNG has four fully transparent corners.
 - Every family sheet is 1800x450.

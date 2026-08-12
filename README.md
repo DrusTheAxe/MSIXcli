@@ -1,6 +1,6 @@
 # MSIXcli
 
-![MSIXcli](images/graphic-design/step5/MSIXcli-README-banner.png)
+![MSIXcli](docs/images/MSIXcli-README-banner.png)
 
 MSIX command-line utilities to access and manage MSIX packages.
 
