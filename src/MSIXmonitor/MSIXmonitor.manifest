@@ -6,7 +6,7 @@
       version="1.0.0.0"
       processorArchitecture="*"
       />
-  <description>MSIX package activity monitor</description>
+  <description>MSIX monitor</description>
   <dependency>
     <dependentAssembly>
       <assemblyIdentity
