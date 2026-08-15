@@ -3,12 +3,18 @@
 ##
 ## Get latest from https://github.com/github/gitignore/blob/master/VisualStudio.gitignore
 
+# Ignore releases
+[Rr]elease/
+
 # User-specific files
 *.rsuser
 *.suo
 *.user
 *.userosscache
 *.sln.docstates
+
+# Backup files
+*.[Bb][Aa][Kk]
 
 # full nuget directory
 [Bb]uild/FullNuget
@@ -99,6 +105,7 @@ StyleCopReport.xml
 *_wpftmp.csproj
 *.binlog
 *.log
+*.tlog
 *.vspscc
 *.vssscc
 .builds
@@ -397,6 +404,21 @@ temp/
 # Build Pipeline override
 build/override/
 
-# WindowsAppSDK specific files
-Microsoft.WinUI.AppX.targets
-!dev/vsix/**/*.pubxml
+# VS Code files for those working on multiple tools
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+*.code-workspace
+
+# Local History for Visual Studio Code
+.history/
+
+# Windows Installer files from build outputs
+*.cab
+*.msi
+*.msix
+*.msm
+*.msp
+

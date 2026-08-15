@@ -75,7 +75,7 @@ See the LICENSE file in the root directory.
 
 # Code of Conduct
 
-See [Code of Conduct](https://github.com/drustheaxe/msixcli/docs/CODE-OF-CONDUCT.md) or onctact
+See [Code of Conduct](https://github.com/drustheaxe/msixcli/docs/CODE-OF-CONDUCT.md) or contact
 [howard.kapustein@gmail.com](mailto:howard.kapustein@gmail.com) with any additional questions or comments.
 
 # References
