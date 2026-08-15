@@ -13,7 +13,6 @@
 
 1 ICON "msixtray.ico"
 
-ID_ICON    ICON "MSIXTray.ico"
-HomeIcon   ICON "MSIXTray.ico"
+IDI_ICON   ICON "MSIXTray.ico"
 
 LANGUAGE LANG_ENGLISH, SUBLANG_ENGLISH_US

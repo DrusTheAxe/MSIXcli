@@ -3,6 +3,9 @@
 
 #pragma once
 
+// C/C++ Library
+#include <tuple>
+
 // Win32 / Shell
 #include <windows.h>
 #include <unknwn.h>

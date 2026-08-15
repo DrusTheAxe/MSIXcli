@@ -6,6 +6,9 @@
 #define WIN32_LEAN_AND_MEAN
 #define NOMINMAX
 
+// C/C++ Library
+#include <tuple>
+
 // Win32 / Shell
 #include <Windows.h>
 #include <unknwn.h>
@@ -24,3 +27,4 @@
 #include <wil/winrt.h>
 
 #include <wil_extension.h>
+#include <msixcli.h>

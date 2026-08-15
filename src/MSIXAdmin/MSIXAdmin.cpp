@@ -3716,9 +3716,9 @@ HRESULT Command_Shortcut_Add(int argc, wchar_t* argv[])
 
         if (iconPath)
         {
-            wil::com_ptr<IPropertySetStorage> propertySetStorage;
+            wil::com_ptr_nothrow<IPropertySetStorage> propertySetStorage;
             RETURN_IF_FAILED(url.query_to(&propertySetStorage));
-            wil::com_ptr<IPropertyStorage> propertyStorage;
+            wil::com_ptr_nothrow<IPropertyStorage> propertyStorage;
             HRESULT hr = propertySetStorage->Open(FMTID_Intshcut, STGM_READWRITE | STGM_SHARE_EXCLUSIVE, &propertyStorage);
             if (hr == STG_E_FILENOTFOUND)
             {

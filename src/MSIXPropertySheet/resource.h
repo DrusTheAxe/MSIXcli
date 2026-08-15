@@ -1,7 +1,7 @@
 // Copyright (c) Howard Kapustein
 // Licensed under the MIT License. See LICENSE in the project root for license information.
 
-#define ID_ICON     1
+#define IDI_ICON    1
 
 #define IDC_STATIC                      -1
 

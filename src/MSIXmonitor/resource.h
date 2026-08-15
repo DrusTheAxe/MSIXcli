@@ -10,6 +10,8 @@
 #define IDD_ABOUT                      100
 #define IDD_LOG                        101
 
+#define IDR_TRAY_MENU                  200
+
 #define IDC_ABOUT_ICON                 1000
 #define IDC_LOG_LIST                   1001
 

@@ -41,12 +41,12 @@ HRESULT GetFailureFromLastError()
 void ShowError(HWND owner, HRESULT hr)
 {
     wil::unique_process_heap_string caption;
-    std::ignore = LOG_IF_FAILED(wil::str_printf_nothrow<wil::unique_process_heap_string>(caption, L"MSIX Monitor: Error 0x%08X", hr));
+    static_cast<void>(LOG_IF_FAILED(wil::str_printf_nothrow<wil::unique_process_heap_string>(caption, L"MSIX Monitor: Error 0x%08X", hr)));
 
     wil::unique_process_heap_string text;
     PCWSTR formatter{ L"Error 0x%08X\n\n%ls" };
     const auto message{ wil::format_message_nothrow(hr) };
-    std::ignore = LOG_IF_FAILED(wil::str_printf_nothrow<wil::unique_process_heap_string>(text, formatter, hr, message ? message.get() : L"<null>"));
+    static_cast<void>(LOG_IF_FAILED(wil::str_printf_nothrow<wil::unique_process_heap_string>(text, formatter, hr, message ? message.get() : L"<null>")));
     MessageBoxW(owner, text ? text.get() : L"<null>", caption ? caption.get() : L"MSIX Monitor", MB_OK | MB_ICONERROR);
 }
 
@@ -204,13 +204,11 @@ HRESULT ShowDialog(UINT resourceId, DLGPROC dialogProc)
 
 HRESULT ShowTrayMenu(HWND window)
 {
-    wil::unique_hmenu menu{ CreatePopupMenu() };
+    wil::unique_hmenu menu{ LoadMenuW(g_instance, MAKEINTRESOURCEW(IDR_TRAY_MENU)) };
     RETURN_LAST_ERROR_IF_NULL(menu);
 
-    RETURN_IF_WIN32_BOOL_FALSE(AppendMenuW(menu.get(), MF_STRING, IDM_TRAY_ABOUT, L"&About"));
-    RETURN_IF_WIN32_BOOL_FALSE(AppendMenuW(menu.get(), MF_STRING, IDM_TRAY_LOG, L"&Log"));
-    RETURN_IF_WIN32_BOOL_FALSE(AppendMenuW(menu.get(), MF_SEPARATOR, 0, nullptr));
-    RETURN_IF_WIN32_BOOL_FALSE(AppendMenuW(menu.get(), MF_STRING, IDM_TRAY_EXIT, L"E&xit"));
+    HMENU popup{ GetSubMenu(menu.get(), 0) };
+    RETURN_LAST_ERROR_IF_NULL(popup);
 
     POINT position{};
     RETURN_IF_WIN32_BOOL_FALSE(GetCursorPos(&position));
@@ -218,7 +216,7 @@ HRESULT ShowTrayMenu(HWND window)
 
     SetLastError(ERROR_SUCCESS);
     const UINT command{ static_cast<UINT>(TrackPopupMenuEx(
-        menu.get(),
+        popup,
         TPM_RETURNCMD | TPM_RIGHTBUTTON,
         position.x,
         position.y,

@@ -17,6 +17,9 @@
       <!-- /GR- Disable RTTI (causes binary bloat) -->
       <RuntimeTypeInfo>false</RuntimeTypeInfo>
 
+      <!-- /EHs-c- Disable C++ exceptions (we're going old school) -->
+      <ExceptionHandling>false</ExceptionHandling>
+
       <!-- /sdk Enable additional security checks-->
       <SDLCheck>true</SDLCheck>
 

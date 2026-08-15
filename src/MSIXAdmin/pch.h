@@ -6,6 +6,7 @@
 // C/C++ Library
 #include <fcntl.h>
 #include <io.h>
+#include <tuple>
 
 // Win32 / Shell
 #include <windows.h>
