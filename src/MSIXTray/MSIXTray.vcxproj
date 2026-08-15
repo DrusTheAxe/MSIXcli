@@ -27,14 +27,11 @@
       <Platform>ARM64</Platform>
     </ProjectConfiguration>
   </ItemGroup>
-  <PropertyGroup>
-    <MSIXADMIN Condition="('$(MSIXADMIN)'=='')">1</MSIXADMIN>
-  </PropertyGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>17.0</VCProjectVersion>
-    <ProjectGuid>{20EC1070-C309-4944-B66B-7788070E1B6B}</ProjectGuid>
+    <ProjectGuid>{C8F6D4B8-4CBC-4CDA-97DD-60BB0264D1FC}</ProjectGuid>
     <Keyword>Win32Proj</Keyword>
-    <RootNamespace>msixadmin</RootNamespace>
+    <RootNamespace>msixtray</RootNamespace>
     <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <PropertyGroup>
@@ -49,10 +46,8 @@
     <UseDebugLibraries>false</UseDebugLibraries>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
-  <ImportGroup Label="ExtensionSettings">
-  </ImportGroup>
-  <ImportGroup Label="Shared">
-  </ImportGroup>
+  <ImportGroup Label="ExtensionSettings" />
+  <ImportGroup Label="Shared" />
   <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
   </ImportGroup>
@@ -77,12 +72,11 @@
       <PrecompiledHeader>Use</PrecompiledHeader>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
       <UseFullPaths>true</UseFullPaths>
-      <PreprocessorDefinitions>_WINDOWS;MSIXADMIN=$(MSIXADMIN);%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_WINDOWS;UNICODE;_UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <AdditionalIncludeDirectories>%(AdditionalIncludeDirectories);$(RepoRoot)\src\inc</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
-      <SubSystem>Console</SubSystem>
-      <UACExecutionLevel Condition="'$(MSIXADMIN)'=='1'">RequireAdministrator</UACExecutionLevel>
+      <SubSystem>Windows</SubSystem>
       <AdditionalDependencies>onecore.lib;onecoreuap.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
@@ -112,26 +106,26 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="DllMain.cpp" />
-    <ClCompile Include="MSIXadmin.cpp" />
+    <ClCompile Include="MSIXTray.cpp" />
     <ClCompile Include="pch.cpp">
       <PrecompiledHeader>Create</PrecompiledHeader>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="pch.h" />
+    <ClInclude Include="resource.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="MSIXtray.ico" />
     <None Include="packages.config" />
   </ItemGroup>
   <ItemGroup>
-    <Manifest Condition="('$(MSIXADMIN)'=='1')" Include="MSIXadmin.manifest" />
-    <Manifest Condition="('$(MSIXADMIN)'=='0')" Include="MSIX.manifest" />
+    <Manifest Include="MSIXTray.manifest" />
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="Resource.rc">
       <AdditionalIncludeDirectories>%(AdditionalIncludeDirectories);$(RepoRoot)\src\inc</AdditionalIncludeDirectories>
-      <PreprocessorDefinitions>MSIXADMIN=$(MSIXADMIN);%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ResourceCompile>
-  </ItemGroup>
-  <ItemGroup>
-    <ClInclude Include="pch.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

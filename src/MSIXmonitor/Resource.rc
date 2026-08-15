@@ -1,0 +1,36 @@
+// Copyright (c) Howard Kapustein
+// Licensed under the MIT License. See LICENSE in the project root for license information.
+
+#include <Windows.h>
+#include <commctrl.h>
+
+#include "resource.h"
+
+#define MSIXCLI_FILENAME        "MSIXmonitor.exe"
+#define MSIXCLI_PRODUCT_NAME    "MSIX Monitor"
+#include "VersionInfo.ver"
+
+IDI_MSIXMONITOR ICON "MSIXmonitor.ico"
+
+LANGUAGE LANG_ENGLISH, SUBLANG_ENGLISH_US
+
+IDD_ABOUT DIALOGEX 0, 0, 238, 112
+STYLE DS_SETFONT | DS_MODALFRAME | DS_FIXEDSYS | WS_POPUP | WS_CAPTION | WS_SYSMENU
+CAPTION "About MSIXmonitor"
+FONT 9, "Segoe UI", 400, 0, 0x1
+BEGIN
+    ICON        IDI_MSIXMONITOR, IDC_ABOUT_ICON, 12, 12, 32, 32
+    LTEXT       "MSIXmonitor", IDC_STATIC, 55, 14, 170, 10
+    LTEXT       "Monitors MSIX package activity from the system tray.", IDC_STATIC, 55, 30, 170, 22
+    LTEXT       "Copyright (c) Howard Kapustein", IDC_STATIC, 55, 58, 170, 10
+    DEFPUSHBUTTON "OK", IDOK, 181, 91, 50, 14
+END
+
+IDD_LOG DIALOGEX 0, 0, 560, 310
+STYLE DS_SETFONT | DS_MODALFRAME | DS_FIXEDSYS | WS_POPUP | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX | WS_MAXIMIZEBOX | WS_THICKFRAME
+CAPTION "MSIXmonitor Log"
+FONT 9, "Segoe UI", 400, 0, 0x1
+BEGIN
+    CONTROL     "", IDC_LOG_LIST, WC_LISTVIEW, WS_TABSTOP | WS_BORDER | LVS_REPORT | LVS_SHOWSELALWAYS, 7, 7, 546, 275
+    DEFPUSHBUTTON "OK", IDOK, 503, 289, 50, 14
+END

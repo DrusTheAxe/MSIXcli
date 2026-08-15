@@ -4,7 +4,10 @@
 #pragma once
 
 #include <wil/filesystem.h>
+#include <wil/registry.h>
 #include <wil/token_helpers.h>
+
+#include <shlwapi.h>
 
 namespace wil
 {
