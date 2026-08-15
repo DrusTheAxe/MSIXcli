@@ -54,7 +54,7 @@ In `PRIMARY` mode, use:
 - `msixadmin.svg`
 - `msixui.svg`
 - `MSIXPropertySheet.svg`
-- `MSIXTray.svg`
+- `MSIXmonitor.svg`
 
 In `ALL` mode, use for each selected color:
 
@@ -63,7 +63,7 @@ In `ALL` mode, use for each selected color:
 - `msixadmin-<color>.svg`
 - `msixui-<color>.svg`
 - `MSIXPropertySheet-<color>.svg`
-- `MSIXTray-<color>.svg`
+- `MSIXmonitor-<color>.svg`
 
 Use only matching colors within a banner. Never mix artwork from different color variants.
 
@@ -131,7 +131,7 @@ Preserve this icon order:
 2. `msixadmin`
 3. `msixui`
 4. `MSIXPropertySheet`
-5. `MSIXTray`
+5. `MSIXmonitor`
 
 The layout, scale, spacing, and text placement must be identical across every color banner.
 
@@ -142,7 +142,7 @@ For every selected color, also generate an RSN banner variant.
 The RSN banner must be identical to the standard banner except:
 
 - Render the complete approved third icon, `msixui`, at 90% transparency (10% opacity).
-- Render the complete approved fifth icon, `MSIXTray`, at 90% transparency (10% opacity).
+- Render the complete approved fifth icon, `MSIXmonitor`, at 90% transparency (10% opacity).
 - Preserve the original icon canvas, artwork, scale, placement, colors, gradients, shadows, badge, and glyph.
 - Apply opacity uniformly to each complete icon.
 - Add a subtle cyan glow behind and around each translucent icon.

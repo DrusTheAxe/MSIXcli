@@ -23,7 +23,7 @@ Check:
 - Glow is visible through the top, left, and right faces of every inner cube
 - Three-face glow size, clipping, opacity, and blur are identical everywhere
 - msixui.exe has one window rectangle
-- MSIXTray uses pulse waveform only
+- MSIXmonitor uses pulse waveform only
 - msixadmin badge contains only a centered shield that is 80% of the badge height and 10% wider than proportional
 - PropertySheet is a badge, not a document
 - Individual SVG artwork is approved as the canonical source for all Step 3 ICO sizes

@@ -77,7 +77,7 @@ Use the approved open-package artwork from:
 - `D:\source\repos\msixcli\images\graphic-design\step1\msixadmin.svg`
 - `D:\source\repos\msixcli\images\graphic-design\step1\msixui.svg`
 - `D:\source\repos\msixcli\images\graphic-design\step1\MSIXPropertySheet.svg`
-- `D:\source\repos\msixcli\images\graphic-design\step1\MSIXTray.svg`
+- `D:\source\repos\msixcli\images\graphic-design\step1\MSIXmonitor.svg`
 
 The canonical package contains:
 
@@ -152,7 +152,7 @@ Generate every selected color for all five icons:
 2. `msixadmin`
 3. `msixui`
 4. `MSIXPropertySheet`
-5. `MSIXTray`
+5. `MSIXmonitor`
 
 Within each color family, the package and inner cube must be identical. Only the badge glyph differs.
 
@@ -185,7 +185,7 @@ Within each color family, the package and inner cube must be identical. Only the
 - Exactly two horizontal property lines.
 - No document, file, paper, or folded-corner symbol.
 
-#### MSIXTray
+#### MSIXmonitor
 
 - Cyan waveform only.
 - Use the approved `__/\____/\__` waveform shape.
@@ -251,7 +251,7 @@ In `PRIMARY` mode, use:
 - `msixadmin.svg`
 - `msixui.svg`
 - `MSIXPropertySheet.svg`
-- `MSIXTray.svg`
+- `MSIXmonitor.svg`
 - `MSIXcli-icon-family.svg` and `MSIXcli-icon-family.png`
 
 For each required `PRIMARY` PNG size, use:
@@ -260,13 +260,13 @@ For each required `PRIMARY` PNG size, use:
 - `msixadmin-<size>.png`
 - `msixui-<size>.png`
 - `MSIXPropertySheet-<size>.png`
-- `MSIXTray-<size>.png`
+- `MSIXmonitor-<size>.png`
 
 Examples:
 
 - `msix-32x32.png`
 - `msix-1024x1024.png`
-- `MSIXTray-256x256.png`
+- `MSIXmonitor-256x256.png`
 
 In `ALL` mode, generate one SVG for every icon and color.
 
@@ -276,7 +276,7 @@ Use:
 - `msixadmin-<color>.svg`
 - `msixui-<color>.svg`
 - `MSIXPropertySheet-<color>.svg`
-- `MSIXTray-<color>.svg`
+- `MSIXmonitor-<color>.svg`
 
 For every explicitly selected `ALL` size, use:
 
@@ -284,13 +284,13 @@ For every explicitly selected `ALL` size, use:
 - `msixadmin-<color>-<size>.png`
 - `msixui-<color>-<size>.png`
 - `MSIXPropertySheet-<color>-<size>.png`
-- `MSIXTray-<color>-<size>.png`
+- `MSIXmonitor-<color>-<size>.png`
 
 Examples:
 
 - `msix-red-1024x1024.png`
 - `msixadmin-gold-64x64.png`
-- `MSIXTray-fuchsia-256x256.png`
+- `MSIXmonitor-fuchsia-256x256.png`
 
 In `ALL` mode, generate one side-by-side family sheet for every color:
 

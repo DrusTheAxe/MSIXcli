@@ -99,7 +99,7 @@ In `PRIMARY` mode, source filenames use:
 - `msixadmin.svg`
 - `msixui.svg`
 - `MSIXPropertySheet.svg`
-- `MSIXTray.svg`
+- `MSIXmonitor.svg`
 
 In `ALL` mode, source filenames use:
 
@@ -107,7 +107,7 @@ In `ALL` mode, source filenames use:
 - `msixadmin-<color>.svg`
 - `msixui-<color>.svg`
 - `MSIXPropertySheet-<color>.svg`
-- `MSIXTray-<color>.svg`
+- `MSIXmonitor-<color>.svg`
 
 Do not use family-sheet SVGs from `step1` as production sources.
 
@@ -145,7 +145,7 @@ Generate every selected approved color for all five components:
 | `msixadmin.exe` | `msixadmin` |
 | `msixui.exe` | `msixui` |
 | `MSIXPropertySheet.dll` | `MSIXPropertySheet` |
-| `MSIXTray.exe` | `MSIXTray` |
+| `MSIXmonitor.exe` | `MSIXmonitor` |
 
 ## Required Colors
 
@@ -175,7 +175,7 @@ In `PRIMARY` mode, preserve these Step 1 filenames exactly:
 - `msixadmin.svg`
 - `msixui.svg`
 - `MSIXPropertySheet.svg`
-- `MSIXTray.svg`
+- `MSIXmonitor.svg`
 
 Create these `PRIMARY` ICO files:
 
@@ -183,7 +183,7 @@ Create these `PRIMARY` ICO files:
 - `msixadmin.ico`
 - `msixui.ico`
 - `MSIXPropertySheet.ico`
-- `MSIXTray.ico`
+- `MSIXmonitor.ico`
 
 For each required `PRIMARY` PNG size, preserve:
 
@@ -191,7 +191,7 @@ For each required `PRIMARY` PNG size, preserve:
 - `msixadmin-<size>.png`
 - `msixui-<size>.png`
 - `MSIXPropertySheet-<size>.png`
-- `MSIXTray-<size>.png`
+- `MSIXmonitor-<size>.png`
 
 In `ALL` mode, preserve these Step 1 filenames exactly:
 
@@ -199,7 +199,7 @@ In `ALL` mode, preserve these Step 1 filenames exactly:
 - `msixadmin-<color>.svg`
 - `msixui-<color>.svg`
 - `MSIXPropertySheet-<color>.svg`
-- `MSIXTray-<color>.svg`
+- `MSIXmonitor-<color>.svg`
 
 Create these `ALL` ICO files:
 
@@ -207,7 +207,7 @@ Create these `ALL` ICO files:
 - `msixadmin-<color>.ico`
 - `msixui-<color>.ico`
 - `MSIXPropertySheet-<color>.ico`
-- `MSIXTray-<color>.ico`
+- `MSIXmonitor-<color>.ico`
 
 For every explicitly selected `ALL` size, preserve:
 
@@ -215,7 +215,7 @@ For every explicitly selected `ALL` size, preserve:
 - `msixadmin-<color>-<size>.png`
 - `msixui-<color>-<size>.png`
 - `MSIXPropertySheet-<color>-<size>.png`
-- `MSIXTray-<color>-<size>.png`
+- `MSIXmonitor-<color>-<size>.png`
 
 Examples:
 
@@ -224,7 +224,7 @@ Examples:
 - `msix.ico`
 - `msixadmin-gold-64x64.png`
 - `msixadmin-gold.ico`
-- `MSIXTray-fuchsia-256x256.png`
+- `MSIXmonitor-fuchsia-256x256.png`
 
 In `PRIMARY` mode, save all files in the Step 3 default output directory unless the user explicitly requests another location. In `ALL` mode, save all files only in the explicitly supplied output directory.
 
