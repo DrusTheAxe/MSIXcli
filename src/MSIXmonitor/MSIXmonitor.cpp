@@ -3,42 +3,12 @@
 
 #include "pch.h"
 
+#include "MSIXmonitor.h"
 #include "resource.h"
 
-namespace
-{
-constexpr UINT WM_MSIXMONITOR_TRAY{ WM_APP + 1 };
-constexpr UINT TRAY_ICON_ID{ 1 };
-constexpr UINT MAX_LOG_ENTRIES{ 256 };
+MSIXmonitor g_monitor;
 
-constexpr PCWSTR WINDOW_CLASS_NAME{ L"MSIXmonitor.HiddenWindow" };
-
-struct LogEntry
-{
-    WCHAR dateTime[32];
-    WCHAR package[128];
-    WCHAR action[64];
-    WCHAR message[256];
-};
-
-HINSTANCE g_instance{};
-HWND g_window{};
-UINT g_taskbarCreatedMessage{};
-bool g_trayIconAdded{};
-wil::unique_hicon g_trayIcon;
-LogEntry g_logEntries[MAX_LOG_ENTRIES]{};
-UINT g_logEntryStart{};
-UINT g_logEntryCount{};
-
-HRESULT AddTrayIcon(HWND window);
-
-HRESULT GetFailureFromLastError()
-{
-    const DWORD error{ GetLastError() };
-    return HRESULT_FROM_WIN32(error == ERROR_SUCCESS ? ERROR_GEN_FAILURE : error);
-}
-
-void ShowError(HWND owner, HRESULT hr)
+void MSIXmonitor::ShowError(const HRESULT hr, HWND window)
 {
     wil::unique_process_heap_string caption;
     static_cast<void>(LOG_IF_FAILED(wil::str_printf_nothrow<wil::unique_process_heap_string>(caption, L"MSIX Monitor: Error 0x%08X", hr)));
@@ -47,31 +17,98 @@ void ShowError(HWND owner, HRESULT hr)
     PCWSTR formatter{ L"Error 0x%08X\n\n%ls" };
     const auto message{ wil::format_message_nothrow(hr) };
     static_cast<void>(LOG_IF_FAILED(wil::str_printf_nothrow<wil::unique_process_heap_string>(text, formatter, hr, message ? message.get() : L"<null>")));
-    MessageBoxW(owner, text ? text.get() : L"<null>", caption ? caption.get() : L"MSIX Monitor", MB_OK | MB_ICONERROR);
+    MessageBoxW(window, text ? text.get() : L"<null>", caption ? caption.get() : L"MSIX Monitor", MB_OK | MB_ICONERROR);
 }
 
-HRESULT AddLogEntry(PCWSTR package, PCWSTR action, PCWSTR message)
+HRESULT MSIXmonitor::RunMessageLoop(int& exitCode)
+{
+    MSG message{};
+    while (true)
+    {
+        const BOOL result{ GetMessageW(&message, nullptr, 0, 0) };
+        RETURN_LAST_ERROR_IF(result == -1);
+        if (result == 0)
+        {
+            exitCode = static_cast<int>(message.wParam);
+            return S_OK;
+        }
+        TranslateMessage(&message);
+        DispatchMessageW(&message);
+    }
+}
+
+void MSIXmonitor::Close()
+{
+    if (m_window && IsWindow(m_window))
+    {
+        DestroyWindow(m_window);
+    }
+}
+
+HRESULT MSIXmonitor::InitializeApplication(HINSTANCE instance)
+{
+    m_instance = instance;
+
+    INITCOMMONCONTROLSEX controls{};
+    controls.dwSize = sizeof(controls);
+    controls.dwICC = ICC_STANDARD_CLASSES | ICC_LISTVIEW_CLASSES;
+    RETURN_IF_WIN32_BOOL_FALSE(InitCommonControlsEx(&controls));
+
+    m_taskbarCreatedMessage = RegisterWindowMessageW(L"TaskbarCreated");
+    RETURN_LAST_ERROR_IF(m_taskbarCreatedMessage == 0);
+
+    HICON icon{ static_cast<HICON>(LoadImageW(m_instance, MAKEINTRESOURCEW(IDI_MSIXMONITOR), IMAGE_ICON,
+        GetSystemMetrics(SM_CXSMICON), GetSystemMetrics(SM_CYSMICON), LR_DEFAULTCOLOR)) };
+    RETURN_LAST_ERROR_IF_NULL(icon);
+    m_trayIcon.reset(icon);
+
+    RETURN_IF_FAILED(RegisterApplicationWindowClass());
+
+    m_window = CreateWindowExW(0, WINDOW_CLASS_NAME, L"MSIXmonitor", WS_OVERLAPPED, 0, 0, 0, 0, nullptr, nullptr, m_instance, nullptr);
+    RETURN_LAST_ERROR_IF_NULL(m_window);
+
+    RETURN_IF_FAILED(AddLogEntry(L"", L"Started", L"MSIXmonitor started."));
+    RETURN_IF_FAILED(AddTrayIcon(m_window));
+    return S_OK;
+}
+
+HRESULT MSIXmonitor::RegisterApplicationWindowClass()
+{
+    WNDCLASSEXW windowClass{};
+    windowClass.cbSize = sizeof(windowClass);
+    windowClass.lpfnWndProc = WindowProc;
+    windowClass.hInstance = m_instance;
+    windowClass.hIcon = LoadIconW(m_instance, MAKEINTRESOURCEW(IDI_MSIXMONITOR));
+    windowClass.hIconSm = m_trayIcon.get();
+    windowClass.hCursor = LoadCursorW(nullptr, IDC_ARROW);
+    windowClass.lpszClassName = WINDOW_CLASS_NAME;
+
+    RETURN_LAST_ERROR_IF(RegisterClassExW(&windowClass) == 0);
+    return S_OK;
+}
+
+HRESULT MSIXmonitor::AddLogEntry(PCWSTR package, PCWSTR action, PCWSTR message)
 {
     RETURN_HR_IF_NULL(E_INVALIDARG, package);
     RETURN_HR_IF_NULL(E_INVALIDARG, action);
     RETURN_HR_IF_NULL(E_INVALIDARG, message);
 
     UINT entryIndex{};
-    if (g_logEntryCount < ARRAYSIZE(g_logEntries))
+    if (m_logEntryCount < ARRAYSIZE(m_logEntries))
     {
-        entryIndex = (g_logEntryStart + g_logEntryCount) % ARRAYSIZE(g_logEntries);
-        ++g_logEntryCount;
+        entryIndex = (m_logEntryStart + m_logEntryCount) % ARRAYSIZE(m_logEntries);
+        ++m_logEntryCount;
     }
     else
     {
-        entryIndex = g_logEntryStart;
-        g_logEntryStart = (g_logEntryStart + 1) % ARRAYSIZE(g_logEntries);
+        entryIndex = m_logEntryStart;
+        m_logEntryStart = (m_logEntryStart + 1) % ARRAYSIZE(m_logEntries);
     }
 
     SYSTEMTIME localTime{};
     GetLocalTime(&localTime);
 
-    LogEntry& entry{ g_logEntries[entryIndex] };
+    LogEntry& entry{ m_logEntries[entryIndex] };
     RETURN_IF_FAILED(StringCchPrintfW(
         entry.dateTime,
         ARRAYSIZE(entry.dateTime),
@@ -89,7 +126,7 @@ HRESULT AddLogEntry(PCWSTR package, PCWSTR action, PCWSTR message)
     return S_OK;
 }
 
-HRESULT InsertLogColumn(HWND list, int index, PCWSTR title, int width)
+HRESULT MSIXmonitor::InsertLogColumn(HWND list, int index, PCWSTR title, int width)
 {
     LVCOLUMNW column{};
     column.mask = LVCF_TEXT | LVCF_WIDTH | LVCF_SUBITEM;
@@ -101,7 +138,7 @@ HRESULT InsertLogColumn(HWND list, int index, PCWSTR title, int width)
     return S_OK;
 }
 
-HRESULT SetLogItemText(HWND list, int item, int subItem, PWSTR text)
+HRESULT MSIXmonitor::SetLogItemText(HWND list, int item, int subItem, PWSTR text)
 {
     LVITEMW listItem{};
     listItem.iSubItem = subItem;
@@ -110,7 +147,7 @@ HRESULT SetLogItemText(HWND list, int item, int subItem, PWSTR text)
     return S_OK;
 }
 
-HRESULT InitializeLogList(HWND dialog)
+HRESULT MSIXmonitor::InitializeLogList(HWND dialog)
 {
     HWND list{ GetDlgItem(dialog, IDC_LOG_LIST) };
     RETURN_HR_IF_NULL(E_UNEXPECTED, list);
@@ -124,9 +161,9 @@ HRESULT InitializeLogList(HWND dialog)
     RETURN_IF_FAILED(InsertLogColumn(list, 2, L"Action", 100));
     RETURN_IF_FAILED(InsertLogColumn(list, 3, L"Message", 360));
 
-    for (UINT index = 0; index < g_logEntryCount; ++index)
+    for (UINT index = 0; index < m_logEntryCount; ++index)
     {
-        LogEntry& entry{ g_logEntries[(g_logEntryStart + index) % ARRAYSIZE(g_logEntries)] };
+        LogEntry& entry{ m_logEntries[(m_logEntryStart + index) % ARRAYSIZE(m_logEntries)] };
         LVITEMW item{};
         item.mask = LVIF_TEXT;
         item.iItem = static_cast<int>(index);
@@ -142,39 +179,16 @@ HRESULT InitializeLogList(HWND dialog)
     return S_OK;
 }
 
-INT_PTR CALLBACK AboutDialogProc(HWND dialog, UINT message, WPARAM wParam, LPARAM)
-{
-    switch (message)
-    {
-        case WM_INITDIALOG:
-            return TRUE;
-
-        case WM_COMMAND:
-            if ((LOWORD(wParam) == IDOK) || (LOWORD(wParam) == IDCANCEL))
-            {
-                EndDialog(dialog, LOWORD(wParam));
-                return TRUE;
-            }
-            break;
-
-        case WM_CLOSE:
-            EndDialog(dialog, IDCANCEL);
-            return TRUE;
-    }
-
-    return FALSE;
-}
-
-INT_PTR CALLBACK LogDialogProc(HWND dialog, UINT message, WPARAM wParam, LPARAM)
+INT_PTR CALLBACK MSIXmonitor::LogDialogProc(HWND dialog, UINT message, WPARAM wParam, LPARAM)
 {
     switch (message)
     {
         case WM_INITDIALOG:
         {
-            const HRESULT result{ InitializeLogList(dialog) };
-            if (FAILED(result))
+            const auto hr{ LOG_IF_FAILED(g_monitor.InitializeLogList(dialog)) };
+            if (FAILED(hr))
             {
-                ShowError(dialog, result);
+                ShowError(hr, dialog);
                 EndDialog(dialog, IDCANCEL);
             }
             return TRUE;
@@ -196,15 +210,32 @@ INT_PTR CALLBACK LogDialogProc(HWND dialog, UINT message, WPARAM wParam, LPARAM)
     return FALSE;
 }
 
-HRESULT ShowDialog(UINT resourceId, DLGPROC dialogProc)
+INT_PTR CALLBACK MSIXmonitor::AboutDialogProc(HWND dialog, UINT message, WPARAM wParam, LPARAM)
 {
-    RETURN_LAST_ERROR_IF(DialogBoxParamW(g_instance, MAKEINTRESOURCEW(resourceId), g_window, dialogProc, 0) == -1);
-    return S_OK;
+    switch (message)
+    {
+        case WM_INITDIALOG:
+            return TRUE;
+
+        case WM_COMMAND:
+            if ((LOWORD(wParam) == IDOK) || (LOWORD(wParam) == IDCANCEL))
+            {
+                EndDialog(dialog, LOWORD(wParam));
+                return TRUE;
+            }
+            break;
+
+        case WM_CLOSE:
+            EndDialog(dialog, IDCANCEL);
+            return TRUE;
+    }
+
+    return FALSE;
 }
 
-HRESULT ShowTrayMenu(HWND window)
+HRESULT MSIXmonitor::ShowTrayMenu(HWND window)
 {
-    wil::unique_hmenu menu{ LoadMenuW(g_instance, MAKEINTRESOURCEW(IDR_TRAY_MENU)) };
+    wil::unique_hmenu menu{ LoadMenuW(m_instance, MAKEINTRESOURCEW(IDR_TRAY_MENU)) };
     RETURN_LAST_ERROR_IF_NULL(menu);
 
     HMENU popup{ GetSubMenu(menu.get(), 0) };
@@ -250,20 +281,20 @@ HRESULT ShowTrayMenu(HWND window)
     return S_OK;
 }
 
-void RemoveTrayIcon(HWND window)
+void MSIXmonitor::RemoveTrayIcon(HWND window)
 {
-    if (g_trayIconAdded)
+    if (m_trayIconAdded)
     {
         NOTIFYICONDATAW data{};
         data.cbSize = sizeof(data);
         data.hWnd = window;
         data.uID = TRAY_ICON_ID;
         Shell_NotifyIconW(NIM_DELETE, &data);
-        g_trayIconAdded = false;
+        m_trayIconAdded = false;
     }
 }
 
-HRESULT AddTrayIcon(HWND window)
+HRESULT MSIXmonitor::AddTrayIcon(HWND window)
 {
     RemoveTrayIcon(window);
 
@@ -273,138 +304,70 @@ HRESULT AddTrayIcon(HWND window)
     data.uID = TRAY_ICON_ID;
     data.uFlags = NIF_ICON | NIF_MESSAGE | NIF_TIP | NIF_SHOWTIP;
     data.uCallbackMessage = WM_MSIXMONITOR_TRAY;
-    data.hIcon = g_trayIcon.get();
+    data.hIcon = m_trayIcon.get();
     RETURN_IF_FAILED(StringCchCopyW(data.szTip, ARRAYSIZE(data.szTip), L"MSIXmonitor"));
-    RETURN_HR_IF(E_FAIL, !Shell_NotifyIconW(NIM_ADD, &data));
-
-    g_trayIconAdded = true;
+    RETURN_HR_IF(E_UNEXPECTED, !Shell_NotifyIconW(NIM_ADD, &data));
+    m_trayIconAdded = true;
     data.uVersion = NOTIFYICON_VERSION_4;
     if (!Shell_NotifyIconW(NIM_SETVERSION, &data))
     {
         RemoveTrayIcon(window);
-        return E_FAIL;
+        RETURN_HR(PEERDIST_ERROR_VERSION_UNSUPPORTED);
     }
-
     return S_OK;
 }
 
-LRESULT CALLBACK WindowProc(HWND window, UINT message, WPARAM wParam, LPARAM lParam)
+LRESULT CALLBACK MSIXmonitor::WindowProc(HWND window, UINT message, WPARAM wParam, LPARAM lParam)
 {
-    if ((g_taskbarCreatedMessage != 0) && (message == g_taskbarCreatedMessage))
+    if ((g_monitor.m_taskbarCreatedMessage != 0) && (message == g_monitor.m_taskbarCreatedMessage))
     {
-        const HRESULT result{ AddTrayIcon(window) };
-        if (FAILED(result))
-        {
-            ShowError(window, result);
-        }
+        ShowErrorIfFailed(LOG_IF_FAILED(g_monitor.AddTrayIcon(window)), window);
         return 0;
     }
 
     switch (message)
     {
         case WM_MSIXMONITOR_TRAY:
-            if ((LOWORD(lParam) == WM_CONTEXTMENU) || (LOWORD(lParam) == WM_RBUTTONUP))
+        {
+            if (LOWORD(lParam) == WM_CONTEXTMENU)
             {
-                const HRESULT result{ ShowTrayMenu(window) };
-                if (FAILED(result))
-                {
-                    ShowError(window, result);
-                }
+                ShowErrorIfFailed(LOG_IF_FAILED(g_monitor.ShowTrayMenu(window)), window);
             }
             return 0;
-
+        }
         case WM_CLOSE:
+        {
             DestroyWindow(window);
             return 0;
-
+        }
         case WM_DESTROY:
-            RemoveTrayIcon(window);
+        {
+            g_monitor.RemoveTrayIcon(window);
+            g_monitor.m_window = nullptr;
             PostQuitMessage(0);
             return 0;
+        }
     }
 
     return DefWindowProcW(window, message, wParam, lParam);
 }
 
-HRESULT RegisterApplicationWindowClass()
-{
-    WNDCLASSEXW windowClass{};
-    windowClass.cbSize = sizeof(windowClass);
-    windowClass.lpfnWndProc = WindowProc;
-    windowClass.hInstance = g_instance;
-    windowClass.hIcon = LoadIconW(g_instance, MAKEINTRESOURCEW(IDI_MSIXMONITOR));
-    windowClass.hIconSm = g_trayIcon.get();
-    windowClass.hCursor = LoadCursorW(nullptr, IDC_ARROW);
-    windowClass.lpszClassName = WINDOW_CLASS_NAME;
-
-    RETURN_LAST_ERROR_IF(RegisterClassExW(&windowClass) == 0);
-    return S_OK;
-}
-
-HRESULT InitializeApplication()
-{
-    INITCOMMONCONTROLSEX controls{};
-    controls.dwSize = sizeof(controls);
-    controls.dwICC = ICC_STANDARD_CLASSES | ICC_LISTVIEW_CLASSES;
-    RETURN_IF_WIN32_BOOL_FALSE(InitCommonControlsEx(&controls));
-
-    g_taskbarCreatedMessage = RegisterWindowMessageW(L"TaskbarCreated");
-    RETURN_LAST_ERROR_IF(g_taskbarCreatedMessage == 0);
-
-    HICON icon{ static_cast<HICON>(LoadImageW(g_instance, MAKEINTRESOURCEW(IDI_MSIXMONITOR), IMAGE_ICON,
-        GetSystemMetrics(SM_CXSMICON), GetSystemMetrics(SM_CYSMICON), LR_DEFAULTCOLOR)) };
-    RETURN_LAST_ERROR_IF_NULL(icon);
-    g_trayIcon.reset(icon);
-
-    RETURN_IF_FAILED(RegisterApplicationWindowClass());
-
-    g_window = CreateWindowExW(0, WINDOW_CLASS_NAME, L"MSIXmonitor", WS_OVERLAPPED, 0, 0, 0, 0, nullptr, nullptr, g_instance, nullptr);
-    RETURN_LAST_ERROR_IF_NULL(g_window);
-
-    RETURN_IF_FAILED(AddLogEntry(L"", L"Started", L"MSIXmonitor started."));
-    RETURN_IF_FAILED(AddTrayIcon(g_window));
-    return S_OK;
-}
-
-HRESULT RunMessageLoop(int& exitCode)
-{
-    MSG message{};
-    while (true)
-    {
-        const BOOL result{ GetMessageW(&message, nullptr, 0, 0) };
-        RETURN_LAST_ERROR_IF(result == -1);
-        if (result == 0)
-        {
-            exitCode = static_cast<int>(message.wParam);
-            return S_OK;
-        }
-        TranslateMessage(&message);
-        DispatchMessageW(&message);
-    }
-}
-}
-
 int WINAPI wWinMain(HINSTANCE hInstance, [[maybe_unused]] HINSTANCE hPrevInstance, [[maybe_unused]] PWSTR pCmdLine, [[maybe_unused]] int nCmdShow)
 {
-    g_instance = hInstance;
+    auto com_init{ wil::CoInitializeEx_failfast() };
 
-    HRESULT result{ InitializeApplication() };
     int exitCode{};
-    if (SUCCEEDED(result))
+
+    HRESULT hr{ LOG_IF_FAILED(g_monitor.InitializeApplication(hInstance)) };
+    if (SUCCEEDED(hr))
     {
-        result = RunMessageLoop(exitCode);
+        hr = LOG_IF_FAILED(g_monitor.RunMessageLoop(exitCode));
     }
 
-    if (FAILED(result))
-    {
-        ShowError(g_window, result);
-        exitCode = static_cast<int>(result);
-    }
+    g_monitor.ShowErrorIfFailed(hr);
 
-    if (g_window && IsWindow(g_window))
-    {
-        DestroyWindow(g_window);
-    }
+    g_monitor.Close();
 
+    RETURN_IF_FAILED(hr);
     return exitCode;
 }

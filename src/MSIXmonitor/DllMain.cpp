@@ -7,14 +7,11 @@
 // begin logging a new error.  This greatly improves the debuggability of errors that propagate before a failfast.
 #include <wil/result_originate.h>
 
-HINSTANCE g_hInstance{};
-
 BOOL APIENTRY DllMain(HMODULE hmodule, DWORD reason, LPVOID reserved)
 {
     switch (reason)
     {
         case DLL_PROCESS_ATTACH:
-            g_hInstance = hmodule;
             DisableThreadLibraryCalls(hmodule);
             break;
         case DLL_THREAD_ATTACH:
