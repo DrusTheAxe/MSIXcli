@@ -47,7 +47,7 @@ void MSIXmonitor::Close()
 
 HRESULT MSIXmonitor::InitializeApplication(HINSTANCE instance)
 {
-    m_instance = instance;
+    m_hInstance = instance;
 
     INITCOMMONCONTROLSEX controls{};
     controls.dwSize = sizeof(controls);
@@ -57,17 +57,17 @@ HRESULT MSIXmonitor::InitializeApplication(HINSTANCE instance)
     m_taskbarCreatedMessage = RegisterWindowMessageW(L"TaskbarCreated");
     RETURN_LAST_ERROR_IF(m_taskbarCreatedMessage == 0);
 
-    HICON icon{ static_cast<HICON>(LoadImageW(m_instance, MAKEINTRESOURCEW(IDI_MSIXMONITOR), IMAGE_ICON,
+    HICON icon{ static_cast<HICON>(LoadImageW(m_hInstance, MAKEINTRESOURCEW(IDI_MSIXMONITOR), IMAGE_ICON,
         GetSystemMetrics(SM_CXSMICON), GetSystemMetrics(SM_CYSMICON), LR_DEFAULTCOLOR)) };
     RETURN_LAST_ERROR_IF_NULL(icon);
     m_trayIcon.reset(icon);
 
     RETURN_IF_FAILED(RegisterApplicationWindowClass());
 
-    m_window = CreateWindowExW(0, WINDOW_CLASS_NAME, L"MSIXmonitor", WS_OVERLAPPED, 0, 0, 0, 0, nullptr, nullptr, m_instance, nullptr);
+    m_window = CreateWindowExW(0, WINDOW_CLASS_NAME, L"MSIXmonitor", WS_OVERLAPPED, 0, 0, 0, 0, nullptr, nullptr, m_hInstance, nullptr);
     RETURN_LAST_ERROR_IF_NULL(m_window);
 
-    RETURN_IF_FAILED(AddLogEntry(L"", L"Started", L"MSIXmonitor started."));
+    RETURN_IF_FAILED(AddActivity(L"", L"Started", L"MSIXmonitor started."));
     RETURN_IF_FAILED(AddTrayIcon(m_window));
     return S_OK;
 }
@@ -77,8 +77,8 @@ HRESULT MSIXmonitor::RegisterApplicationWindowClass()
     WNDCLASSEXW windowClass{};
     windowClass.cbSize = sizeof(windowClass);
     windowClass.lpfnWndProc = WindowProc;
-    windowClass.hInstance = m_instance;
-    windowClass.hIcon = LoadIconW(m_instance, MAKEINTRESOURCEW(IDI_MSIXMONITOR));
+    windowClass.hInstance = m_hInstance;
+    windowClass.hIcon = LoadIconW(m_hInstance, MAKEINTRESOURCEW(IDI_MSIXMONITOR));
     windowClass.hIconSm = m_trayIcon.get();
     windowClass.hCursor = LoadCursorW(nullptr, IDC_ARROW);
     windowClass.lpszClassName = WINDOW_CLASS_NAME;
@@ -87,31 +87,31 @@ HRESULT MSIXmonitor::RegisterApplicationWindowClass()
     return S_OK;
 }
 
-HRESULT MSIXmonitor::AddLogEntry(PCWSTR package, PCWSTR action, PCWSTR message)
+HRESULT MSIXmonitor::AddActivity(PCWSTR package, PCWSTR action, PCWSTR message)
 {
     RETURN_HR_IF_NULL(E_INVALIDARG, package);
     RETURN_HR_IF_NULL(E_INVALIDARG, action);
     RETURN_HR_IF_NULL(E_INVALIDARG, message);
 
     UINT entryIndex{};
-    if (m_logEntryCount < ARRAYSIZE(m_logEntries))
+    if (m_activityCount < ARRAYSIZE(m_activities))
     {
-        entryIndex = (m_logEntryStart + m_logEntryCount) % ARRAYSIZE(m_logEntries);
-        ++m_logEntryCount;
+        entryIndex = (m_activityStart + m_activityCount) % ARRAYSIZE(m_activities);
+        ++m_activityCount;
     }
     else
     {
-        entryIndex = m_logEntryStart;
-        m_logEntryStart = (m_logEntryStart + 1) % ARRAYSIZE(m_logEntries);
+        entryIndex = m_activityStart;
+        m_activityStart = (m_activityStart + 1) % ARRAYSIZE(m_activities);
     }
 
     SYSTEMTIME localTime{};
     GetLocalTime(&localTime);
 
-    LogEntry& entry{ m_logEntries[entryIndex] };
+    Activity& activity{ m_activities[entryIndex] };
     RETURN_IF_FAILED(StringCchPrintfW(
-        entry.dateTime,
-        ARRAYSIZE(entry.dateTime),
+        activity.dateTime,
+        ARRAYSIZE(activity.dateTime),
         L"%04u-%02u-%02u %02u:%02u:%02u",
         localTime.wYear,
         localTime.wMonth,
@@ -119,14 +119,14 @@ HRESULT MSIXmonitor::AddLogEntry(PCWSTR package, PCWSTR action, PCWSTR message)
         localTime.wHour,
         localTime.wMinute,
         localTime.wSecond));
-    RETURN_IF_FAILED(StringCchCopyW(entry.package, ARRAYSIZE(entry.package), package));
-    RETURN_IF_FAILED(StringCchCopyW(entry.action, ARRAYSIZE(entry.action), action));
-    RETURN_IF_FAILED(StringCchCopyW(entry.message, ARRAYSIZE(entry.message), message));
+    RETURN_IF_FAILED(StringCchCopyW(activity.package, ARRAYSIZE(activity.package), package));
+    RETURN_IF_FAILED(StringCchCopyW(activity.action, ARRAYSIZE(activity.action), action));
+    RETURN_IF_FAILED(StringCchCopyW(activity.message, ARRAYSIZE(activity.message), message));
 
     return S_OK;
 }
 
-HRESULT MSIXmonitor::InsertLogColumn(HWND list, int index, PCWSTR title, int width)
+HRESULT MSIXmonitor::InsertActivityColumn(HWND list, int index, PCWSTR title, int width)
 {
     LVCOLUMNW column{};
     column.mask = LVCF_TEXT | LVCF_WIDTH | LVCF_SUBITEM;
@@ -134,58 +134,56 @@ HRESULT MSIXmonitor::InsertLogColumn(HWND list, int index, PCWSTR title, int wid
     column.cx = width;
     column.iSubItem = index;
 
-    RETURN_HR_IF(E_FAIL, ListView_InsertColumn(list, index, &column) == -1);
+    RETURN_HR_IF(E_UNEXPECTED, ListView_InsertColumn(list, index, &column) == -1);
     return S_OK;
 }
 
-HRESULT MSIXmonitor::SetLogItemText(HWND list, int item, int subItem, PWSTR text)
+HRESULT MSIXmonitor::SetActivityItemText(HWND list, int item, int subItem, PWSTR text)
 {
     LVITEMW listItem{};
     listItem.iSubItem = subItem;
     listItem.pszText = text;
-    RETURN_HR_IF(E_FAIL, !SendMessageW(list, LVM_SETITEMTEXTW, static_cast<WPARAM>(item), reinterpret_cast<LPARAM>(&listItem)));
+    RETURN_HR_IF(E_UNEXPECTED, !SendMessageW(list, LVM_SETITEMTEXTW, static_cast<WPARAM>(item), reinterpret_cast<LPARAM>(&listItem)));
     return S_OK;
 }
 
-HRESULT MSIXmonitor::InitializeLogList(HWND dialog)
+HRESULT MSIXmonitor::InitializeActivityList(HWND dialog)
 {
-    HWND list{ GetDlgItem(dialog, IDC_LOG_LIST) };
+    HWND list{ GetDlgItem(dialog, IDC_ACTIVITY_LIST) };
     RETURN_HR_IF_NULL(E_UNEXPECTED, list);
 
-    ListView_SetExtendedListViewStyle(
-        list,
-        LVS_EX_DOUBLEBUFFER | LVS_EX_FULLROWSELECT | LVS_EX_LABELTIP);
+    ListView_SetExtendedListViewStyle(list, LVS_EX_DOUBLEBUFFER | LVS_EX_FULLROWSELECT | LVS_EX_LABELTIP);
 
-    RETURN_IF_FAILED(InsertLogColumn(list, 0, L"DateTime", 145));
-    RETURN_IF_FAILED(InsertLogColumn(list, 1, L"Package", 190));
-    RETURN_IF_FAILED(InsertLogColumn(list, 2, L"Action", 100));
-    RETURN_IF_FAILED(InsertLogColumn(list, 3, L"Message", 360));
+    RETURN_IF_FAILED(InsertActivityColumn(list, 0, L"DateTime", 145));
+    RETURN_IF_FAILED(InsertActivityColumn(list, 1, L"Package", 190));
+    RETURN_IF_FAILED(InsertActivityColumn(list, 2, L"Action", 100));
+    RETURN_IF_FAILED(InsertActivityColumn(list, 3, L"Message", 360));
 
-    for (UINT index = 0; index < m_logEntryCount; ++index)
+    for (UINT index = 0; index < m_activityCount; ++index)
     {
-        LogEntry& entry{ m_logEntries[(m_logEntryStart + index) % ARRAYSIZE(m_logEntries)] };
+        Activity& activity{ m_activities[(m_activityStart + index) % ARRAYSIZE(m_activities)] };
         LVITEMW item{};
         item.mask = LVIF_TEXT;
         item.iItem = static_cast<int>(index);
-        item.pszText = entry.dateTime;
+        item.pszText = activity.dateTime;
 
         const int itemIndex{ ListView_InsertItem(list, &item) };
-        RETURN_HR_IF(E_FAIL, itemIndex == -1);
-        RETURN_IF_FAILED(SetLogItemText(list, itemIndex, 1, entry.package));
-        RETURN_IF_FAILED(SetLogItemText(list, itemIndex, 2, entry.action));
-        RETURN_IF_FAILED(SetLogItemText(list, itemIndex, 3, entry.message));
+        RETURN_HR_IF(E_UNEXPECTED, itemIndex == -1);
+        RETURN_IF_FAILED(SetActivityItemText(list, itemIndex, 1, activity.package));
+        RETURN_IF_FAILED(SetActivityItemText(list, itemIndex, 2, activity.action));
+        RETURN_IF_FAILED(SetActivityItemText(list, itemIndex, 3, activity.message));
     }
 
     return S_OK;
 }
 
-INT_PTR CALLBACK MSIXmonitor::LogDialogProc(HWND dialog, UINT message, WPARAM wParam, LPARAM)
+INT_PTR CALLBACK MSIXmonitor::ActivityDialogProc(HWND dialog, UINT message, WPARAM wParam, LPARAM)
 {
     switch (message)
     {
         case WM_INITDIALOG:
         {
-            const auto hr{ LOG_IF_FAILED(g_monitor.InitializeLogList(dialog)) };
+            const auto hr{ LOG_IF_FAILED(g_monitor.InitializeActivityList(dialog)) };
             if (FAILED(hr))
             {
                 ShowError(hr, dialog);
@@ -210,32 +208,92 @@ INT_PTR CALLBACK MSIXmonitor::LogDialogProc(HWND dialog, UINT message, WPARAM wP
     return FALSE;
 }
 
-INT_PTR CALLBACK MSIXmonitor::AboutDialogProc(HWND dialog, UINT message, WPARAM wParam, LPARAM)
+INT_PTR CALLBACK MSIXmonitor::AboutDialogProc(HWND dialog, UINT message, WPARAM wParam, LPARAM lParam)
 {
     switch (message)
     {
         case WM_INITDIALOG:
-            return TRUE;
+        {
+            HWND name{ GetDlgItem(dialog, IDC_ABOUT_NAME) };
+            RETURN_HR_IF_NULL(E_UNEXPECTED, name);
+            HWND description{ GetDlgItem(dialog, IDC_ABOUT_DESCRIPTION) };
+            RETURN_HR_IF_NULL(E_UNEXPECTED, description);
 
+            HFONT dialogFont{ reinterpret_cast<HFONT>(SendMessageW(dialog, WM_GETFONT, 0, 0)) };
+            RETURN_HR_IF_NULL(E_UNEXPECTED, dialogFont);
+
+            LOGFONTW logFont{};
+            RETURN_HR_IF(E_UNEXPECTED, GetObjectW(dialogFont, sizeof(logFont), &logFont) != sizeof(logFont));
+            logFont.lfHeight = MulDiv(logFont.lfHeight, 16, 9);
+            logFont.lfWeight = FW_BOLD;
+
+            g_monitor.m_aboutNameFont.reset(CreateFontIndirectW(&logFont));
+            RETURN_LAST_ERROR_IF_NULL(g_monitor.m_aboutNameFont);
+            SendMessageW(name, WM_SETFONT, reinterpret_cast<WPARAM>(g_monitor.m_aboutNameFont.get()), TRUE);
+
+            logFont.lfHeight = MulDiv(logFont.lfHeight, 12, 14);
+            logFont.lfWeight = FW_SEMIBOLD;
+            g_monitor.m_aboutDescriptionFont.reset(CreateFontIndirectW(&logFont));
+            RETURN_LAST_ERROR_IF_NULL(g_monitor.m_aboutDescriptionFont);
+            SendMessageW(description, WM_SETFONT, reinterpret_cast<WPARAM>(g_monitor.m_aboutDescriptionFont.get()), TRUE);
+
+            std::uint16_t major{};
+            std::uint16_t minor{};
+            std::uint16_t build{};
+            std::uint16_t revision{};
+            RETURN_IF_FAILED(wil::get_module_version(g_monitor.m_hInstance, major, minor, build, revision));
+            wil::unique_process_heap_string text;
+            if (revision != 0)
+            {
+                PCWSTR format{ L"MSIXmonitor v%hu.%hu.%hu.%hu" };
+                RETURN_IF_FAILED(wil::str_printf_nothrow<wil::unique_process_heap_string>(text, format, major, minor, build, revision));
+            }
+            else
+            {
+                PCWSTR format{ L"MSIXmonitor v%hu.%hu.%hu" };
+                RETURN_IF_FAILED(wil::str_printf_nothrow<wil::unique_process_heap_string>(text, format, major, minor, build));
+            }
+            SetDlgItemText(dialog, IDC_ABOUT_NAME, text.get());
+            return TRUE;
+        }
         case WM_COMMAND:
+        {
             if ((LOWORD(wParam) == IDOK) || (LOWORD(wParam) == IDCANCEL))
             {
                 EndDialog(dialog, LOWORD(wParam));
                 return TRUE;
             }
             break;
-
+        }
+        case WM_NOTIFY:
+        {
+            const NMHDR* notification{ reinterpret_cast<const NMHDR*>(lParam) };
+            if ((notification->idFrom == IDC_HOME) &&
+                ((notification->code == NM_CLICK) || (notification->code == NM_RETURN)))
+            {
+                ::ShellExecuteW(dialog, L"open", L"https://github.com/drustheaxe/msixcli", nullptr, nullptr, SW_SHOWNORMAL);
+                return TRUE;
+            }
+            break;
+        }
+        case WM_DESTROY:
+        {
+            g_monitor.m_aboutNameFont.reset();
+            g_monitor.m_aboutDescriptionFont.reset();
+            break;
+        }
         case WM_CLOSE:
+        {
             EndDialog(dialog, IDCANCEL);
             return TRUE;
+        }
     }
-
     return FALSE;
 }
 
 HRESULT MSIXmonitor::ShowTrayMenu(HWND window)
 {
-    wil::unique_hmenu menu{ LoadMenuW(m_instance, MAKEINTRESOURCEW(IDR_TRAY_MENU)) };
+    wil::unique_hmenu menu{ LoadMenuW(m_hInstance, MAKEINTRESOURCEW(IDR_TRAY_MENU)) };
     RETURN_LAST_ERROR_IF_NULL(menu);
 
     HMENU popup{ GetSubMenu(menu.get(), 0) };
@@ -263,13 +321,13 @@ HRESULT MSIXmonitor::ShowTrayMenu(HWND window)
     switch (command)
     {
         case IDM_TRAY_ABOUT:
-            RETURN_IF_FAILED(AddLogEntry(L"", L"About", L"About dialog opened."));
+            RETURN_IF_FAILED(AddActivity(L"", L"About", L"About dialog opened."));
             RETURN_IF_FAILED(ShowDialog(IDD_ABOUT, AboutDialogProc));
             break;
 
-        case IDM_TRAY_LOG:
-            RETURN_IF_FAILED(AddLogEntry(L"", L"Log", L"Log dialog opened."));
-            RETURN_IF_FAILED(ShowDialog(IDD_LOG, LogDialogProc));
+        case IDM_TRAY_ACTIVITY:
+            RETURN_IF_FAILED(AddActivity(L"", L"Log", L"Log dialog opened."));
+            RETURN_IF_FAILED(ShowDialog(IDD_ACTIVITY, ActivityDialogProc));
             break;
 
         case IDM_TRAY_EXIT:
@@ -354,6 +412,13 @@ LRESULT CALLBACK MSIXmonitor::WindowProc(HWND window, UINT message, WPARAM wPara
 
 int WINAPI wWinMain(HINSTANCE hInstance, [[maybe_unused]] HINSTANCE hPrevInstance, [[maybe_unused]] PWSTR pCmdLine, [[maybe_unused]] int nCmdShow)
 {
+    wil::unique_mutex_nothrow instanceMutex{ ::CreateMutexW(nullptr, FALSE, L"MSIXmonitor.is.singleton") };
+    RETURN_LAST_ERROR_IF_NULL(instanceMutex);
+    if (GetLastError() == ERROR_ALREADY_EXISTS)
+    {
+        return S_OK;
+    }
+
     auto com_init{ wil::CoInitializeEx_failfast() };
 
     int exitCode{};

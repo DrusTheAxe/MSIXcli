@@ -3,18 +3,26 @@
 
 #pragma once
 
-#define IDC_STATIC                      -1
+#define IDC_STATIC              -1
 
-#define IDI_MSIXMONITOR                 1
+#define IDI_MSIXMONITOR         1
 
-#define IDD_ABOUT                      100
-#define IDD_LOG                        101
+#define IDD_ABOUT               100
+#define IDD_ACTIVITY            101
 
-#define IDR_TRAY_MENU                  200
+#define IDR_TRAY_MENU           200
 
-#define IDC_ABOUT_ICON                 1000
-#define IDC_LOG_LIST                   1001
+#define IDC_ABOUT_ICON          1000
+#define IDC_ABOUT_NAME          1001
+#define IDC_ABOUT_DESCRIPTION   1002
+#define IDC_ABOUT_COPYRIGHT     1003
+#define IDC_HOME                1004
+#if defined(RC_INVOKED)
+#define IDC_HOME_LABEL  "<a href=""https://github.com/drustheaxe/MSIXcli"">MSIXcli home</a>"
+#endif
 
-#define IDM_TRAY_ABOUT                 40001
-#define IDM_TRAY_LOG                   40002
-#define IDM_TRAY_EXIT                  40003
+#define IDC_ACTIVITY_LIST       2000
+
+#define IDM_TRAY_ABOUT          40001
+#define IDM_TRAY_ACTIVITY       40002
+#define IDM_TRAY_EXIT           40003

@@ -18,30 +18,34 @@ IDR_TRAY_MENU MENU
 BEGIN
     POPUP "MSIXmonitor"
     BEGIN
-        MENUITEM "&About", IDM_TRAY_ABOUT
-        MENUITEM "&Log",   IDM_TRAY_LOG
+        MENUITEM "&View Activity Log",   IDM_TRAY_ACTIVITY
+        MENUITEM SEPARATOR
+        MENUITEM "&About MSIXmonitor", IDM_TRAY_ABOUT
         MENUITEM SEPARATOR
         MENUITEM "E&xit",  IDM_TRAY_EXIT
     END
 END
 
-IDD_ABOUT DIALOGEX 0, 0, 238, 112
+IDD_ABOUT DIALOGEX 0, 0, 200, 100
 STYLE DS_SETFONT | DS_MODALFRAME | DS_FIXEDSYS | WS_POPUP | WS_CAPTION | WS_SYSMENU
 CAPTION "About MSIXmonitor"
 FONT 9, "Segoe UI", 400, 0, 0x1
 BEGIN
-    ICON        IDI_MSIXMONITOR, IDC_ABOUT_ICON, 12, 12, 32, 32
-    LTEXT       "MSIXmonitor", IDC_STATIC, 55, 14, 170, 10
-    LTEXT       "Monitors MSIX package activity from the system tray.", IDC_STATIC, 55, 30, 170, 22
-    LTEXT       "Copyright (c) Howard Kapustein", IDC_STATIC, 55, 58, 170, 10
-    DEFPUSHBUTTON "OK", IDOK, 181, 91, 50, 14
+    ICON        IDI_MSIXMONITOR,                    IDC_ABOUT_ICON,           7,   7,  32,  32
+    LTEXT       "MSIXmonitor",                      IDC_ABOUT_NAME,          30,  10, 170,  13
+    LTEXT       "Monitor MSIX activity",            IDC_ABOUT_DESCRIPTION,   30,  26, 170,  22
+    LTEXT       "Copyright (c) Howard Kapustein",   IDC_ABOUT_COPYRIGHT,     30,  40, 170,  10
+
+    CONTROL     IDC_HOME_LABEL, IDC_HOME, "SysLink", WS_TABSTOP,              7,  79,  70,  14
+
+    DEFPUSHBUTTON "OK",                             IDOK,                   143,  79,  50,  14
 END
 
-IDD_LOG DIALOGEX 0, 0, 560, 310
+IDD_ACTIVITY DIALOGEX 0, 0, 560, 310
 STYLE DS_SETFONT | DS_MODALFRAME | DS_FIXEDSYS | WS_POPUP | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX | WS_MAXIMIZEBOX | WS_THICKFRAME
-CAPTION "MSIXmonitor Log"
+CAPTION "MSIXmonitor Activity Log"
 FONT 9, "Segoe UI", 400, 0, 0x1
 BEGIN
-    CONTROL     "", IDC_LOG_LIST, WC_LISTVIEW, WS_TABSTOP | WS_BORDER | LVS_REPORT | LVS_SHOWSELALWAYS, 7, 7, 546, 275
+    CONTROL     "", IDC_ACTIVITY_LIST, WC_LISTVIEW, WS_TABSTOP | WS_BORDER | LVS_REPORT | LVS_SHOWSELALWAYS, 7, 7, 546, 275
     DEFPUSHBUTTON "OK", IDOK, 503, 289, 50, 14
 END
