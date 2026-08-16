@@ -18,11 +18,12 @@ IDR_TRAY_MENU MENU
 BEGIN
     POPUP "MSIXmonitor"
     BEGIN
-        MENUITEM "&View Activity Log",   IDM_TRAY_ACTIVITY
+        MENUITEM "&View Activity Log",  IDM_TRAY_ACTIVITY
+        MENUITEM "&Enable monitoring",  IDM_TRAY_ENABLE_MONITOR
         MENUITEM SEPARATOR
-        MENUITEM "&About MSIXmonitor", IDM_TRAY_ABOUT
+        MENUITEM "&About MSIXmonitor",  IDM_TRAY_ABOUT
         MENUITEM SEPARATOR
-        MENUITEM "E&xit",  IDM_TRAY_EXIT
+        MENUITEM "E&xit",               IDM_TRAY_EXIT
     END
 END
 

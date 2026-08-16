@@ -25,4 +25,5 @@
 
 #define IDM_TRAY_ABOUT          40001
 #define IDM_TRAY_ACTIVITY       40002
-#define IDM_TRAY_EXIT           40003
+#define IDM_TRAY_ENABLE_MONITOR 40003
+#define IDM_TRAY_EXIT           40004

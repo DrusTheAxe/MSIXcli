@@ -66,6 +66,11 @@ private:
     static INT_PTR CALLBACK AboutDialogProc(HWND dialog, UINT message, WPARAM wParam, LPARAM);
 
 private:
+    bool IsActivityMonitorEnabled() const;
+    HRESULT EnableActivityMonitor(bool isEnabled);
+    HRESULT ToggleActivityMonitor();
+    HRESULT UpdateActivityMonitorMenu(HMENU menu) const;
+
     HRESULT ShowTrayMenu(HWND window);
     void RemoveTrayIcon(HWND window);
     HRESULT AddTrayIcon(HWND window);
@@ -84,6 +89,7 @@ private:
     HWND m_window{};
     UINT m_taskbarCreatedMessage{};
     bool m_trayIconAdded{};
+    bool m_activityMonitorEnabled{};
     wil::unique_hicon m_trayIcon;
     wil::unique_hfont m_aboutNameFont;
     wil::unique_hfont m_aboutDescriptionFont;

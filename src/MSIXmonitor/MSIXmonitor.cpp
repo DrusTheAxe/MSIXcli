@@ -291,6 +291,43 @@ INT_PTR CALLBACK MSIXmonitor::AboutDialogProc(HWND dialog, UINT message, WPARAM 
     return FALSE;
 }
 
+bool MSIXmonitor::IsActivityMonitorEnabled() const
+{
+    return m_activityMonitorEnabled;
+}
+
+HRESULT MSIXmonitor::EnableActivityMonitor(const bool isEnabled)
+{
+    if (isEnabled)
+    {
+        //TODO enable
+    }
+    else
+    {
+        //TODO disable
+    }
+    m_activityMonitorEnabled = isEnabled;
+    RETURN_IF_FAILED(AddActivity(L"", L"Monitoring", isEnabled ? L"Monitoring enabled." : L"Monitoring disabled."));
+    return S_OK;
+}
+
+HRESULT MSIXmonitor::ToggleActivityMonitor()
+{
+    RETURN_IF_FAILED(EnableActivityMonitor(!IsActivityMonitorEnabled()));
+    return S_OK;
+}
+
+HRESULT MSIXmonitor::UpdateActivityMonitorMenu(HMENU menu) const
+{
+    const bool isEnabled{ IsActivityMonitorEnabled() };
+    MENUITEMINFOW menuItem{ sizeof(menuItem) };
+    menuItem.fMask = MIIM_STATE | MIIM_STRING;
+    menuItem.fState = isEnabled ? MFS_CHECKED : MFS_UNCHECKED;
+    menuItem.dwTypeData = const_cast<PWSTR>(L"&Enable monitoring");
+    RETURN_IF_WIN32_BOOL_FALSE(SetMenuItemInfoW(menu, IDM_TRAY_ENABLE_MONITOR, FALSE, &menuItem));
+    return S_OK;
+}
+
 HRESULT MSIXmonitor::ShowTrayMenu(HWND window)
 {
     wil::unique_hmenu menu{ LoadMenuW(m_hInstance, MAKEINTRESOURCEW(IDR_TRAY_MENU)) };
@@ -298,41 +335,40 @@ HRESULT MSIXmonitor::ShowTrayMenu(HWND window)
 
     HMENU popup{ GetSubMenu(menu.get(), 0) };
     RETURN_LAST_ERROR_IF_NULL(popup);
+    RETURN_IF_FAILED(UpdateActivityMonitorMenu(popup));
 
     POINT position{};
     RETURN_IF_WIN32_BOOL_FALSE(GetCursorPos(&position));
     static_cast<void>(SetForegroundWindow(window));
 
     SetLastError(ERROR_SUCCESS);
-    const UINT command{ static_cast<UINT>(TrackPopupMenuEx(
-        popup,
-        TPM_RETURNCMD | TPM_RIGHTBUTTON,
-        position.x,
-        position.y,
-        window,
-        nullptr)) };
-    if (command == 0)
-    {
-        const DWORD error{ GetLastError() };
-        RETURN_HR_IF(HRESULT_FROM_WIN32(error), error != ERROR_SUCCESS);
-        return S_OK;
-    }
+    const UINT command{ static_cast<UINT>(TrackPopupMenuEx(popup, TPM_RETURNCMD | TPM_RIGHTBUTTON, position.x, position.y, window, nullptr)) };
+    RETURN_LAST_ERROR_IF(command == 0);
 
     switch (command)
     {
-        case IDM_TRAY_ABOUT:
-            RETURN_IF_FAILED(AddActivity(L"", L"About", L"About dialog opened."));
-            RETURN_IF_FAILED(ShowDialog(IDD_ABOUT, AboutDialogProc));
-            break;
-
         case IDM_TRAY_ACTIVITY:
+        {
             RETURN_IF_FAILED(AddActivity(L"", L"Log", L"Log dialog opened."));
             RETURN_IF_FAILED(ShowDialog(IDD_ACTIVITY, ActivityDialogProc));
             break;
-
+        }
+        case IDM_TRAY_ENABLE_MONITOR:
+        {
+            RETURN_IF_FAILED(ToggleActivityMonitor());
+            break;
+        }
+        case IDM_TRAY_ABOUT:
+        {
+            RETURN_IF_FAILED(AddActivity(L"", L"About", L"About dialog opened."));
+            RETURN_IF_FAILED(ShowDialog(IDD_ABOUT, AboutDialogProc));
+            break;
+        }
         case IDM_TRAY_EXIT:
+        {
             RETURN_IF_WIN32_BOOL_FALSE(DestroyWindow(window));
             return S_OK;
+        }
     }
 
     RETURN_IF_WIN32_BOOL_FALSE(PostMessageW(window, WM_NULL, 0, 0));
