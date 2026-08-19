@@ -12,6 +12,8 @@
 
 namespace wil
 {
+using unique_hstring_array = wil::unique_array_ptr<wil::unique_hstring, wistd::default_delete<HSTRING[]>>;
+
 /// @return null if an error occurred.
 inline wil::unique_hlocal_string format_message_nothrow(HRESULT hr) noexcept
 {

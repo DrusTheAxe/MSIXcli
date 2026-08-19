@@ -593,6 +593,17 @@ void PrintPackageValue(PCWSTR key, HRESULT hr, const boolean& value)
     }
 }
 
+int compare_string_nocase(const void* left, const void* right)
+{
+    const auto leftHString{ *static_cast<const HSTRING*>(left) };
+    PCWSTR leftString{ WindowsGetStringRawBuffer(leftHString, nullptr) };
+
+    const auto rightHString{ *static_cast<const HSTRING*>(right) };
+    PCWSTR rightString{ WindowsGetStringRawBuffer(rightHString, nullptr) };
+
+    return ::CompareStringOrdinal(leftString, -1, rightString, -1, TRUE) - CSTR_EQUAL;
+}
+
 void PrintPackages(PCWSTR key, HRESULT hr, ABI::Windows::Foundation::Collections::IVector<ABI::Windows::ApplicationModel::Package*>* packages)
 {
     if (FAILED(hr))
@@ -608,6 +619,15 @@ void PrintPackages(PCWSTR key, HRESULT hr, ABI::Windows::Foundation::Collections
         return;
     }
     wprintf(L"%-30ls : %u package%ls\n", key, packagesCount, packagesCount == 1 ? L"" : L"s");
+
+    auto allocation{ wil::make_unique_cotaskmem_nothrow<HSTRING[]>(packagesCount) };
+    if (!allocation)
+    {
+        PrintPackageKeyValueError(key, E_OUTOFMEMORY);
+        return;
+    }
+    wil::unique_cotaskmem_array_ptr<wil::unique_hstring> packageFullNames{ allocation.release(), packagesCount };
+
     for (std::uint32_t index = 0; index < packagesCount; ++index)
     {
         wil::com_ptr_nothrow<ABI::Windows::ApplicationModel::IPackage> package;
@@ -623,12 +643,19 @@ void PrintPackages(PCWSTR key, HRESULT hr, ABI::Windows::Foundation::Collections
             continue;
         }
         wil::unique_hstring packageFullNameAsHString;
-        if (FAILED_LOG(hr = packageId->get_FullName(wil::out_param(packageFullNameAsHString))))
+        if (FAILED_LOG(hr = packageId->get_FullName(&packageFullNames[index])))
         {
             PrintPackageKeyValueError(key, hr);
             continue;
         }
-        PCWSTR packageFullName{ WindowsGetStringRawBuffer(packageFullNameAsHString.get(), nullptr) };
+    }
+
+    qsort(packageFullNames.get(), packagesCount, sizeof(HSTRING), compare_string_nocase);
+
+    for (std::uint32_t index = 0; index < packagesCount; ++index)
+    {
+        const auto& packageFullNameAsHString{ packageFullNames[index] };
+        PCWSTR packageFullName{ WindowsGetStringRawBuffer(packageFullNameAsHString, nullptr) };
         wprintf(L"    %ls\n", packageFullName);
     }
 }
