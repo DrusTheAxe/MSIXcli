@@ -907,6 +907,7 @@ constexpr PCWSTR help_Command_Package{
     L"  remove <PACKAGE>            Remove a package\n"
     L"  stage <PACKAGE>             Stage a package\n"
     L"  status                      Display or modify package status\n"
+    L"  verify <PACKAGEFULLNAME>    Verify a package's integrity\n"
     L"\n"
     L"Arguments:\n"
     L"  <PACKAGE> = PackageFamilyName|PackageFullName|file|URI\n"
@@ -1090,6 +1091,24 @@ constexpr PCWSTR help_Command_Package_Status_Set{
     L"Arguments:\n"
     L"  <PACKAGE>  = PackageFullName|file|URI\n"
     L"  <STATUS>   = Comma-delimited list: Disabled|LicenseIssue|Modified|Tampered\n"
+};
+
+constexpr PCWSTR help_Command_Package_Verify{
+    L"Description:\n"
+    L"  Verify a package's integrity\n"
+    L"\n"
+    L"Usage:\n"
+    L"  " MSIX_EXE_NAME L" package verify <PACKAGEFULLNAME> [options]\n"
+    L"\n"
+    L"Options:\n"
+    L"  -nologo, --no-logo            Do not display startup banner or copyright message\n"
+    L"  -?, -h, --help                Show command line help\n"
+    L"\n"
+    L"Arguments:\n"
+    L"  <PACKAGEFULLNAME>  = PackageFullName\n"
+    L"\n"
+    L"Links:\n"
+    L"  * https://learn.microsoft.com/uwp/api/windows.applicationmodel.package.verifycontentintegrityasync\n"
 };
 
 constexpr PCWSTR help_Command_Provision{
@@ -2303,10 +2322,6 @@ HRESULT Command_Package_Move(int argc, wchar_t* argv[])
         {
             retainFilesOnFailure = true;
         }
-        else if (wil::string_starts_with(arg, L"--target="))
-        {
-            target = arg + (ARRAYSIZE(L"--target=") - 1);
-        }
         else if ((CompareStringOrdinal(arg, -1, L"-nologo", -1, FALSE) == CSTR_EQUAL) ||
                  (CompareStringOrdinal(arg, -1, L"--no-logo", -1, FALSE) == CSTR_EQUAL))
         {
@@ -3189,6 +3204,82 @@ HRESULT Command_Package_Status(int argc, wchar_t* argv[])
     return S_OK;
 }
 
+HRESULT Command_Package_Verify(int argc, wchar_t* argv[])
+{
+    if (argc < 4)
+    {
+        Help(help_Command_Package_Verify);
+    }
+
+    PCWSTR packageFullName{ argv[3] };
+
+    bool logo{ true };
+
+    int argn{ 4 };
+    for (; argn < argc; ++argn)
+    {
+        PCWSTR arg{ argv[argn] };
+        if ((CompareStringOrdinal(arg, -1, L"-?", -1, FALSE) == CSTR_EQUAL) ||
+            (CompareStringOrdinal(arg, -1, L"-h", -1, FALSE) == CSTR_EQUAL) ||
+            (CompareStringOrdinal(arg, -1, L"--help", -1, FALSE) == CSTR_EQUAL))
+        {
+            Help(help_Command_Package_Verify);
+        }
+        else if ((CompareStringOrdinal(arg, -1, L"-nologo", -1, FALSE) == CSTR_EQUAL) ||
+                 (CompareStringOrdinal(arg, -1, L"--no-logo", -1, FALSE) == CSTR_EQUAL))
+        {
+            logo = false;
+        }
+        else
+        {
+            UnknownArgument(arg);
+        }
+    }
+    if (argn < argc)
+    {
+        UnknownArgument(argv[argn]);
+    }
+
+    if (logo)
+    {
+        ShowLogo();
+    }
+
+    HSTRING_HEADER packageFullNameHeader{};
+    HSTRING packageFullNameHString{};
+    RETURN_IF_FAILED(wil::to_hstring_reference(packageFullName, packageFullNameHeader, packageFullNameHString));
+
+    HSTRING_HEADER emptyStringHeader{};
+    HSTRING emptyStringHString{};
+    RETURN_IF_FAILED(wil::to_hstring_reference(L"", emptyStringHeader, emptyStringHString));
+
+    wil::com_ptr_nothrow<ABI::Windows::Management::Deployment::IPackageManager> packageManager;
+    {
+        HSTRING_HEADER classIdHeader{};
+        HSTRING classId{};
+        RETURN_IF_FAILED(WindowsCreateStringReference(
+            RuntimeClass_Windows_Management_Deployment_PackageManager,
+            ARRAYSIZE(RuntimeClass_Windows_Management_Deployment_PackageManager) - 1,
+            &classIdHeader, &classId));
+        wil::com_ptr_nothrow<IInspectable> inspectable;
+        RETURN_IF_FAILED(RoActivateInstance(classId, inspectable.put()));
+        RETURN_IF_FAILED(inspectable.query_to(packageManager.put()));
+    }
+
+    wil::com_ptr_nothrow<ABI::Windows::ApplicationModel::IPackage4> package4;
+    {
+        wil::com_ptr_nothrow<ABI::Windows::ApplicationModel::IPackage> package;
+        RETURN_IF_FAILED(packageManager->FindPackageByPackageFullName(packageFullNameHString, package.put()));
+        RETURN_IF_FAILED(package.query_to(package4.put()));
+    }
+    wil::com_ptr_nothrow<ABI::Windows::Foundation::__FIAsyncOperation_1_boolean_t> operation;
+    RETURN_IF_FAILED(package4->VerifyContentIntegrityAsync(operation.put()));
+    boolean verified{};
+    RETURN_IF_FAILED(wil::wait_for_completion_nothrow(operation.get(), &verified));
+    wprintf(L"Package '%ls' integrity is%ls modified\n", packageFullName, verified ? L" NOT" : L"");
+    return verified ? S_OK : S_FALSE;
+}
+
 HRESULT Command_Package(int argc, wchar_t* argv[])
 {
     if (argc < 3)
@@ -3220,6 +3311,10 @@ HRESULT Command_Package(int argc, wchar_t* argv[])
     else if (CompareStringOrdinal(command, -1, L"status", -1, FALSE) == CSTR_EQUAL)
     {
         RETURN_IF_FAILED(Command_Package_Status(argc, argv));
+    }
+    else if (CompareStringOrdinal(command, -1, L"verify", -1, FALSE) == CSTR_EQUAL)
+    {
+        RETURN_IF_FAILED(Command_Package_Verify(argc, argv));
     }
     else
     {
