@@ -35,6 +35,26 @@
     ::ExitProcess(1);
 }
 
+HRESULT ActivateInstance(
+    IInspectable** inspectable,
+    PCWSTR activatableClassId)
+{
+    *inspectable = nullptr;
+    HSTRING_HEADER classIdHeader{};
+    HSTRING classId{};
+    RETURN_IF_FAILED(::WindowsCreateStringReference(activatableClassId, static_cast<std::uint32_t>(wcslen(activatableClassId)), &classIdHeader, &classId));
+    RETURN_IF_FAILED(::RoActivateInstance(classId, inspectable));
+    return S_OK;
+}
+
+HRESULT ActivateInstance(
+    wil::com_ptr_nothrow<IInspectable>& inspectable,
+    PCWSTR activatableClassId)
+{
+    RETURN_IF_FAILED(ActivateInstance(inspectable.put(), activatableClassId));
+    return S_OK;
+}
+
 class PackageX
 {
 public:
@@ -573,12 +593,54 @@ void PrintPackageValue(PCWSTR key, HRESULT hr, const boolean& value)
     }
 }
 
+void PrintPackages(PCWSTR key, HRESULT hr, ABI::Windows::Foundation::Collections::IVector<ABI::Windows::ApplicationModel::Package*>* packages)
+{
+    if (FAILED(hr))
+    {
+        PrintPackageKeyValueError(key, hr);
+        return;
+    }
+
+    std::uint32_t packagesCount{};
+    if (FAILED_LOG(hr = packages->get_Size(&packagesCount)))
+    {
+        PrintPackageKeyValueError(key, hr);
+        return;
+    }
+    wprintf(L"%-30ls : %u package%ls\n", key, packagesCount, packagesCount == 1 ? L"" : L"s");
+    for (std::uint32_t index = 0; index < packagesCount; ++index)
+    {
+        wil::com_ptr_nothrow<ABI::Windows::ApplicationModel::IPackage> package;
+        if (FAILED_LOG(hr = packages->GetAt(index, package.put())))
+        {
+            PrintPackageKeyValueError(key, hr);
+            continue;
+        }
+        wil::com_ptr_nothrow<ABI::Windows::ApplicationModel::IPackageId> packageId;
+        if (FAILED_LOG(hr = package->get_Id(packageId.put())))
+        {
+            PrintPackageKeyValueError(key, hr);
+            continue;
+        }
+        wil::unique_hstring packageFullNameAsHString;
+        if (FAILED_LOG(hr = packageId->get_FullName(wil::out_param(packageFullNameAsHString))))
+        {
+            PrintPackageKeyValueError(key, hr);
+            continue;
+        }
+        PCWSTR packageFullName{ WindowsGetStringRawBuffer(packageFullNameAsHString.get(), nullptr) };
+        wprintf(L"    %ls\n", packageFullName);
+    }
+}
+
 void PrintPackage(
     PackageX& package,
     ABI::Windows::ApplicationModel::IPackageId* packageId,
     const bool localTimeZone,
     PCWSTR user = nullptr,
-    ABI::Windows::Management::Deployment::IPackageManager12* packageManager12 = nullptr)
+    ABI::Windows::Management::Deployment::IPackageManager12* packageManager12 = nullptr,
+    bool dependencies = false,
+    bool references = false)
 {
     wil::unique_hstring packageFullNameHString;
     HRESULT hr{ LOG_IF_FAILED(packageId->get_FullName(wil::out_param(packageFullNameHString))) };
@@ -655,6 +717,7 @@ void PrintPackage(
     }
     if (packageManager12 && packageFullName)
     {
+        //TODO user=null == current user == S-1-...
         if (user)
         {
             HSTRING_HEADER userHeader{};
@@ -666,7 +729,17 @@ void PrintPackage(
                 hr = LOG_IF_FAILED(packageManager12->IsPackageRemovalPendingForUser(packageFullNameHString.get(), userHString, &boolean));
                 if (SUCCEEDED(hr))
                 {
-                    hr = LOG_IF_FAILED(wil::str_printf_nothrow(value, L"[%ls] %ls", user, boolean ? L"Yes" : L"No"));
+                    wil::unique_any_psid userSid;
+                    hr = LOG_IF_FAILED(wil::security::to_sid(user, userSid));
+                    if (SUCCEEDED(hr))
+                    {
+                        wil::unique_process_heap_string userName;
+                        hr = LOG_IF_FAILED(wil::security::to_account_name(userSid.get(), userName));
+                        if (SUCCEEDED(hr))
+                        {
+                            hr = LOG_IF_FAILED(wil::str_printf_nothrow(value, L"{%ls [%ls]: %ls}", user, userName ? userName.get() : L"<null>", boolean ? L"Yes" : L"No"));
+                        }
+                    }
                 }
                 PrintPackageValue(L"RemovalPending", hr, value.get());
             }
@@ -674,6 +747,64 @@ void PrintPackage(
         else
         {
             PrintPackageValue(L"RemovalPending", LOG_IF_FAILED(packageManager12->IsPackageRemovalPending(packageFullNameHString.get(), &boolean)), boolean);
+            if (dependencies)
+            {
+                wil::com_ptr_nothrow<ABI::Windows::ApplicationModel::IFindRelatedPackagesOptions> findRelatedPackagesOptions;
+                {
+                    wil::com_ptr_nothrow<IInspectable> inspectable;
+                    if (FAILED_LOG(hr = ActivateInstance(inspectable, RuntimeClass_Windows_ApplicationModel_FindRelatedPackagesOptions)) ||
+                        FAILED_LOG(hr = inspectable.query_to(findRelatedPackagesOptions.put())))
+                    {
+                        PrintPackageKeyValueError(L"Dependencies", hr);
+                    }
+                }
+                if (findRelatedPackagesOptions)
+                {
+                    if (FAILED_LOG(hr = findRelatedPackagesOptions->put_Relationship(ABI::Windows::ApplicationModel::PackageRelationship_Dependencies)) ||
+                        FAILED_LOG(hr = findRelatedPackagesOptions->put_IncludeFrameworks(true)) ||
+                        FAILED_LOG(hr = findRelatedPackagesOptions->put_IncludeHostRuntimes(true)) ||
+                        FAILED_LOG(hr = findRelatedPackagesOptions->put_IncludeOptionals(true)) ||
+                        FAILED_LOG(hr = findRelatedPackagesOptions->put_IncludeResources(true)))
+                    {
+                        PrintPackageKeyValueError(L"Dependencies", hr);
+                    }
+                    if (SUCCEEDED(hr))
+                    {
+                        wil::com_ptr_nothrow<ABI::Windows::Foundation::Collections::IVector<ABI::Windows::ApplicationModel::Package*>> packages;
+                        hr = LOG_IF_FAILED(package.package9()->FindRelatedPackages(findRelatedPackagesOptions.get(), packages.put()));
+                        PrintPackages(L"Dependencies", hr, packages.get());
+                    }
+                }
+            }
+        }
+        if (references)
+        {
+            wil::com_ptr_nothrow<ABI::Windows::ApplicationModel::IFindRelatedPackagesOptions> findRelatedPackagesOptions;
+            {
+                wil::com_ptr_nothrow<IInspectable> inspectable;
+                if (FAILED_LOG(hr = ActivateInstance(inspectable, RuntimeClass_Windows_ApplicationModel_FindRelatedPackagesOptions)) ||
+                    FAILED_LOG(hr = inspectable.query_to(findRelatedPackagesOptions.put())))
+                {
+                    PrintPackageKeyValueError(L"References", hr);
+                }
+            }
+            if (findRelatedPackagesOptions)
+            {
+                if (FAILED_LOG(hr = findRelatedPackagesOptions->put_Relationship(ABI::Windows::ApplicationModel::PackageRelationship_Dependents)) ||
+                    FAILED_LOG(hr = findRelatedPackagesOptions->put_IncludeFrameworks(true)) ||
+                    FAILED_LOG(hr = findRelatedPackagesOptions->put_IncludeHostRuntimes(true)) ||
+                    FAILED_LOG(hr = findRelatedPackagesOptions->put_IncludeOptionals(true)) ||
+                    FAILED_LOG(hr = findRelatedPackagesOptions->put_IncludeResources(true)))
+                {
+                    PrintPackageKeyValueError(L"References", hr);
+                }
+                if (SUCCEEDED(hr))
+                {
+                    wil::com_ptr_nothrow<ABI::Windows::Foundation::Collections::IVector<ABI::Windows::ApplicationModel::Package*>> packages;
+                    hr = LOG_IF_FAILED(package.package9()->FindRelatedPackages(findRelatedPackagesOptions.get(), packages.put()));
+                    PrintPackages(L"References", hr, packages.get());
+                }
+            }
         }
     }
 }
@@ -950,9 +1081,11 @@ constexpr PCWSTR help_Command_Package_List{
     L"  " MSIX_EXE_NAME L" package list [options]\n"
     L"\n"
     L"Options:\n"
+    L"  --dependencies                 Display dependencies of the package\n"
     L"  --format=<FORMAT>              Display package format (default=full)\n"
     L"  --glob[:<PROPERTY>]=<PATTERN>  Display packages with <PROPERTY> (default=name) matching PATTERN (*,? wildcards)\n"
     L"  --package-type=<TYPE>          Display packages of the specified package type (*=all)\n"
+    L"  --references[:<REFTYPE>]       Display references on the package\n"
     L"  --user=<SID>                   Display packages for a user (*=all, default=current)\n"
     L"  --timezone=<TIMEZONE>          Display timezone for timestamps (default=local)\n"
     L"  --no-summary                   Do not display summary information\n"
@@ -2032,12 +2165,14 @@ HRESULT Command_Package_List(int argc, wchar_t* argv[])
 {
     enum class PackageDisplayFormat { Full = 0, PackageFullName = 1, PackageFamilyName = 2 };
 
+    bool dependencies{};
     PackageDisplayFormat format{};
     PCWSTR glob_name{};
     PCWSTR glob_packageFamilyName{};
     PCWSTR glob_packageFullName{};
     bool logo{ true };
     ABI::Windows::Management::Deployment::PackageTypes packageTypes{};
+    bool references{};
     bool summary{ true };
     bool timeZoneIsLocal{ true };
     PCWSTR user{};
@@ -2051,6 +2186,10 @@ HRESULT Command_Package_List(int argc, wchar_t* argv[])
             (CompareStringOrdinal(arg, -1, L"--help", -1, FALSE) == CSTR_EQUAL))
         {
             Help(help_Command_Package_List);
+        }
+        else if (CompareStringOrdinal(arg, -1, L"--dependencies", -1, FALSE) == CSTR_EQUAL)
+        {
+            dependencies = true;
         }
         else if (CompareStringOrdinal(arg, -1, L"--format=full", -1, FALSE) == CSTR_EQUAL)
         {
@@ -2088,6 +2227,10 @@ HRESULT Command_Package_List(int argc, wchar_t* argv[])
                 UnknownArgument(arg);
             }
         }
+        else if (CompareStringOrdinal(arg, -1, L"--references", -1, FALSE) == CSTR_EQUAL)
+        {
+            references = true;
+        }
         else if (CompareStringOrdinal(arg, -1, L"--timezone=local", -1, FALSE) == CSTR_EQUAL)
         {
             timeZoneIsLocal = true;
@@ -2117,6 +2260,15 @@ HRESULT Command_Package_List(int argc, wchar_t* argv[])
     if (argn < argc)
     {
         UnknownArgument(argv[argn]);
+    }
+
+    if (dependencies && user)
+    {
+        wprintf(L"Error 0x00000001: Incompatible argument\n"
+                L"    Full command line: '%ls'\n"
+                L"Argument: --dependencies and --user=<SID> are not compatible\n",
+                GetCommandLine());
+        ::ExitProcess(1);
     }
 
     if (logo)
@@ -2269,7 +2421,7 @@ HRESULT Command_Package_List(int argc, wchar_t* argv[])
             {
                 hr = S_OK;
             }
-            PrintPackage(packageX, packageId.get(), timeZoneIsLocal, user, packageManager12.get());
+            PrintPackage(packageX, packageId.get(), timeZoneIsLocal, user, packageManager12.get(), dependencies, references);
             wprintf(L"\n");
         }
         else if (format == PackageDisplayFormat::PackageFullName)

@@ -8,6 +8,7 @@
 #include <wil/token_helpers.h>
 
 #include <shlwapi.h>
+#include <sddl.h>
 
 namespace wil
 {
@@ -452,6 +453,60 @@ inline PCWSTR integrity_level_to_string(const DWORD integrityLevel)
         case SECURITY_MANDATORY_PROTECTED_PROCESS_RID:  return L"ProtectedProcess";
         default:                                        return L"???";
     }
+}
+
+inline HRESULT to_sid(PCWSTR sidString, wil::unique_any_psid& sid)
+{
+    sid.reset();
+
+    RETURN_HR_IF(E_INVALIDARG, !sidString || !*sidString);
+
+    PSID psid{};
+    RETURN_IF_WIN32_BOOL_FALSE(::ConvertStringSidToSidW(sidString, &psid));
+    wil::unique_any_psid convertedSid{ psid };
+    RETURN_HR_IF(E_INVALIDARG, !IsValidSid(convertedSid.get()));
+    sid = wistd::move(convertedSid);
+    return S_OK;
+}
+
+inline HRESULT to_account_name(
+    PSID sid,
+    wil::unique_process_heap_string& accountName,
+    SID_NAME_USE* accountType = nullptr)
+{
+    accountName.reset();
+    RETURN_HR_IF_NULL(E_INVALIDARG, sid);
+    RETURN_HR_IF(E_INVALIDARG, !IsValidSid(sid));
+
+    DWORD nameLength{};
+    DWORD domainLength{};
+    SID_NAME_USE sidType{};
+    ::LookupAccountSidW(nullptr, sid, nullptr, &nameLength, nullptr, &domainLength, &sidType);
+    const auto lastError{ ::GetLastError() };
+    RETURN_HR_IF(HRESULT_FROM_WIN32(lastError), lastError != ERROR_INSUFFICIENT_BUFFER);
+
+    auto name{ wil::make_process_heap_string_nothrow(nullptr, nameLength) };
+    RETURN_IF_NULL_ALLOC(name);
+
+    auto domain{ wil::make_process_heap_string_nothrow(nullptr, domainLength) };
+    RETURN_IF_NULL_ALLOC(domain);
+
+    RETURN_IF_WIN32_BOOL_FALSE(::LookupAccountSidW(nullptr, sid, name.get(), &nameLength, domain.get(), &domainLength, &sidType));
+    if (!wil::string_is_null_or_empty(domain.get()))
+    {
+        RETURN_IF_FAILED(wil::str_printf_nothrow(accountName, L"%ls\\%ls", domain.get(), name.get()));
+    }
+    else
+    {
+        accountName = wil::make_process_heap_string_nothrow(name.get());
+        RETURN_IF_NULL_ALLOC(accountName);
+    }
+
+    if (accountType)
+    {
+        *accountType = sidType;
+    }
+    return S_OK;
 }
 }
 
