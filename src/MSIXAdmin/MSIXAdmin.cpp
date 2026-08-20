@@ -55,6 +55,93 @@ HRESULT ActivateInstance(
     return S_OK;
 }
 
+HRESULT FindProvisionedPackageFullNames(
+    ABI::Windows::Management::Deployment::IPackageManager9* packageManager9,
+    wil::unique_cotaskmem_array_ptr<wil::unique_cotaskmem_string>& packageFullNames,
+    bool sort = false)
+{
+    packageFullNames.reset();
+
+    wil::com_ptr_nothrow<ABI::Windows::Foundation::Collections::IVector<ABI::Windows::ApplicationModel::Package*>> packages;
+    RETURN_IF_FAILED(packageManager9->FindProvisionedPackages(packages.put()));
+    std::uint32_t count{};
+    RETURN_IF_FAILED(packages->get_Size(&count));
+
+    auto allocation{ wil::make_unique_cotaskmem_nothrow<PWSTR[]>(count) };
+    RETURN_IF_NULL_ALLOC(allocation);
+    wil::unique_cotaskmem_array_ptr<wil::unique_cotaskmem_string> stringsFullNames{ allocation.release(), count };
+
+    for (std::uint32_t index = 0; index < count; ++index)
+    {
+        wil::com_ptr_nothrow<ABI::Windows::ApplicationModel::IPackage> package;
+        RETURN_IF_FAILED(packages->GetAt(index, package.put()));
+        wil::com_ptr_nothrow<ABI::Windows::ApplicationModel::IPackageId> packageId;
+        RETURN_IF_FAILED(package->get_Id(packageId.put()));
+        wil::unique_hstring packageFullName;
+        RETURN_IF_FAILED(packageId->get_FullName(wil::out_param(packageFullName)));
+        PCWSTR fullName{ WindowsGetStringRawBuffer(packageFullName.get(), nullptr) };
+        auto string{ wil::make_cotaskmem_string_nothrow(fullName) };
+        RETURN_IF_NULL_ALLOC(string);
+        stringsFullNames[index] = string.release();
+    }
+
+    if (sort)
+    {
+        qsort(stringsFullNames.get(), count, sizeof(PWSTR), wil::compare_wstring_nocase);
+    }
+
+    packageFullNames = wistd::move(stringsFullNames);
+    return S_OK;
+}
+
+HRESULT FindProvisionedPackageFamilyNames(
+    ABI::Windows::Management::Deployment::IPackageManager9* packageManager9,
+    wil::unique_cotaskmem_array_ptr<wil::unique_cotaskmem_string>& packageFamilyNames,
+    bool sort = false)
+{
+    packageFamilyNames.reset();
+
+    wil::com_ptr_nothrow<ABI::Windows::Management::Deployment::IPackageManager9> packageManager9local;
+    if (!packageManager9)
+    {
+        wil::com_ptr_nothrow<IInspectable> inspectable;
+        RETURN_IF_FAILED(ActivateInstance(inspectable, RuntimeClass_Windows_Management_Deployment_PackageManager));
+        RETURN_IF_FAILED(inspectable.query_to(packageManager9local.put()));
+        packageManager9 = packageManager9local.get();
+    }
+
+    wil::com_ptr_nothrow<ABI::Windows::Foundation::Collections::IVector<ABI::Windows::ApplicationModel::Package*>> packages;
+    RETURN_IF_FAILED(packageManager9->FindProvisionedPackages(packages.put()));
+    std::uint32_t count{};
+    RETURN_IF_FAILED(packages->get_Size(&count));
+
+    auto allocation{ wil::make_unique_cotaskmem_nothrow<PWSTR[]>(count) };
+    RETURN_IF_NULL_ALLOC(allocation);
+    wil::unique_cotaskmem_array_ptr<wil::unique_cotaskmem_string> stringsFamilyNames{ allocation.release(), count };
+
+    for (std::uint32_t index = 0; index < count; ++index)
+    {
+        wil::com_ptr_nothrow<ABI::Windows::ApplicationModel::IPackage> package;
+        RETURN_IF_FAILED(packages->GetAt(index, package.put()));
+        wil::com_ptr_nothrow<ABI::Windows::ApplicationModel::IPackageId> packageId;
+        RETURN_IF_FAILED(package->get_Id(packageId.put()));
+        wil::unique_hstring packageFamilyName;
+        RETURN_IF_FAILED(packageId->get_FamilyName(wil::out_param(packageFamilyName)));
+        PCWSTR fullName{ WindowsGetStringRawBuffer(packageFamilyName.get(), nullptr) };
+        auto string{ wil::make_cotaskmem_string_nothrow(fullName) };
+        RETURN_IF_NULL_ALLOC(string);
+        stringsFamilyNames[index] = string.release();
+    }
+
+    if (sort)
+    {
+        qsort(stringsFamilyNames.get(), count, sizeof(PWSTR), wil::compare_wstring_nocase);
+    }
+
+    packageFamilyNames = wistd::move(stringsFamilyNames);
+    return S_OK;
+}
+
 class PackageX
 {
 public:
@@ -593,18 +680,10 @@ void PrintPackageValue(PCWSTR key, HRESULT hr, const boolean& value)
     }
 }
 
-int compare_string_nocase(const void* left, const void* right)
-{
-    const auto leftHString{ *static_cast<const HSTRING*>(left) };
-    PCWSTR leftString{ WindowsGetStringRawBuffer(leftHString, nullptr) };
-
-    const auto rightHString{ *static_cast<const HSTRING*>(right) };
-    PCWSTR rightString{ WindowsGetStringRawBuffer(rightHString, nullptr) };
-
-    return ::CompareStringOrdinal(leftString, -1, rightString, -1, TRUE) - CSTR_EQUAL;
-}
-
-void PrintPackages(PCWSTR key, HRESULT hr, ABI::Windows::Foundation::Collections::IVector<ABI::Windows::ApplicationModel::Package*>* packages)
+void PrintPackages(
+    PCWSTR key,
+    HRESULT hr,
+    ABI::Windows::Foundation::Collections::IVector<ABI::Windows::ApplicationModel::Package*>* packages)
 {
     if (FAILED(hr))
     {
@@ -650,7 +729,7 @@ void PrintPackages(PCWSTR key, HRESULT hr, ABI::Windows::Foundation::Collections
         }
     }
 
-    qsort(packageFullNames.get(), packagesCount, sizeof(HSTRING), compare_string_nocase);
+    qsort(packageFullNames.get(), packagesCount, sizeof(HSTRING), wil::compare_hstring_nocase);
 
     for (std::uint32_t index = 0; index < packagesCount; ++index)
     {
@@ -673,9 +752,11 @@ void PrintPackage(
     HRESULT hr{ LOG_IF_FAILED(packageId->get_FullName(wil::out_param(packageFullNameHString))) };
     PCWSTR packageFullName{ WindowsGetStringRawBuffer(packageFullNameHString.get(), nullptr) };
     PrintPackageValue(L"PackageFullName", hr, packageFullName);
+    wil::unique_hstring packageFamilyNameHString;
+    hr = LOG_IF_FAILED(packageId->get_FamilyName(wil::out_param(packageFamilyNameHString)));
+    PCWSTR packageFamilyName{ WindowsGetStringRawBuffer(packageFamilyNameHString.get(), nullptr) };
+    PrintPackageValue(L"PackageFamilyName", hr, packageFamilyName);
     wil::unique_hstring string;
-    hr = LOG_IF_FAILED(packageId->get_FamilyName(wil::out_param(string)));
-    PrintPackageValue(L"PackageFamilyName", hr, string);
     hr = LOG_IF_FAILED(packageId->get_Name(wil::out_param(string)));
     PrintPackageValue(L"Name", hr, string);
     ABI::Windows::ApplicationModel::PackageVersion version{};
@@ -714,7 +795,6 @@ void PrintPackage(
     PrintPackageValue(L"UserExternalPath", hr, string);
     ABI::Windows::Foundation::DateTime dateTime{};
     PrintPackageValue(L"InstalledDate", LOG_IF_FAILED(package.package3()->get_InstalledDate(&dateTime)), dateTime, localTimeZone);
-    //TODO PrintPackageValue(L"Dependencies
     boolean boolean{};
     PrintPackageValue(L"IsDevelopmentMode", LOG_IF_FAILED(package.package2()->get_IsDevelopmentMode(&boolean)), boolean);
     PackageOrigin packageOrigin{};
@@ -738,6 +818,34 @@ void PrintPackage(
     PrintPackageValue(L"IsStub", LOG_IF_FAILED(package.package8()->get_IsStub(&boolean)), boolean);
     hr = LOG_IF_FAILED(package.package9()->get_SourceUriSchemeName(wil::out_param(string)));
     PrintPackageValue(L"SourceUriSchemeName", hr, string);
+    HRESULT hrIsProvisioned{};
+    bool isProvisioned{};
+    {
+        wil::com_ptr_nothrow<ABI::Windows::Management::Deployment::IPackageManager9> packageManager9;
+        if (packageManager12)
+        {
+            (void) LOG_IF_FAILED(packageManager12->QueryInterface(IID_PPV_ARGS(packageManager9.put())));
+        }
+        wil::unique_cotaskmem_array_ptr<wil::unique_cotaskmem_string> provisionedPackageFamilyNames;
+        hr = LOG_IF_FAILED(FindProvisionedPackageFamilyNames(packageManager9.get(), provisionedPackageFamilyNames));
+        if (FAILED(hr))
+        {
+            PrintPackageKeyValueError(L"IsProvisioned", hr);
+            hrIsProvisioned = hr;
+        }
+        else
+        {
+            for (const auto& provisionedPackageFamilyName : provisionedPackageFamilyNames)
+            {
+                if (CompareStringOrdinal(packageFamilyName, -1, provisionedPackageFamilyName, -1, TRUE) == CSTR_EQUAL)
+                {
+                    isProvisioned = true;
+                    break;
+                }
+            }
+            PrintPackageValue(L"IsProvisioned", S_OK, isProvisioned);
+        }
+    }
     if (user)
     {
         PrintPackageValue(L"User", hr, user);
@@ -827,10 +935,19 @@ void PrintPackage(
                 }
                 if (SUCCEEDED(hr))
                 {
+
                     wil::com_ptr_nothrow<ABI::Windows::Foundation::Collections::IVector<ABI::Windows::ApplicationModel::Package*>> packages;
                     hr = LOG_IF_FAILED(package.package9()->FindRelatedPackages(findRelatedPackagesOptions.get(), packages.put()));
                     PrintPackages(L"References", hr, packages.get());
                 }
+            }
+            if (FAILED(hrIsProvisioned))
+            {
+                wprintf(L"    Provisioned : ***ERROR 0x%08X\n", hr);
+            }
+            else
+            {
+                wprintf(L"    Provisioned : %ls\n", isProvisioned ? L"Yes" : L"No");
             }
         }
     }

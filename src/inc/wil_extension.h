@@ -13,6 +13,25 @@
 namespace wil
 {
 using unique_hstring_array = wil::unique_array_ptr<wil::unique_hstring, wistd::default_delete<HSTRING[]>>;
+using unique_process_heap_string_array = wil::unique_array_ptr<wil::unique_process_heap_string, wil::process_heap_deleter>;
+
+inline int compare_wstring_nocase(const void* left, const void* right)
+{
+    PCWSTR leftString{ *static_cast<PCWSTR const*>(left) };
+    PCWSTR rightString{ *static_cast<PCWSTR const*>(right) };
+    return ::CompareStringOrdinal(leftString, -1, rightString, -1, TRUE) - CSTR_EQUAL;
+}
+
+inline int compare_hstring_nocase(const void* left, const void* right)
+{
+    const auto leftHString{ *static_cast<const HSTRING*>(left) };
+    PCWSTR leftString{ ::WindowsGetStringRawBuffer(leftHString, nullptr) };
+
+    const auto rightHString{ *static_cast<const HSTRING*>(right) };
+    PCWSTR rightString{ ::WindowsGetStringRawBuffer(rightHString, nullptr) };
+
+    return ::CompareStringOrdinal(leftString, -1, rightString, -1, TRUE) - CSTR_EQUAL;
+}
 
 /// @return null if an error occurred.
 inline wil::unique_hlocal_string format_message_nothrow(HRESULT hr) noexcept
