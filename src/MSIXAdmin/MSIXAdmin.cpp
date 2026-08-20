@@ -17,6 +17,8 @@
 #endif
 #endif
 
+static bool g_benchmark{};
+
 [[noreturn]] void UnknownArgument(PCWSTR arg)
 {
     wprintf(L"Error 0x00000001: Unknown argument\n"
@@ -1110,6 +1112,7 @@ constexpr PCWSTR help_Command_Certificate{
     L"  " MSIX_EXE_NAME L" certificate [command] [options]\n"
     L"\n"
     L"Options:\n"
+    L"  --benchmark         Display elapsed time\n"
     L"  -nologo, --no-logo  Do not display startup banner or copyright message\n"
     L"  -?, -h, --help      Show command line help\n"
     L"\n"
@@ -1131,6 +1134,7 @@ constexpr PCWSTR help_Command_Help_Commands_Tree{
     L"  " MSIX_EXE_NAME L" help commands tree [options]\n"
     L"\n"
     L"Options:\n"
+    L"  --benchmark           Display elapsed time\n"
     L"  -nologo, --no-logo    Do not display startup banner or copyright message\n"
     L"  -?, -h, --help        Show command line help\n"
 };
@@ -1143,6 +1147,7 @@ constexpr PCWSTR help_Command_Help_Commands{
     L"  " MSIX_EXE_NAME L" help commands <commands> [options]\n"
     L"\n"
     L"Options:\n"
+    L"  --benchmark           Display elapsed time\n"
     L"  -nologo, --no-logo    Do not display startup banner or copyright message\n"
     L"  -?, -h, --help        Show command line help\n"
     L"\n"
@@ -1158,6 +1163,7 @@ constexpr PCWSTR help_Command_Help{
     L"  " MSIX_EXE_NAME L" help <command> [options]\n"
     L"\n"
     L"Options:\n"
+    L"  --benchmark           Display elapsed time\n"
     L"  -nologo, --no-logo    Do not display startup banner or copyright message\n"
     L"  -?, -h, --help        Show command line help\n"
     L"\n"
@@ -1173,6 +1179,7 @@ constexpr PCWSTR help_Command_Package{
     L"  " MSIX_EXE_NAME L" package <command> [options]\n"
     L"\n"
     L"Options:\n"
+    L"  --benchmark           Display elapsed time\n"
     L"  -nologo, --no-logo    Do not display startup banner or copyright message\n"
     L"  -?, -h, --help        Show command line help\n"
     L"\n"
@@ -1210,6 +1217,7 @@ constexpr PCWSTR help_Command_Package_Add{
     L"  --stage-in-place              Stage the package in place\n"
     L"  --stub=<STUB>                 Add a stub package\n"
     L"  --target=<VOLUME>             Add the package to the target Package Volume (e.g. C:)\n"
+    L"  --benchmark                   Display elapsed time\n"
     L"  -nologo, --no-logo            Do not display startup banner or copyright message\n"
     L"  -?, -h, --help                Show command line help\n"
     L"\n"
@@ -1235,6 +1243,7 @@ constexpr PCWSTR help_Command_Package_List{
     L"  --user=<SID>                   Display packages for a user (*=all, default=current)\n"
     L"  --timezone=<TIMEZONE>          Display timezone for timestamps (default=local)\n"
     L"  --no-summary                   Do not display summary information\n"
+    L"  --benchmark                    Display elapsed time\n"
     L"  -nologo, --no-logo             Do not display startup banner or copyright message\n"
     L"  -?, -h, --help                 Show command line help\n"
     L"\n"
@@ -1255,6 +1264,7 @@ constexpr PCWSTR help_Command_Package_Move{
     L"Options:\n"
     L"  --force                    Forcibly shutdown processes using the package if in use\n"
     L"  --retain-files-on-failure  Keep files created on a failed deployment\n"
+    L"  --benchmark                Display elapsed time\n"
     L"  -nologo, --no-logo         Do not display startup banner or copyright message\n"
     L"  -?, -h, --help             Show command line help\n"
 };
@@ -1275,6 +1285,7 @@ constexpr PCWSTR help_Command_Package_Register{
     L"  --force                       Forcibly shutdown processes using the package if in use\n"
     L"  --stage-in-place              Stage the package in place\n"
     L"  --target=<VOLUME>             Register the package to the target Package Volume (e.g. C:)\n"
+    L"  --benchmark                   Display elapsed time\n"
     L"  -nologo, --no-logo            Do not display startup banner or copyright message\n"
     L"  -?, -h, --help                Show command line help\n"
     L"\n"
@@ -1294,6 +1305,7 @@ constexpr PCWSTR help_Command_Package_Remove{
     L"  --defer                      Defer removal if package is in use\n"
     L"  --preserve-application-data  Keep application data\n"
     L"  --all-users                  Remove the package for all users\n"
+    L"  --benchmark                  Display elapsed time\n"
     L"  -nologo, --no-logo           Do not display startup banner or copyright message\n"
     L"  -?, -h, --help               Show command line help\n"
 };
@@ -1315,6 +1327,7 @@ constexpr PCWSTR help_Command_Package_Stage{
     L"  --stage-in-place            Stage the package in place\n"
     L"  --stub=<STUB>               Add a stub package\n"
     L"  --target=<VOLUME>           Add the package to the target Package Volume (e.g. C:)\n"
+    L"  --benchmark                 Display elapsed time\n"
     L"  -nologo, --no-logo          Do not display startup banner or copyright message\n"
     L"  -?, -h, --help              Show command line help\n"
     L"\n"
@@ -1332,6 +1345,7 @@ constexpr PCWSTR help_Command_Package_Status{
     L"  " MSIX_EXE_NAME L" package status <command> [options]\n"
     L"\n"
     L"Options:\n"
+    L"  --benchmark                Display elapsed time\n"
     L"  -nologo, --no-logo         Do not display startup banner or copyright message\n"
     L"  -?, -h, --help             Show command line help\n"
     L"\n"
@@ -1348,6 +1362,7 @@ constexpr PCWSTR help_Command_Package_Status_Clear{
     L"  " MSIX_EXE_NAME L" package status clear <PACKAGE> <STATUS> [options]\n"
     L"\n"
     L"Options:\n"
+    L"  --benchmark                   Display elapsed time\n"
     L"  -nologo, --no-logo            Do not display startup banner or copyright message\n"
     L"  -?, -h, --help                Show command line help\n"
     L"\n"
@@ -1364,6 +1379,7 @@ constexpr PCWSTR help_Command_Package_Status_Set{
     L"  " MSIX_EXE_NAME L" package status set <PACKAGE> <STATUS> [options]\n"
     L"\n"
     L"Options:\n"
+    L"  --benchmark                   Display elapsed time\n"
     L"  -nologo, --no-logo            Do not display startup banner or copyright message\n"
     L"  -?, -h, --help                Show command line help\n"
     L"\n"
@@ -1380,6 +1396,7 @@ constexpr PCWSTR help_Command_Package_Verify{
     L"  " MSIX_EXE_NAME L" package verify <PACKAGEFULLNAME> [options]\n"
     L"\n"
     L"Options:\n"
+    L"  --benchmark                   Display elapsed time\n"
     L"  -nologo, --no-logo            Do not display startup banner or copyright message\n"
     L"  -?, -h, --help                Show command line help\n"
     L"\n"
@@ -1398,6 +1415,7 @@ constexpr PCWSTR help_Command_Provision{
     L"  " MSIX_EXE_NAME L" provision <command> [options]\n"
     L"\n"
     L"Options:\n"
+    L"  --benchmark           Display elapsed time\n"
     L"  -nologo, --no-logo    Do not display startup banner or copyright message\n"
     L"  -?, -h, --help        Show command line help\n"
     L"\n"
@@ -1415,6 +1433,7 @@ constexpr PCWSTR help_Command_Provision_Add{
     L"  " MSIX_EXE_NAME L" provision add <PACKAGEFAMILYNAME> [options]\n"
     L"\n"
     L"Options:\n"
+    L"  --benchmark           Display elapsed time\n"
     L"  --defer-registration  Defer automatic registration\n"
     L"  -nologo, --no-logo    Do not display startup banner or copyright message\n"
     L"  -?, -h, --help        Show command line help\n"
@@ -1432,6 +1451,7 @@ constexpr PCWSTR help_Command_Provision_List{
     L"  --glob=<PATTERN>       Display package families matching PATTERN (*,? wildcards)\n"
     L"  --timezone=<TIMEZONE>  Display timezone for timestamps (default=local)\n"
     L"  --no-summary           Do not display summary information\n"
+    L"  --benchmark            Display elapsed time\n"
     L"  -nologo, --no-logo     Do not display startup banner or copyright message\n"
     L"  -?, -h, --help         Show command line help\n"
     L"\n"
@@ -1448,6 +1468,7 @@ constexpr PCWSTR help_Command_Provision_Remove{
     L"  " MSIX_EXE_NAME L" provision remove <PACKAGEFAMILYNAME> [options]\n"
     L"\n"
     L"Options:\n"
+    L"  --benchmark           Display elapsed time\n"
     L"  -nologo, --no-logo    Do not display startup banner or copyright message\n"
     L"  -?, -h, --help        Show command line help\n"
 };
@@ -1471,6 +1492,7 @@ constexpr PCWSTR help_Command_Shortcut_Add{
     L"  --show=<normal|min|max>      Set the initial window show state\n"
     L"  --target=<app|file|url>      TARGET is an application (ApplicationUserModelID), file or URL\n"
     L"  --working-directory=<PATH>   Set the working directory\n"
+    L"  --benchmark                  Display elapsed time\n"
     L"  -nologo, --no-logo           Do not display startup banner or copyright message\n"
     L"  -?, -h, --help               Show command line help\n"
     L"\n"
@@ -1485,6 +1507,7 @@ constexpr PCWSTR help_Command_Shortcut{
     L"  " MSIX_EXE_NAME L" shortcut <command> [options]\n"
     L"\n"
     L"Options:\n"
+    L"  --benchmark           Display elapsed time\n"
     L"  -nologo, --no-logo    Do not display startup banner or copyright message\n"
     L"  -?, -h, --help        Show command line help\n"
     L"\n"
@@ -1500,6 +1523,7 @@ constexpr PCWSTR help_Command_Tool{
     L"  " MSIX_EXE_NAME L" tool <command> [options]\n"
     L"\n"
     L"Options:\n"
+    L"  --benchmark           Display elapsed time\n"
     L"  -nologo, --no-logo    Do not display startup banner or copyright message\n"
     L"  -?, -h, --help        Show command line help\n"
     L"\n"
@@ -1515,6 +1539,7 @@ constexpr PCWSTR help_Command_Tool_PropertySheet{
     L"  " MSIX_EXE_NAME L" tool propertysheet <command> [options]\n"
     L"\n"
     L"Options:\n"
+    L"  --benchmark           Display elapsed time\n"
     L"  -nologo, --no-logo    Do not display startup banner or copyright message\n"
     L"  -?, -h, --help        Show command line help\n"
     L"\n"
@@ -1533,6 +1558,7 @@ constexpr PCWSTR help_Command_Tool_PropertySheet_Install{
     L"\n"
     L"Options:\n"
     L"  --path=<FILE>         The path to the MSIX property sheet DLL (default = GetPath(" MSIX_EXE_NAME L".exe) + \\MSIXPropertySheet.dll)\n"
+    L"  --benchmark           Display elapsed time\n"
     L"  -nologo, --no-logo    Do not display startup banner or copyright message\n"
     L"  -?, -h, --help        Show command line help\n"
 };
@@ -1545,6 +1571,7 @@ constexpr PCWSTR help_Command_Tool_PropertySheet_List{
     L"  " MSIX_EXE_NAME L" tool propertysheet list [options]\n"
     L"\n"
     L"Options:\n"
+    L"  --benchmark           Display elapsed time\n"
     L"  -nologo, --no-logo    Do not display startup banner or copyright message\n"
     L"  -?, -h, --help        Show command line help\n"
 };
@@ -1558,6 +1585,7 @@ constexpr PCWSTR help_Command_Tool_PropertySheet_Uninstall{
     L"\n"
     L"Options:\n"
     L"  --path=<FILE>         The path to the MSIX property sheet DLL (default = GetPath(" MSIX_EXE_NAME L".exe) + \\MSIXPropertySheet.dll)\n"
+    L"  --benchmark           Display elapsed time\n"
     L"  -nologo, --no-logo    Do not display startup banner or copyright message\n"
     L"  -?, -h, --help        Show command line help\n"
 };
@@ -1570,6 +1598,7 @@ constexpr PCWSTR help_Command_Version{
     L"  " MSIX_EXE_NAME L" version [options]\n"
     L"\n"
     L"Options:\n"
+    L"  --benchmark           Display elapsed time\n"
     L"  -nologo, --no-logo  Do not display startup banner or copyright message\n"
     L"  -?, -h, --help      Show command line help\n"
 };
@@ -1861,6 +1890,10 @@ HRESULT Command_Certificate(int argc, wchar_t* argv[])
             (CompareStringOrdinal(arg, -1, L"--help", -1, FALSE) == CSTR_EQUAL))
         {
             Help(help_Command_Certificate);
+        }
+        else if (CompareStringOrdinal(arg, -1, L"--benchmark", -1, FALSE) == CSTR_EQUAL)
+        {
+            g_benchmark = true;
         }
         else if ((CompareStringOrdinal(arg, -1, L"-nologo", -1, FALSE) == CSTR_EQUAL) ||
                  (CompareStringOrdinal(arg, -1, L"--no-logo", -1, FALSE) == CSTR_EQUAL))
@@ -2212,6 +2245,10 @@ HRESULT Command_Package_Add(int argc, wchar_t* argv[])
         {
             target = arg + (ARRAYSIZE(L"--target=") - 1);
         }
+        else if (CompareStringOrdinal(arg, -1, L"--benchmark", -1, FALSE) == CSTR_EQUAL)
+        {
+            g_benchmark = true;
+        }
         else if ((CompareStringOrdinal(arg, -1, L"-nologo", -1, FALSE) == CSTR_EQUAL) ||
                  (CompareStringOrdinal(arg, -1, L"--no-logo", -1, FALSE) == CSTR_EQUAL))
         {
@@ -2380,6 +2417,10 @@ HRESULT Command_Package_List(int argc, wchar_t* argv[])
         else if (CompareStringOrdinal(arg, -1, L"--no-summary", -1, FALSE) == CSTR_EQUAL)
         {
             summary = false;
+        }
+        else if (CompareStringOrdinal(arg, -1, L"--benchmark", -1, FALSE) == CSTR_EQUAL)
+        {
+            g_benchmark = true;
         }
         else if ((CompareStringOrdinal(arg, -1, L"-nologo", -1, FALSE) == CSTR_EQUAL) ||
                  (CompareStringOrdinal(arg, -1, L"--no-logo", -1, FALSE) == CSTR_EQUAL))
@@ -2602,6 +2643,10 @@ HRESULT Command_Package_Move(int argc, wchar_t* argv[])
         {
             retainFilesOnFailure = true;
         }
+        else if (CompareStringOrdinal(arg, -1, L"--benchmark", -1, FALSE) == CSTR_EQUAL)
+        {
+            g_benchmark = true;
+        }
         else if ((CompareStringOrdinal(arg, -1, L"-nologo", -1, FALSE) == CSTR_EQUAL) ||
                  (CompareStringOrdinal(arg, -1, L"--no-logo", -1, FALSE) == CSTR_EQUAL))
         {
@@ -2725,6 +2770,10 @@ HRESULT Command_Package_Register(int argc, wchar_t* argv[])
         else if (CompareStringOrdinal(arg, -1, L"--stage-in-place", -1, FALSE) == CSTR_EQUAL)
         {
             stageInPlace = true;
+        }
+        else if (CompareStringOrdinal(arg, -1, L"--benchmark", -1, FALSE) == CSTR_EQUAL)
+        {
+            g_benchmark = true;
         }
         else if ((CompareStringOrdinal(arg, -1, L"-nologo", -1, FALSE) == CSTR_EQUAL) ||
                  (CompareStringOrdinal(arg, -1, L"--no-logo", -1, FALSE) == CSTR_EQUAL))
@@ -2940,6 +2989,10 @@ HRESULT Command_Package_Remove(int argc, wchar_t* argv[])
         {
             preserveApplicationData = true;
         }
+        else if (CompareStringOrdinal(arg, -1, L"--benchmark", -1, FALSE) == CSTR_EQUAL)
+        {
+            g_benchmark = true;
+        }
         else if ((CompareStringOrdinal(arg, -1, L"-nologo", -1, FALSE) == CSTR_EQUAL) ||
                  (CompareStringOrdinal(arg, -1, L"--no-logo", -1, FALSE) == CSTR_EQUAL))
         {
@@ -3115,6 +3168,10 @@ HRESULT Command_Package_Stage(int argc, wchar_t* argv[])
         else if (wil::string_starts_with(arg, L"--target="))
         {
             target = arg + (ARRAYSIZE(L"--target=") - 1);
+        }
+        else if (CompareStringOrdinal(arg, -1, L"--benchmark", -1, FALSE) == CSTR_EQUAL)
+        {
+            g_benchmark = true;
         }
         else if ((CompareStringOrdinal(arg, -1, L"-nologo", -1, FALSE) == CSTR_EQUAL) ||
                  (CompareStringOrdinal(arg, -1, L"--no-logo", -1, FALSE) == CSTR_EQUAL))
@@ -3294,6 +3351,10 @@ HRESULT Command_Package_Status_Clear(int argc, wchar_t* argv[])
         {
             Help(help_Command_Package_Status_Clear);
         }
+        else if (CompareStringOrdinal(arg, -1, L"--benchmark", -1, FALSE) == CSTR_EQUAL)
+        {
+            g_benchmark = true;
+        }
         else if ((CompareStringOrdinal(arg, -1, L"-nologo", -1, FALSE) == CSTR_EQUAL) ||
                  (CompareStringOrdinal(arg, -1, L"--no-logo", -1, FALSE) == CSTR_EQUAL))
         {
@@ -3358,6 +3419,10 @@ HRESULT Command_Package_Status_Set(int argc, wchar_t* argv[])
             (CompareStringOrdinal(arg, -1, L"--help", -1, FALSE) == CSTR_EQUAL))
         {
             Help(help_Command_Package_Status_Set);
+        }
+        else if (CompareStringOrdinal(arg, -1, L"--benchmark", -1, FALSE) == CSTR_EQUAL)
+        {
+            g_benchmark = true;
         }
         else if ((CompareStringOrdinal(arg, -1, L"-nologo", -1, FALSE) == CSTR_EQUAL) ||
                  (CompareStringOrdinal(arg, -1, L"--no-logo", -1, FALSE) == CSTR_EQUAL))
@@ -3456,6 +3521,10 @@ HRESULT Command_Package_Verify(int argc, wchar_t* argv[])
             (CompareStringOrdinal(arg, -1, L"--help", -1, FALSE) == CSTR_EQUAL))
         {
             Help(help_Command_Package_Verify);
+        }
+        else if (CompareStringOrdinal(arg, -1, L"--benchmark", -1, FALSE) == CSTR_EQUAL)
+        {
+            g_benchmark = true;
         }
         else if ((CompareStringOrdinal(arg, -1, L"-nologo", -1, FALSE) == CSTR_EQUAL) ||
                  (CompareStringOrdinal(arg, -1, L"--no-logo", -1, FALSE) == CSTR_EQUAL))
@@ -3575,6 +3644,10 @@ HRESULT Command_Provision_Add(int argc, wchar_t* argv[])
         {
             deferRegistration = true;
         }
+        else if (CompareStringOrdinal(arg, -1, L"--benchmark", -1, FALSE) == CSTR_EQUAL)
+        {
+            g_benchmark = true;
+        }
         else if ((CompareStringOrdinal(arg, -1, L"-nologo", -1, FALSE) == CSTR_EQUAL) ||
                  (CompareStringOrdinal(arg, -1, L"--no-logo", -1, FALSE) == CSTR_EQUAL))
         {
@@ -3683,6 +3756,10 @@ HRESULT Command_Provision_List(int argc, wchar_t* argv[])
         {
             summary = false;
         }
+        else if (CompareStringOrdinal(arg, -1, L"--benchmark", -1, FALSE) == CSTR_EQUAL)
+        {
+            g_benchmark = true;
+        }
         else if ((CompareStringOrdinal(arg, -1, L"-nologo", -1, FALSE) == CSTR_EQUAL) ||
                  (CompareStringOrdinal(arg, -1, L"--no-logo", -1, FALSE) == CSTR_EQUAL))
         {
@@ -3778,6 +3855,10 @@ HRESULT Command_Provision_Remove(int argc, wchar_t* argv[])
             (CompareStringOrdinal(arg, -1, L"--help", -1, FALSE) == CSTR_EQUAL))
         {
             Help(help_Command_Provision_Remove);
+        }
+        else if (CompareStringOrdinal(arg, -1, L"--benchmark", -1, FALSE) == CSTR_EQUAL)
+        {
+            g_benchmark = true;
         }
         else if ((CompareStringOrdinal(arg, -1, L"-nologo", -1, FALSE) == CSTR_EQUAL) ||
                  (CompareStringOrdinal(arg, -1, L"--no-logo", -1, FALSE) == CSTR_EQUAL))
@@ -3947,6 +4028,10 @@ HRESULT Command_Shortcut_Add(int argc, wchar_t* argv[])
         else if (wil::string_starts_with(arg, L"--working-directory="))
         {
             workingDirectory = arg + (ARRAYSIZE(L"--working-directory=") - 1);
+        }
+        else if (CompareStringOrdinal(arg, -1, L"--benchmark", -1, FALSE) == CSTR_EQUAL)
+        {
+            g_benchmark = true;
         }
         else if ((CompareStringOrdinal(arg, -1, L"-nologo", -1, FALSE) == CSTR_EQUAL) ||
                  (CompareStringOrdinal(arg, -1, L"--no-logo", -1, FALSE) == CSTR_EQUAL))
@@ -4152,6 +4237,10 @@ HRESULT Command_Tool_PropertySheet_Install(int argc, wchar_t* argv[])
         {
             path = arg + (ARRAYSIZE(L"--path=") - 1);
         }
+        else if (CompareStringOrdinal(arg, -1, L"--benchmark", -1, FALSE) == CSTR_EQUAL)
+        {
+            g_benchmark = true;
+        }
         else if ((CompareStringOrdinal(arg, -1, L"-nologo", -1, FALSE) == CSTR_EQUAL) ||
                  (CompareStringOrdinal(arg, -1, L"--no-logo", -1, FALSE) == CSTR_EQUAL))
         {
@@ -4213,6 +4302,10 @@ HRESULT Command_Tool_PropertySheet_List(int argc, wchar_t* argv[])
             (CompareStringOrdinal(arg, -1, L"--help", -1, FALSE) == CSTR_EQUAL))
         {
             Help(help_Command_Provision_Add);
+        }
+        else if (CompareStringOrdinal(arg, -1, L"--benchmark", -1, FALSE) == CSTR_EQUAL)
+        {
+            g_benchmark = true;
         }
         else if ((CompareStringOrdinal(arg, -1, L"-nologo", -1, FALSE) == CSTR_EQUAL) ||
                  (CompareStringOrdinal(arg, -1, L"--no-logo", -1, FALSE) == CSTR_EQUAL))
@@ -4306,6 +4399,10 @@ HRESULT Command_Tool_PropertySheet_Uninstall(int argc, wchar_t* argv[])
         else if (wil::string_starts_with(arg, L"--path="))
         {
             path = arg + (ARRAYSIZE(L"--path=") - 1);
+        }
+        else if (CompareStringOrdinal(arg, -1, L"--benchmark", -1, FALSE) == CSTR_EQUAL)
+        {
+            g_benchmark = true;
         }
         else if ((CompareStringOrdinal(arg, -1, L"-nologo", -1, FALSE) == CSTR_EQUAL) ||
                  (CompareStringOrdinal(arg, -1, L"--no-logo", -1, FALSE) == CSTR_EQUAL))
@@ -4415,6 +4512,10 @@ HRESULT Command_Version(int argc, wchar_t* argv[])
         {
             Help(help_Command_Version);
         }
+        else if (CompareStringOrdinal(arg, -1, L"--benchmark", -1, FALSE) == CSTR_EQUAL)
+        {
+            g_benchmark = true;
+        }
         else if ((CompareStringOrdinal(arg, -1, L"-nologo", -1, FALSE) == CSTR_EQUAL) ||
                  (CompareStringOrdinal(arg, -1, L"--no-logo", -1, FALSE) == CSTR_EQUAL))
         {
@@ -4461,7 +4562,7 @@ HRESULT MessageOnError(HRESULT hr)
     return hr;
 }
 
-int wmain(int argc, wchar_t* argv[])
+int Main(int argc, wchar_t* argv[])
 {
     auto com_init{ wil::CoInitializeEx_failfast() };
 
@@ -4512,4 +4613,45 @@ int wmain(int argc, wchar_t* argv[])
     {
         Help();
     }
+}
+
+int wmain(int argc, wchar_t* argv[])
+{
+    LARGE_INTEGER benchmarkFrequency{};
+    const HRESULT hrBenchmarkFrequency{ LOG_IF_WIN32_BOOL_FALSE(::QueryPerformanceFrequency(&benchmarkFrequency)) };
+    LARGE_INTEGER benchmarkStart{};
+    const HRESULT hrBenchmarkStart{ LOG_IF_WIN32_BOOL_FALSE(::QueryPerformanceCounter(&benchmarkStart)) };
+
+    const auto exitCode{ Main(argc, argv) };
+
+    LARGE_INTEGER benchmarkStop{};
+    const HRESULT hrBenchmarkStop{ LOG_IF_WIN32_BOOL_FALSE(::QueryPerformanceCounter(&benchmarkStop)) };
+
+    if (g_benchmark)
+    {
+        if (FAILED_LOG(hrBenchmarkFrequency))
+        {
+            wprintf(L"BENCHMARK: ***ERROR 0x%08X\n", hrBenchmarkFrequency);
+        }
+        else if (FAILED_LOG(hrBenchmarkStart))
+        {
+            wprintf(L"BENCHMARK: ***ERROR 0x%08X\n", hrBenchmarkStart);
+        }
+        else if (FAILED_LOG(hrBenchmarkStop))
+        {
+            wprintf(L"BENCHMARK: ***ERROR 0x%08X\n", hrBenchmarkStop);
+        }
+        else
+        {
+            const auto elapsedTicks{ benchmarkStop.QuadPart - benchmarkStart.QuadPart };
+            const auto remainingTicks{ elapsedTicks % benchmarkFrequency.QuadPart };
+            const auto microseconds{ remainingTicks * 1'000'000 / benchmarkFrequency.QuadPart };
+            const auto seconds{ elapsedTicks / benchmarkFrequency.QuadPart };
+            const auto minutes{ seconds / 60 };
+            const auto hours{ minutes / 24 };
+            wprintf(L"\nElapsed: %lld:%lld:%lld.%06lld seconds\n", hours, minutes % 60, seconds % 60, microseconds);
+        }
+    }
+
+    return exitCode;
 }
