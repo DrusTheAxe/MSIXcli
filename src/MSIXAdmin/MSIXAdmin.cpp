@@ -846,6 +846,7 @@ void PrintPackage(
             PrintPackageValue(L"IsProvisioned", S_OK, isProvisioned);
         }
     }
+    PrintPackageValue(L"IsPinned", S_OK, L"? ==> https://github.com/microsoft/WindowsAppSDK/pull/6379");
     if (user)
     {
         PrintPackageValue(L"User", hr, user);
@@ -949,6 +950,7 @@ void PrintPackage(
             {
                 wprintf(L"    Provisioned : %ls\n", isProvisioned ? L"Yes" : L"No");
             }
+            wprintf(L"    Pinned      : ? ==> https://github.com/microsoft/WindowsAppSDK/pull/6379\n");
         }
     }
 }
@@ -2123,14 +2125,8 @@ HRESULT Command_Package_Add(int argc, wchar_t* argv[])
 
     wil::com_ptr_nothrow<ABI::Windows::Management::Deployment::IAddPackageOptions> addPackageOptions;
     {
-        HSTRING_HEADER classIdHeader{};
-        HSTRING classId{};
-        RETURN_IF_FAILED(WindowsCreateStringReference(
-            RuntimeClass_Windows_Management_Deployment_AddPackageOptions,
-            ARRAYSIZE(RuntimeClass_Windows_Management_Deployment_AddPackageOptions) - 1,
-            &classIdHeader, &classId));
         wil::com_ptr_nothrow<IInspectable> inspectable;
-        RETURN_IF_FAILED(RoActivateInstance(classId, inspectable.put()));
+        RETURN_IF_FAILED(ActivateInstance(inspectable, RuntimeClass_Windows_Management_Deployment_AddPackageOptions));
         RETURN_IF_FAILED(inspectable.query_to(addPackageOptions.put()));
     }
     RETURN_IF_FAILED(addPackageOptions->get_DependencyPackageUris(dependencies.put()));
@@ -2241,14 +2237,8 @@ HRESULT Command_Package_Add(int argc, wchar_t* argv[])
 
     wil::com_ptr_nothrow<ABI::Windows::Management::Deployment::IPackageManager9> packageManager9;
     {
-        HSTRING_HEADER classIdHeader{};
-        HSTRING classId{};
-        RETURN_IF_FAILED(WindowsCreateStringReference(
-            RuntimeClass_Windows_Management_Deployment_PackageManager,
-            ARRAYSIZE(RuntimeClass_Windows_Management_Deployment_PackageManager) - 1,
-            &classIdHeader, &classId));
         wil::com_ptr_nothrow<IInspectable> inspectable;
-        RETURN_IF_FAILED(RoActivateInstance(classId, inspectable.put()));
+        RETURN_IF_FAILED(ActivateInstance(inspectable, RuntimeClass_Windows_Management_Deployment_PackageManager));
         RETURN_IF_FAILED(inspectable.query_to(packageManager9.put()));
     }
 
@@ -2425,13 +2415,7 @@ HRESULT Command_Package_List(int argc, wchar_t* argv[])
     wil::com_ptr_nothrow<IInspectable> inspectable;
     wil::com_ptr_nothrow<ABI::Windows::Foundation::Collections::IIterable<ABI::Windows::ApplicationModel::Package*>> iterablePackages;
     {
-        HSTRING_HEADER classIdHeader{};
-        HSTRING classId{};
-        RETURN_IF_FAILED(WindowsCreateStringReference(
-            RuntimeClass_Windows_Management_Deployment_PackageManager,
-            ARRAYSIZE(RuntimeClass_Windows_Management_Deployment_PackageManager) - 1,
-            &classIdHeader, &classId));
-        RETURN_IF_FAILED(RoActivateInstance(classId, inspectable.put()));
+        RETURN_IF_FAILED(ActivateInstance(inspectable, RuntimeClass_Windows_Management_Deployment_PackageManager));
 
         // Choose the optimal FindPackage*() variant given our inputs/options
         if (!user || (CompareStringOrdinal(user, -1, L"*", -1, FALSE) == CSTR_EQUAL))
@@ -2644,14 +2628,8 @@ HRESULT Command_Package_Move(int argc, wchar_t* argv[])
 
     wil::com_ptr_nothrow<ABI::Windows::Management::Deployment::IPackageManager3> packageManager3;
     {
-        HSTRING_HEADER classIdHeader{};
-        HSTRING classId{};
-        RETURN_IF_FAILED(WindowsCreateStringReference(
-            RuntimeClass_Windows_Management_Deployment_PackageManager,
-            ARRAYSIZE(RuntimeClass_Windows_Management_Deployment_PackageManager) - 1,
-            &classIdHeader, &classId));
         wil::com_ptr_nothrow<IInspectable> inspectable;
-        RETURN_IF_FAILED(RoActivateInstance(classId, inspectable.put()));
+        RETURN_IF_FAILED(ActivateInstance(inspectable, RuntimeClass_Windows_Management_Deployment_PackageManager));
         RETURN_IF_FAILED(inspectable.query_to(packageManager3.put()));
     }
 
@@ -2697,14 +2675,8 @@ HRESULT Command_Package_Register(int argc, wchar_t* argv[])
 
     wil::com_ptr_nothrow<ABI::Windows::Management::Deployment::IRegisterPackageOptions> registerPackageOptions;
     {
-        HSTRING_HEADER classIdHeader{};
-        HSTRING classId{};
-        RETURN_IF_FAILED(WindowsCreateStringReference(
-            RuntimeClass_Windows_Management_Deployment_AddPackageOptions,
-            ARRAYSIZE(RuntimeClass_Windows_Management_Deployment_AddPackageOptions) - 1,
-            &classIdHeader, &classId));
         wil::com_ptr_nothrow<IInspectable> inspectable;
-        RETURN_IF_FAILED(RoActivateInstance(classId, inspectable.put()));
+        RETURN_IF_FAILED(ActivateInstance(inspectable, RuntimeClass_Windows_Management_Deployment_AddPackageOptions));
         RETURN_IF_FAILED(inspectable.query_to(registerPackageOptions.put()));
     }
 
@@ -2825,14 +2797,8 @@ HRESULT Command_Package_Register(int argc, wchar_t* argv[])
 
     wil::com_ptr_nothrow<ABI::Windows::Management::Deployment::IPackageManager9> packageManager9;
     {
-        HSTRING_HEADER classIdHeader{};
-        HSTRING classId{};
-        RETURN_IF_FAILED(WindowsCreateStringReference(
-            RuntimeClass_Windows_Management_Deployment_PackageManager,
-            ARRAYSIZE(RuntimeClass_Windows_Management_Deployment_PackageManager) - 1,
-            &classIdHeader, &classId));
         wil::com_ptr_nothrow<IInspectable> inspectable;
-        RETURN_IF_FAILED(RoActivateInstance(classId, inspectable.put()));
+        RETURN_IF_FAILED(ActivateInstance(inspectable, RuntimeClass_Windows_Management_Deployment_PackageManager));
         RETURN_IF_FAILED(inspectable.query_to(packageManager9.put()));
     }
 
@@ -3031,14 +2997,8 @@ HRESULT Command_Package_Remove(int argc, wchar_t* argv[])
     HSTRING packageFullNameHString{};
     RETURN_IF_FAILED(wil::to_hstring_reference(packageFullName, packageFullNameHeader, packageFullNameHString));
 
-    HSTRING_HEADER classIdHeader{};
-    HSTRING classId{};
-    RETURN_IF_FAILED(WindowsCreateStringReference(
-        RuntimeClass_Windows_Management_Deployment_PackageManager,
-        ARRAYSIZE(RuntimeClass_Windows_Management_Deployment_PackageManager) - 1,
-        &classIdHeader, &classId));
     wil::com_ptr_nothrow<IInspectable> inspectable;
-    RETURN_IF_FAILED(RoActivateInstance(classId, inspectable.put()));
+    RETURN_IF_FAILED(ActivateInstance(inspectable, RuntimeClass_Windows_Management_Deployment_PackageManager));
     wil::com_ptr_nothrow<ABI::Windows::Management::Deployment::IPackageManager2> packageManager2;
     RETURN_IF_FAILED(inspectable.query_to(packageManager2.put()));
 
@@ -3080,14 +3040,8 @@ HRESULT Command_Package_Stage(int argc, wchar_t* argv[])
 
     wil::com_ptr_nothrow<ABI::Windows::Management::Deployment::IStagePackageOptions> stagePackageOptions;
     {
-        HSTRING_HEADER classIdHeader{};
-        HSTRING classId{};
-        RETURN_IF_FAILED(WindowsCreateStringReference(
-            RuntimeClass_Windows_Management_Deployment_StagePackageOptions,
-            ARRAYSIZE(RuntimeClass_Windows_Management_Deployment_StagePackageOptions) - 1,
-            &classIdHeader, &classId));
         wil::com_ptr_nothrow<IInspectable> inspectable;
-        RETURN_IF_FAILED(RoActivateInstance(classId, inspectable.put()));
+        RETURN_IF_FAILED(ActivateInstance(inspectable, RuntimeClass_Windows_Management_Deployment_StagePackageOptions));
         RETURN_IF_FAILED(inspectable.query_to(stagePackageOptions.put()));
     }
     wil::com_ptr_nothrow<ABI::Windows::Foundation::Collections::IVector<ABI::Windows::Foundation::Uri*>> dependencies;
@@ -3187,14 +3141,8 @@ HRESULT Command_Package_Stage(int argc, wchar_t* argv[])
 
     wil::com_ptr_nothrow<ABI::Windows::Management::Deployment::IPackageManager9> packageManager9;
     {
-        HSTRING_HEADER classIdHeader{};
-        HSTRING classId{};
-        RETURN_IF_FAILED(WindowsCreateStringReference(
-            RuntimeClass_Windows_Management_Deployment_PackageManager,
-            ARRAYSIZE(RuntimeClass_Windows_Management_Deployment_PackageManager) - 1,
-            &classIdHeader, &classId));
         wil::com_ptr_nothrow<IInspectable> inspectable;
-        RETURN_IF_FAILED(RoActivateInstance(classId, inspectable.put()));
+        RETURN_IF_FAILED(ActivateInstance(inspectable, RuntimeClass_Windows_Management_Deployment_PackageManager));
         RETURN_IF_FAILED(inspectable.query_to(packageManager9.put()));
     }
 
@@ -3296,14 +3244,8 @@ HRESULT ClearOrSetPackageStatus(PCWSTR packageFullName, ABI::Windows::Management
 
     wil::com_ptr_nothrow<ABI::Windows::Management::Deployment::IPackageManager3> packageManager3;
     {
-        HSTRING_HEADER classIdHeader{};
-        HSTRING classId{};
-        RETURN_IF_FAILED(WindowsCreateStringReference(
-            RuntimeClass_Windows_Management_Deployment_PackageManager,
-            ARRAYSIZE(RuntimeClass_Windows_Management_Deployment_PackageManager) - 1,
-            &classIdHeader, &classId));
         wil::com_ptr_nothrow<IInspectable> inspectable;
-        RETURN_IF_FAILED(RoActivateInstance(classId, inspectable.put()));
+        RETURN_IF_FAILED(ActivateInstance(inspectable, RuntimeClass_Windows_Management_Deployment_PackageManager));
         RETURN_IF_FAILED(inspectable.query_to(packageManager3.put()));
     }
 
@@ -3446,14 +3388,8 @@ HRESULT Command_Package_Status_Set(int argc, wchar_t* argv[])
 
     wil::com_ptr_nothrow<ABI::Windows::Management::Deployment::IPackageManager3> packageManager3;
     {
-        HSTRING_HEADER classIdHeader{};
-        HSTRING classId{};
-        RETURN_IF_FAILED(WindowsCreateStringReference(
-            RuntimeClass_Windows_Management_Deployment_PackageManager,
-            ARRAYSIZE(RuntimeClass_Windows_Management_Deployment_PackageManager) - 1,
-            &classIdHeader, &classId));
         wil::com_ptr_nothrow<IInspectable> inspectable;
-        RETURN_IF_FAILED(RoActivateInstance(classId, inspectable.put()));
+        RETURN_IF_FAILED(ActivateInstance(inspectable, RuntimeClass_Windows_Management_Deployment_PackageManager));
         RETURN_IF_FAILED(inspectable.query_to(packageManager3.put()));
     }
 
@@ -3551,14 +3487,8 @@ HRESULT Command_Package_Verify(int argc, wchar_t* argv[])
 
     wil::com_ptr_nothrow<ABI::Windows::Management::Deployment::IPackageManager> packageManager;
     {
-        HSTRING_HEADER classIdHeader{};
-        HSTRING classId{};
-        RETURN_IF_FAILED(WindowsCreateStringReference(
-            RuntimeClass_Windows_Management_Deployment_PackageManager,
-            ARRAYSIZE(RuntimeClass_Windows_Management_Deployment_PackageManager) - 1,
-            &classIdHeader, &classId));
         wil::com_ptr_nothrow<IInspectable> inspectable;
-        RETURN_IF_FAILED(RoActivateInstance(classId, inspectable.put()));
+        RETURN_IF_FAILED(ActivateInstance(inspectable, RuntimeClass_Windows_Management_Deployment_PackageManager));
         RETURN_IF_FAILED(inspectable.query_to(packageManager.put()));
     }
 
@@ -3675,28 +3605,16 @@ HRESULT Command_Provision_Add(int argc, wchar_t* argv[])
         wil::com_ptr_nothrow<ABI::Windows::Management::Deployment::IPackageAllUserProvisioningOptions> packageAllUserProvisioningOptions;
         wil::com_ptr_nothrow<ABI::Windows::Management::Deployment::IPackageAllUserProvisioningOptions2> packageAllUserProvisioningOptions2;
         {
-            HSTRING_HEADER classIdHeader{};
-            HSTRING classId{};
-            RETURN_IF_FAILED(WindowsCreateStringReference(
-                RuntimeClass_Windows_Management_Deployment_PackageAllUserProvisioningOptions,
-                ARRAYSIZE(RuntimeClass_Windows_Management_Deployment_PackageAllUserProvisioningOptions) - 1,
-                &classIdHeader, &classId));
             wil::com_ptr_nothrow<IInspectable> inspectable;
-            RETURN_IF_FAILED(RoActivateInstance(classId, inspectable.put()));
+            RETURN_IF_FAILED(ActivateInstance(inspectable, RuntimeClass_Windows_Management_Deployment_PackageAllUserProvisioningOptions));
             RETURN_IF_FAILED(inspectable.query_to(packageAllUserProvisioningOptions.put()));
             RETURN_IF_FAILED(inspectable.query_to(packageAllUserProvisioningOptions2.put()));
         }
         RETURN_IF_FAILED(packageAllUserProvisioningOptions2->put_DeferAutomaticRegistration(true));
         wil::com_ptr_nothrow<ABI::Windows::Management::Deployment::IPackageManager10> packageManager10;
         {
-            HSTRING_HEADER classIdHeader{};
-            HSTRING classId{};
-            RETURN_IF_FAILED(WindowsCreateStringReference(
-                RuntimeClass_Windows_Management_Deployment_PackageManager,
-                ARRAYSIZE(RuntimeClass_Windows_Management_Deployment_PackageManager) - 1,
-                &classIdHeader, &classId));
             wil::com_ptr_nothrow<IInspectable> inspectable;
-            RETURN_IF_FAILED(RoActivateInstance(classId, inspectable.put()));
+            RETURN_IF_FAILED(ActivateInstance(inspectable, RuntimeClass_Windows_Management_Deployment_PackageManager));
             RETURN_IF_FAILED(inspectable.query_to(packageManager10.put()));
         }
         RETURN_IF_FAILED(packageManager10->ProvisionPackageForAllUsersWithOptionsAsync(packageFamilyNameHString, packageAllUserProvisioningOptions.get(), deploymentOperation.put()));
@@ -3705,14 +3623,8 @@ HRESULT Command_Provision_Add(int argc, wchar_t* argv[])
     {
         wil::com_ptr_nothrow<ABI::Windows::Management::Deployment::IPackageManager6> packageManager6;
         {
-            HSTRING_HEADER classIdHeader{};
-            HSTRING classId{};
-            RETURN_IF_FAILED(WindowsCreateStringReference(
-                RuntimeClass_Windows_Management_Deployment_PackageManager,
-                ARRAYSIZE(RuntimeClass_Windows_Management_Deployment_PackageManager) - 1,
-                &classIdHeader, &classId));
             wil::com_ptr_nothrow<IInspectable> inspectable;
-            RETURN_IF_FAILED(RoActivateInstance(classId, inspectable.put()));
+            RETURN_IF_FAILED(ActivateInstance(inspectable, RuntimeClass_Windows_Management_Deployment_PackageManager));
             RETURN_IF_FAILED(inspectable.query_to(packageManager6.put()));
         }
         RETURN_IF_FAILED(packageManager6->ProvisionPackageForAllUsersAsync(packageFamilyNameHString, deploymentOperation.put()));
@@ -3795,14 +3707,8 @@ HRESULT Command_Provision_List(int argc, wchar_t* argv[])
 
     wil::com_ptr_nothrow<ABI::Windows::Foundation::Collections::IVector<ABI::Windows::ApplicationModel::Package*>> packages;
     {
-        HSTRING_HEADER classIdHeader{};
-        HSTRING classId{};
-        RETURN_IF_FAILED(WindowsCreateStringReference(
-            RuntimeClass_Windows_Management_Deployment_PackageManager,
-            ARRAYSIZE(RuntimeClass_Windows_Management_Deployment_PackageManager) - 1,
-            &classIdHeader, &classId));
         wil::com_ptr_nothrow<IInspectable> inspectable;
-        RETURN_IF_FAILED(RoActivateInstance(classId, inspectable.put()));
+        RETURN_IF_FAILED(ActivateInstance(inspectable, RuntimeClass_Windows_Management_Deployment_PackageManager));
         wil::com_ptr_nothrow<ABI::Windows::Management::Deployment::IPackageManager9> packageManager9;
         RETURN_IF_FAILED(inspectable.query_to(packageManager9.put()));
         RETURN_IF_FAILED(packageManager9->FindProvisionedPackages(packages.put()));
@@ -3899,14 +3805,8 @@ HRESULT Command_Provision_Remove(int argc, wchar_t* argv[])
 
     wil::com_ptr_nothrow<__FIAsyncOperationWithProgress_2_Windows__CManagement__CDeployment__CDeploymentResult_Windows__CManagement__CDeployment__CDeploymentProgress> deploymentOperation;
     {
-        HSTRING_HEADER classIdHeader{};
-        HSTRING classId{};
-        RETURN_IF_FAILED(WindowsCreateStringReference(
-            RuntimeClass_Windows_Management_Deployment_PackageManager,
-            ARRAYSIZE(RuntimeClass_Windows_Management_Deployment_PackageManager) - 1,
-            &classIdHeader, &classId));
         wil::com_ptr_nothrow<IInspectable> inspectable;
-        RETURN_IF_FAILED(RoActivateInstance(classId, inspectable.put()));
+        RETURN_IF_FAILED(ActivateInstance(inspectable, RuntimeClass_Windows_Management_Deployment_PackageManager));
         wil::com_ptr_nothrow<ABI::Windows::Management::Deployment::IPackageManager8> packageManager8;
         RETURN_IF_FAILED(inspectable.query_to(packageManager8.put()));
         RETURN_IF_FAILED(packageManager8->DeprovisionPackageForAllUsersAsync(packageFamilyNameHString, deploymentOperation.put()));
