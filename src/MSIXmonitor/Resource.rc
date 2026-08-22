@@ -1,4 +1,4 @@
-// Copyright (c) Howard Kapustein
+// Copyright (C) Howard Kapustein. All rights reserved.
 // Licensed under the MIT License. See LICENSE in the project root for license information.
 
 #include <Windows.h>
@@ -35,7 +35,7 @@ BEGIN
     ICON        IDI_MSIXMONITOR,                    IDC_ABOUT_ICON,           7,   7,  32,  32
     LTEXT       "MSIXmonitor",                      IDC_ABOUT_NAME,          30,  10, 170,  13
     LTEXT       "Monitor MSIX activity",            IDC_ABOUT_DESCRIPTION,   30,  26, 170,  22
-    LTEXT       "Copyright (c) Howard Kapustein",   IDC_ABOUT_COPYRIGHT,     30,  40, 170,  10
+    LTEXT       "Copyright (C) Howard Kapustein. All rights reserved.",   IDC_ABOUT_COPYRIGHT,     30,  40, 170,  10
 
     CONTROL     IDC_HOME_LABEL, IDC_HOME, "SysLink", WS_TABSTOP,              7,  79,  70,  14
 

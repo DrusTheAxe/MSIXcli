@@ -1,4 +1,4 @@
-// Copyright (c) Howard Kapustein
+// Copyright (C) Howard Kapustein. All rights reserved.
 // Licensed under the MIT License. See LICENSE in the project root for license information.
 
 #define MSIXCLI_RELEASE_MAJOR   0
@@ -29,7 +29,7 @@
 #endif
 
 #define MSIXCLI_COMPANY_NAME              "Howard Kapustein"
-#define MSIXCLI_LEGAL_COPYRIGHT           "Copyright (c) Howard Kapustein. Licensed under the MIT License. See LICENSE for license information."
+#define MSIXCLI_LEGAL_COPYRIGHT           "Copyright (C) Howard Kapustein. All rights reserved.. Licensed under the MIT License. See LICENSE for license information."
 #define MSIXCLI_PRODUCT_VERSION           MSIXCLI_RELEASE_MAJOR, MSIXCLI_RELEASE_MINOR, MSIXCLI_RELEASE_PATCH
 #define MSIXCLI_PRODUCT_VERSION_STRING    STR3(MSIXCLI_RELEASE_MAJOR, MSIXCLI_RELEASE_MINOR, MSIXCLI_RELEASE_PATCH)
 

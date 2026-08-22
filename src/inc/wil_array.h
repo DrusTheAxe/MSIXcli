@@ -1,4 +1,4 @@
-// Copyright (c) Howard Kapustein
+// Copyright (C) Howard Kapustein. All rights reserved.
 // Licensed under the MIT License. See LICENSE in the project root for license information.
 
 //TODO https://learn.microsoft.com/windows/win32/api/dpa_dsa/nf-dpa_dsa-dpa_fastdeletelastptr
