@@ -101,6 +101,62 @@ public:
         return S_OK;
     }
 
+    // Add the package's certificate to the system's certificate store, equivalent to the Powershell script:
+    //
+    //      $cer = Join-Path $root 'something.cer'
+    //      $cert_path = "cert:\LocalMachine\TrustedPeople"
+    //      $x509certificates = Import-Certificate -FilePath $cer -CertStoreLocation $cert_path
+    //
+    // or the manual steps in File Explorer:
+    //
+    //      1. Right-click on the .msix/.msixbundle/.appx/... package you downloaded via App Center and select **properties**.
+    //      2. Under the **Digital Signatures** tab you should see the test certificate. Click to select the certificate and click on **Details** button.
+    //      3. Select the button **View Certificate**.
+    //      4. Select the button **Install Certificate**.
+    //      5. From the **Store Location** radio buttons select **Local Machine**. Click the **Next** button.
+    //      6. Click **Yes** on the admin prompt for changes to your device.
+    //      7. On the **Certificate Import Wizard** chose the radio button **Place all certificates in the following store** then select the **Browse** button.
+    //      8. If the cert is...
+    //         1. ...**a leaf cert issued by an already-trusted CA** (e.g. public one) -> You don't need to do anything. Exit out of adding the cert
+    //         2. ...**an untrusted leaf cert** (e.g. self-signed) -> Select the **Trusted People** certificate store (common case)
+    //         3. ...**a new CA** -> Select the **Trusted Root Certification Authorities** certificate store (extremely rare)
+    //      9. Click the **OK** button.
+    //      10. Click the **Next** button on the **Certificate Import Wizard** window.
+    //      11. Click **Finish** button to complete the certificate install.
+    //      12. Close all windows.
+    static HRESULT AddCertificate(IAppxBundleReader* bundleReader, AddResult& result)
+    {
+        RETURN_HR_IF_NULL(E_POINTER, bundleReader);
+
+        // Writing to the LocalMachine store requires we're running with admin privilege (aka elevated)
+        RETURN_HR_IF(E_ACCESSDENIED, !IsRunningAsAdmin());
+
+        // Skip packages signed by Windows or the Store
+        // Those roots are already trusted, so there is nothing to add
+        SignatureOrigin origin{ SignatureOrigin::Unknown };
+        RETURN_IF_FAILED(DetectSignatureOrigin(bundleReader, origin));
+        if ((origin == SignatureOrigin::Windows) || (origin == SignatureOrigin::Store))
+        {
+            result = AddResult::AlreadyTrusted;
+            return S_OK;
+        }
+
+        // Extract the leaf (signing) certificate from the package signature
+        wil::unique_cert_context signingCertificate;
+        const HRESULT signerHr{ GetPackageSignerCertificate(bundleReader, signingCertificate) };
+        RETURN_IF_FAILED(signerHr);
+        if (signerHr == S_FALSE)
+        {
+            result = AddResult::NoUsableCertificate;
+            return S_OK;
+        }
+
+        // Install the leaf into LocalMachine\TrustedPeople
+        RETURN_IF_FAILED(InstallLeafToTrustedPeople(signingCertificate.get()));
+        result = AddResult::Installed;
+        return S_OK;
+    }
+
     // Return the certificate's thumbprint (if signed).
     // @param packageReader
     // @param thumbprintSize Number of bytes in the thumbprint (20 for a SHA-1 hash), or zero if no certificate.
@@ -116,6 +172,29 @@ public:
         // Extract the leaf (signing) certificate from the package signature
         wil::unique_cert_context signingCertificate;
         const HRESULT hr{ GetPackageSignerCertificate(packageReader, signingCertificate) };
+        RETURN_IF_FAILED(hr);
+        if (hr == S_OK)
+        {
+            RETURN_IF_FAILED(GetCertificateThumbprintFromContext(signingCertificate.get(), thumbprintSize, thumbprint));
+        }
+        return S_OK;
+    }
+
+    // Return the certificate's thumbprint (if signed).
+    // @param bundleReader
+    // @param thumbprintSize Number of bytes in the thumbprint (20 for a SHA-1 hash), or zero if no certificate.
+    // @param thumbprint The certificate's SHA-1 hash (thumbprint) bytes, or null if no certificate.
+    // @return S_OK if successful, or a failing HRESULT on a hard error
+    static HRESULT GetCertificateThumbprint(IAppxBundleReader* bundleReader, size_t& thumbprintSize, wil::unique_cotaskmem_ptr<BYTE[]>& thumbprint)
+    {
+        thumbprintSize = 0;
+        thumbprint.reset();
+
+        RETURN_HR_IF_NULL(E_POINTER, bundleReader);
+
+        // Extract the leaf (signing) certificate from the package signature
+        wil::unique_cert_context signingCertificate;
+        const HRESULT hr{ GetPackageSignerCertificate(bundleReader, signingCertificate) };
         RETURN_IF_FAILED(hr);
         if (hr == S_OK)
         {
@@ -169,6 +248,27 @@ public:
         wil::unique_cotaskmem_ptr<BYTE[]> signatureBlob;
         DWORD signatureSize{};
         const HRESULT readHr{ ReadSignatureBlob(packageReader, signatureBlob, signatureSize) };
+        RETURN_IF_FAILED(readHr);
+        if (readHr == S_FALSE)
+        {
+            return S_FALSE; // No signature -> nothing to remove
+        }
+
+        return RemoveCertificateCore(signatureBlob.get(), signatureSize);
+    }
+
+    // Removes the package's leaf certificate from LocalMachine\TrustedPeople if present.
+    // Do nothing for Windows/Store-signed packages.
+    // @return S_OK if a certificate was removed, S_FALSE if there was nothing to do
+    static HRESULT RemoveCertificate(IAppxBundleReader* bundleReader)
+    {
+        RETURN_HR_IF(E_ACCESSDENIED, !IsRunningAsAdmin());
+        RETURN_HR_IF_NULL(E_POINTER, bundleReader);
+
+        // Read the AppxSignature.p7x footprint straight from the package container
+        wil::unique_cotaskmem_ptr<BYTE[]> signatureBlob;
+        DWORD signatureSize{};
+        const HRESULT readHr{ ReadSignatureBlob(bundleReader, signatureBlob, signatureSize) };
         RETURN_IF_FAILED(readHr);
         if (readHr == S_FALSE)
         {
@@ -306,6 +406,45 @@ public:
             return S_OK; // No certificate -> not installed
         }
 
+        RETURN_IF_FAILED(IsCertificateInstalled(signingCertificate, isInstalled));
+        return S_OK;
+    }
+
+    // Reports whether the package's certificate is trusted.
+    // @return true for Windows/Store-signed packages,
+    //         otherwise true only if the leaf is present in LocalMachine\TrustedPeople.
+    static HRESULT IsCertificateInstalled(IAppxBundleReader* bundleReader, bool& isInstalled)
+    {
+        isInstalled = false;
+        RETURN_HR_IF_NULL(E_POINTER, bundleReader);
+
+        SignatureOrigin origin{ SignatureOrigin::Unknown };
+        RETURN_IF_FAILED(DetectSignatureOrigin(bundleReader, origin));
+        if ((origin == SignatureOrigin::Windows) || (origin == SignatureOrigin::Store))
+        {
+            isInstalled = true; // Already trusted by the system
+            return S_OK;
+        }
+
+        wil::unique_cert_context signingCertificate;
+        const HRESULT signerHr{ GetPackageSignerCertificate(bundleReader, signingCertificate) };
+        RETURN_IF_FAILED(signerHr);
+        if (signerHr == S_FALSE)
+        {
+            return S_OK; // No certificate -> not installed
+        }
+
+        RETURN_IF_FAILED(IsCertificateInstalled(signingCertificate, isInstalled));
+        return S_OK;
+    }
+
+    // Reports whether the package's certificate is trusted.
+    // @return true for Windows/Store-signed packages,
+    //         otherwise true only if the leaf is present in LocalMachine\TrustedPeople.
+    static HRESULT IsCertificateInstalled(wil::unique_cert_context& signingCertificate, bool& isInstalled)
+    {
+        isInstalled = false;
+
         wil::unique_hcertstore store{ OpenTrustedPeopleStore() };
         RETURN_LAST_ERROR_IF_NULL(store);
         wil::unique_cert_context found{ CertFindCertificateInStore(store.get(), c_encoding, 0,
@@ -322,7 +461,20 @@ public:
     {
         signingCertificate.reset();
         RETURN_HR_IF_NULL(E_POINTER, packageReader);
-        return GetPackageSignerCertificate(packageReader, signingCertificate);
+        RETURN_IF_FAILED(GetPackageSignerCertificate(packageReader, signingCertificate));
+        return S_OK;
+    }
+
+    // Extracts the leaf (signing) certificate from a package's signature so
+    // callers can inspect or display it. Read-only; requires no elevation.
+    // @return S_OK with the certificate, S_FALSE if the package has no usable
+    //         signature, or a failing HRESULT on a hard error
+    static HRESULT GetSigningCertificate(IAppxBundleReader* bundleReader, wil::unique_cert_context& signingCertificate)
+    {
+        signingCertificate.reset();
+        RETURN_HR_IF_NULL(E_POINTER, bundleReader);
+        RETURN_IF_FAILED(GetPackageSignerCertificate(bundleReader, signingCertificate));
+        return S_OK;
     }
 
 public:
@@ -334,6 +486,7 @@ public:
         Expired = 1,
     };
 
+public:
     // Determines the signature origin of an opened package
     static HRESULT DetectSignatureOrigin(IAppxPackageReader* packageReader, SignatureOrigin& signatureOrigin)
     {
@@ -466,6 +619,142 @@ private:
 
         return S_OK;
     }
+
+public:
+    // Determines the signature origin of an opened package
+    static HRESULT DetectSignatureOrigin(IAppxBundleReader* bundleReader, SignatureOrigin& signatureOrigin)
+    {
+        RETURN_IF_FAILED(_DetectSignatureOrigin(bundleReader, signatureOrigin, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr));
+        return S_OK;
+    }
+
+    // Determines the signature origin of an opened package
+    // @param thumbprintSize Number of bytes in the thumbprint (20 for a SHA-1 hash), or zero if no certificate.
+    // @param thumbprint The certificate's SHA-1 hash (thumbprint) bytes, or null if no certificate.
+    static HRESULT DetectSignatureOrigin(IAppxBundleReader* bundleReader, SignatureOrigin& signatureOrigin, size_t& thumbprintSize, wil::unique_cotaskmem_ptr<BYTE[]>& thumbprint)
+    {
+        RETURN_IF_FAILED(_DetectSignatureOrigin(bundleReader, signatureOrigin, &thumbprintSize, wil::out_param(thumbprint), nullptr, nullptr, nullptr, nullptr, nullptr));
+        return S_OK;
+    }
+
+    // Determines the signature origin of an opened package
+    // @param thumbprintSize Number of bytes in the thumbprint (20 for a SHA-1 hash), or zero if no certificate.
+    // @param thumbprint The certificate's SHA-1 hash (thumbprint) bytes, or null if no certificate.
+    // @param certificateSubject The signing certificate's Subject (X.500 distinguished name), or null if no certificate.
+    // @param certificateIssuer The signing certificate's Issuer (X.500 distinguished name), or null if no certificate.
+    // @param validFrom The signing certificate's NotBefore time (UTC FILETIME), or zero if no certificate.
+    // @param validTo The signing certificate's NotAfter time (UTC FILETIME), or zero if no certificate.
+    // @param valid Whether the signing certificate is time-valid right now (NotYetValid/Valid/Expired), or Unknown if no certificate.
+    static HRESULT DetectSignatureOrigin(IAppxBundleReader* bundleReader, SignatureOrigin& signatureOrigin, size_t& thumbprintSize, wil::unique_cotaskmem_ptr<BYTE[]>& thumbprint, wil::unique_cotaskmem_ptr<WCHAR[]>& certificateSubject, wil::unique_cotaskmem_ptr<WCHAR[]>& certificateIssuer, FILETIME& validFrom, FILETIME& validTo, CertificateValid& valid)
+    {
+        RETURN_IF_FAILED(_DetectSignatureOrigin(bundleReader, signatureOrigin, &thumbprintSize, wil::out_param(thumbprint), wil::out_param(certificateSubject), wil::out_param(certificateIssuer), &validFrom, &validTo, &valid));
+        return S_OK;
+    }
+
+private:
+    // Determines the signature origin of an opened package and, when requested, details about the leaf (signing) certificate.
+    // Each output is optional; pass null to skip it. Outputs are only populated when the package is signed.
+    // @param signatureOrigin The classified origin of the package's signature (Unsigned if not signed).
+    // @param thumbprintSize Number of bytes in the thumbprint (20 for a SHA-1 hash), or zero if no certificate.
+    // @param thumbprint The certificate's SHA-1 hash (thumbprint) bytes, or null if no certificate. Allocated via CoTaskMemAlloc().
+    // @param certificateSubject The signing certificate's Subject (X.500 distinguished name), or null if no certificate. Allocated via CoTaskMemAlloc().
+    // @param certificateIssuer The signing certificate's Issuer (X.500 distinguished name), or null if no certificate. Allocated via CoTaskMemAlloc().
+    // @param validFrom The signing certificate's NotBefore time (UTC FILETIME), or zero if no certificate.
+    // @param validTo The signing certificate's NotAfter time (UTC FILETIME), or zero if no certificate.
+    // @param valid Whether the signing certificate is time-valid right now (NotYetValid/Valid/Expired), or Unknown if no certificate.
+    static HRESULT _DetectSignatureOrigin(IAppxBundleReader* bundleReader, SignatureOrigin& signatureOrigin, size_t* thumbprintSize, BYTE** thumbprint, PWSTR* certificateSubject, PWSTR* certificateIssuer, FILETIME* validFrom, FILETIME* validTo, CertificateValid* valid)
+    {
+        signatureOrigin = SignatureOrigin::Unsigned;
+        if (thumbprintSize)
+        {
+            *thumbprintSize = 0;
+        }
+        if (thumbprint)
+        {
+            *thumbprint = nullptr;
+        }
+        if (certificateSubject)
+        {
+            *certificateSubject = nullptr;
+        }
+        if (certificateIssuer)
+        {
+            *certificateIssuer = nullptr;
+        }
+        if (validFrom)
+        {
+            *validFrom = FILETIME{};
+        }
+        if (validTo)
+        {
+            *validTo = FILETIME{};
+        }
+        if (valid)
+        {
+            *valid = CertificateValid::Unknown;
+        }
+        RETURN_HR_IF_NULL(E_POINTER, bundleReader);
+
+        // Read the raw AppxSignature.p7x footprint
+        wil::unique_cotaskmem_ptr<BYTE[]> signatureBlob;
+        DWORD signatureSize{};
+        const HRESULT readHr{ ReadSignatureBlob(bundleReader, signatureBlob, signatureSize) };
+        RETURN_IF_FAILED(readHr);
+        if (readHr == S_FALSE)
+        {
+            return S_OK; // No (readable) signature -> Unsigned
+        }
+
+        RETURN_IF_FAILED(DetectSignatureOriginFromBlob(signatureBlob.get(), signatureSize, signatureOrigin));
+
+        // If the package is signed and the caller asked for it, extract the leaf
+        // (signing) certificate's SHA-1 hash (thumbprint) and/or Subject from the same blob
+        if ((signatureOrigin != SignatureOrigin::Unsigned) && ((thumbprintSize && thumbprint) || certificateSubject || certificateIssuer || validFrom || validTo || valid))
+        {
+            wil::unique_cert_context signingCertificate;
+            const HRESULT signerHr{ GetSignerCertificateFromBlob(signatureBlob.get(), signatureSize, signingCertificate) };
+            RETURN_IF_FAILED(signerHr);
+            if (signerHr == S_OK)
+            {
+                if (thumbprintSize && thumbprint)
+                {
+                    size_t hashSize{};
+                    wil::unique_cotaskmem_ptr<BYTE[]> hash;
+                    RETURN_IF_FAILED(GetCertificateThumbprintFromContext(signingCertificate.get(), hashSize, hash));
+                    *thumbprintSize = hashSize;
+                    *thumbprint = hash.release();
+                }
+                if (certificateSubject)
+                {
+                    wil::unique_cotaskmem_ptr<WCHAR[]> subject;
+                    RETURN_IF_FAILED(GetCertificateSubjectFromContext(signingCertificate.get(), subject));
+                    *certificateSubject = subject.release();
+                }
+                if (certificateIssuer)
+                {
+                    wil::unique_cotaskmem_ptr<WCHAR[]> issuer;
+                    RETURN_IF_FAILED(GetCertificateIssuerFromContext(signingCertificate.get(), issuer));
+                    *certificateIssuer = issuer.release();
+                }
+                if (validFrom)
+                {
+                    *validFrom = signingCertificate.get()->pCertInfo->NotBefore;
+                }
+                if (validTo)
+                {
+                    *validTo = signingCertificate.get()->pCertInfo->NotAfter;
+                }
+                if (valid)
+                {
+                    *valid = static_cast<CertificateValid>(CertVerifyTimeValidity(nullptr, signingCertificate.get()->pCertInfo));
+                }
+            }
+        }
+
+        return S_OK;
+    }
+
+public:
     // @param thumbprintSize Number of bytes in the thumbprint (20 for a SHA-1 hash)
     // @param thumbprint The certificate's SHA-1 hash (thumbprint) bytes, allocated via CoTaskMemAlloc()
     static HRESULT GetCertificateThumbprintFromContext(PCCERT_CONTEXT certificate, size_t& thumbprintSize, wil::unique_cotaskmem_ptr<BYTE[]>& thumbprint)
@@ -630,6 +919,24 @@ private:
         return GetSignerCertificateFromBlob(signatureBlob.get(), signatureSize, signingCertificate);
     }
 
+    // Extracts the leaf (signing) certificate from a package's signature
+    // @return S_OK with the certificate, S_FALSE if the package has no usable signature, or a failing HRESULT on a hard error
+    static HRESULT GetPackageSignerCertificate(IAppxBundleReader* bundleReader, wil::unique_cert_context& signingCertificate)
+    {
+        signingCertificate.reset();
+
+        wil::unique_cotaskmem_ptr<BYTE[]> signatureBlob;
+        DWORD signatureSize{};
+        const HRESULT readHr{ ReadSignatureBlob(bundleReader, signatureBlob, signatureSize) };
+        RETURN_IF_FAILED(readHr);
+        if (readHr == S_FALSE)
+        {
+            return S_FALSE; // No (readable) signature
+        }
+
+        return GetSignerCertificateFromBlob(signatureBlob.get(), signatureSize, signingCertificate);
+    }
+
     // Extracts the leaf (signing) certificate from a raw AppxSignature.p7x blob
     // @return S_OK with the certificate, S_FALSE if the blob has no usable signature, or a failing HRESULT on a hard error
     static HRESULT GetSignerCertificateFromBlob(const BYTE* signatureBlob, DWORD signatureSize, wil::unique_cert_context& signingCertificate)
@@ -765,6 +1072,39 @@ private:
         {
             return S_FALSE; // No signature footprint -> Unsigned
         }
+
+        RETURN_IF_FAILED(ReadSignatureBlob(signatureFile.get(), blob, blobSize));
+        return S_OK;
+    }
+
+    // Reads the AppxSignature.p7x footprint into a heap buffer
+    //
+    // @return S_OK if a signature blob was read, S_FALSE if there is no readable signature (treat as Unsigned),
+    //         or a failing HRESULT on a hard error
+    static HRESULT ReadSignatureBlob(IAppxBundleReader* bundleReader, wil::unique_cotaskmem_ptr<BYTE[]>& blob, DWORD& blobSize)
+    {
+        blob.reset();
+        blobSize = 0;
+
+        wil::com_ptr_nothrow<IAppxFile> signatureFile;
+        const HRESULT footprintHr{ LOG_IF_FAILED(bundleReader->GetFootprintFile(APPX_BUNDLE_FOOTPRINT_FILE_TYPE_SIGNATURE, &signatureFile)) };
+        if (FAILED(footprintHr) || !signatureFile)
+        {
+            return S_FALSE; // No signature footprint -> Unsigned
+        }
+
+        RETURN_IF_FAILED(ReadSignatureBlob(signatureFile.get(), blob, blobSize));
+        return S_OK;
+    }
+
+    // Reads the AppxSignature.p7x footprint into a heap buffer
+    //
+    // @return S_OK if a signature blob was read, S_FALSE if there is no readable signature (treat as Unsigned),
+    //         or a failing HRESULT on a hard error
+    static HRESULT ReadSignatureBlob(IAppxFile* signatureFile, wil::unique_cotaskmem_ptr<BYTE[]>& blob, DWORD& blobSize)
+    {
+        blob.reset();
+        blobSize = 0;
 
         wil::com_ptr_nothrow<IStream> stream;
         RETURN_IF_FAILED(signatureFile->GetStream(&stream));

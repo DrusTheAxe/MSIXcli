@@ -694,7 +694,14 @@ void MSIXPropertyPage::OnAddOrRemoveCertificate(HWND hwndDlg, const bool add)
     }
 
     // Re-evaluate the package's Signature Origin
-    std::ignore = LOG_IF_FAILED(m_package.DetectSignatureOrigin());
+    if (m_package.IsPackage())
+    {
+        std::ignore = LOG_IF_FAILED(m_package.DetectSignatureOrigin(m_package.PackageReader()));
+    }
+    else if (m_package.IsBundle())
+    {
+        std::ignore = LOG_IF_FAILED(m_package.DetectSignatureOrigin(m_package.BundleReader()));
+    }
     SetDlgItemText(hwndDlg, IDC_SIGNATURE_ORIGIN, MSIX::ToString(m_package.SignatureOrigin()));
 }
 

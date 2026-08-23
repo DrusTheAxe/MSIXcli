@@ -73,7 +73,9 @@ STDAPI DllRegisterServer(void)
 
     // Register the property sheet handler for .msix files
     RETURN_IF_FAILED(RegisterShellExtPropertyHandler(L".appx", CLSID_MSIXPropertySheet));
+    RETURN_IF_FAILED(RegisterShellExtPropertyHandler(L".appxbundle", CLSID_MSIXPropertySheet));
     RETURN_IF_FAILED(RegisterShellExtPropertyHandler(L".msix", CLSID_MSIXPropertySheet));
+    RETURN_IF_FAILED(RegisterShellExtPropertyHandler(L".msixbundle", CLSID_MSIXPropertySheet));
 
     return S_OK;
 }
@@ -85,7 +87,9 @@ STDAPI DllUnregisterServer(void)
 
     // Unregister the property sheet handler
     RETURN_IF_FAILED(UnregisterShellExtPropertyHandler(L".appx", CLSID_MSIXPropertySheet));
+    RETURN_IF_FAILED(UnregisterShellExtPropertyHandler(L".appxbundle", CLSID_MSIXPropertySheet));
     RETURN_IF_FAILED(UnregisterShellExtPropertyHandler(L".msix", CLSID_MSIXPropertySheet));
+    RETURN_IF_FAILED(UnregisterShellExtPropertyHandler(L".msixbundle", CLSID_MSIXPropertySheet));
 
     return S_OK;
 }

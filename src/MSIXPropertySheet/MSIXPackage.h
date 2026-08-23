@@ -20,60 +20,115 @@ public:
     void Close()
     {
         m_packageReader.reset();
-        m_blockMapReader.reset();
-        m_manifestReader.reset();
+        m_bundleReader.reset();
     }
 
-    HRESULT Open(
+    HRESULT OpenPackage(
         PCWSTR filename,
         ABI::Windows::Management::Deployment::IPackageManager12* packageManager12)
     {
         wil::com_ptr_nothrow<IAppxFactory> factory;
         RETURN_IF_FAILED_MSG(MSIX::Packaging::Package::Reader::Open(filename, m_packageReader), "%ls", filename);
 
-        RETURN_IF_FAILED(m_packageReader->GetManifest(&m_manifestReader));
+        wil::com_ptr_nothrow<IAppxManifestReader> manifestReader;
+        RETURN_IF_FAILED(m_packageReader->GetManifest(&manifestReader));
         wil::com_ptr_nothrow<IAppxManifestPackageId> manifestPackageId;
-        RETURN_IF_FAILED(m_manifestReader->GetPackageId(&manifestPackageId));
+        RETURN_IF_FAILED(manifestReader->GetPackageId(&manifestPackageId));
         RETURN_IF_FAILED(manifestPackageId->GetPackageFullName(wil::out_param(m_packageFullName)));
         RETURN_IF_FAILED(manifestPackageId->GetPackageFamilyName(wil::out_param(m_packageFamilyName)));
 
-        RETURN_IF_FAILED(DetectSignatureOrigin());
+        RETURN_IF_FAILED(DetectSignatureOrigin(m_packageReader.get()));
 
-        RETURN_IF_FAILED(m_packageReader->GetBlockMap(&m_blockMapReader));
-        RETURN_IF_FAILED(LoadSizes());
+        wil::com_ptr_nothrow<IAppxBlockMapReader> blockMapReader;
+        RETURN_IF_FAILED(m_packageReader->GetBlockMap(&blockMapReader));
+        RETURN_IF_FAILED(LoadSizes(m_packageReader.get(), blockMapReader.get()));
 
         RETURN_IF_FAILED(DetectPackage(packageManager12));
         return S_OK;
     }
 
-    HRESULT DetectSignatureOrigin()
+    HRESULT OpenBundle(
+        PCWSTR filename,
+        ABI::Windows::Management::Deployment::IPackageManager12* packageManager12)
     {
-        RETURN_HR_IF(E_NOT_VALID_STATE, !m_packageReader);
+        wil::com_ptr_nothrow<IAppxFactory> factory;
+        RETURN_IF_FAILED_MSG(MSIX::Packaging::Package::Reader::Open(filename, m_bundleReader), "%ls", filename);
 
-        RETURN_IF_FAILED(MSIX::Signing::DetectSignatureOrigin(m_packageReader.get(), m_signatureOrigin,
+        wil::com_ptr_nothrow<IAppxBundleManifestReader> bundleManifestReader;
+        RETURN_IF_FAILED(m_bundleReader->GetManifest(&bundleManifestReader));
+        wil::com_ptr_nothrow<IAppxManifestPackageId> bundleManifestPackageId;
+        RETURN_IF_FAILED(bundleManifestReader->GetPackageId(&bundleManifestPackageId));
+        RETURN_IF_FAILED(bundleManifestPackageId->GetPackageFullName(wil::out_param(m_packageFullName)));
+        RETURN_IF_FAILED(bundleManifestPackageId->GetPackageFamilyName(wil::out_param(m_packageFamilyName)));
+
+        RETURN_IF_FAILED(DetectSignatureOrigin(m_bundleReader.get()));
+
+        wil::com_ptr_nothrow<IAppxBlockMapReader> blockMapReader;
+        RETURN_IF_FAILED(m_bundleReader->GetBlockMap(&blockMapReader));
+        RETURN_IF_FAILED(LoadSizes(m_bundleReader.get(), blockMapReader.get()));
+
+        RETURN_IF_FAILED(DetectPackage(packageManager12));
+        return S_OK;
+    }
+
+    HRESULT Open(
+        PCWSTR filename,
+        ABI::Windows::Management::Deployment::IPackageManager12* packageManager12)
+    {
+        if (MSIX::IsPackage(filename))
+        {
+            RETURN_IF_FAILED(OpenPackage(filename, packageManager12));
+        }
+        else if (MSIX::IsBundle(filename))
+        {
+            RETURN_IF_FAILED(OpenBundle(filename, packageManager12));
+        }
+        else
+        {
+            RETURN_HR_MSG(HRESULT_FROM_WIN32(ERROR_NOT_SUPPORTED), "%s", filename);
+        }
+        return S_OK;
+    }
+
+    HRESULT DetectSignatureOrigin(IAppxPackageReader* packageReader)
+    {
+        RETURN_IF_FAILED(MSIX::Signing::DetectSignatureOrigin(packageReader, m_signatureOrigin,
             m_certificateThumbprintSize, m_certificateThumbprint, m_certificateSubject, m_certificateIssuer,
             m_certificateValidFrom, m_certificateValidTo, m_certificateValid));
         return S_OK;
     }
 
-    HRESULT LoadSizes()
+    HRESULT DetectSignatureOrigin(IAppxBundleReader* bundleReader)
     {
-        RETURN_IF_FAILED(LoadFootprintSizes());
-        RETURN_IF_FAILED(LoadPayloadSizes());
+        RETURN_IF_FAILED(MSIX::Signing::DetectSignatureOrigin(bundleReader, m_signatureOrigin,
+            m_certificateThumbprintSize, m_certificateThumbprint, m_certificateSubject, m_certificateIssuer,
+            m_certificateValidFrom, m_certificateValidTo, m_certificateValid));
         return S_OK;
     }
 
-    HRESULT LoadFootprintSizes()
+    HRESULT LoadSizes(IAppxPackageReader* packageReader, IAppxBlockMapReader* blockMapReader)
     {
-        RETURN_HR_IF(E_NOT_VALID_STATE, !m_packageReader);
+        RETURN_IF_FAILED(LoadFootprintSizes(packageReader, blockMapReader));
+        RETURN_IF_FAILED(LoadPayloadSizes(blockMapReader));
+        return S_OK;
+    }
 
-        for (const auto type : s_footprintFileTypes)
+    HRESULT LoadSizes(IAppxBundleReader* bundleReader, IAppxBlockMapReader* blockMapReader)
+    {
+        RETURN_IF_FAILED(LoadFootprintSizes(bundleReader, blockMapReader));
+        RETURN_IF_FAILED(LoadPayloadSizes(blockMapReader));
+        return S_OK;
+    }
+
+    HRESULT LoadFootprintSizes(IAppxPackageReader* packageReader, IAppxBlockMapReader* blockMapReader)
+    {
+        for (const auto type : s_packageFootprintFileTypes)
         {
             // AppxBlockMap.xml and AppxSignature.p7x sizes aren't available via the block map
             if ((type == APPX_FOOTPRINT_FILE_TYPE_BLOCKMAP) || (type == APPX_FOOTPRINT_FILE_TYPE_SIGNATURE))
             {
                 wil::com_ptr_nothrow<IAppxFile> footprintFile;
-                RETURN_IF_FAILED(m_packageReader->GetFootprintFile(type, &footprintFile));
+                RETURN_IF_FAILED(packageReader->GetFootprintFile(type, &footprintFile));
                 wil::com_ptr_nothrow<IStream> stream;
                 RETURN_IF_FAILED(footprintFile->GetStream(&stream));
                 STATSTG stat{};
@@ -85,10 +140,10 @@ public:
             }
             else
             {
-                PCWSTR filename{ s_fileNames[type] };
+                PCWSTR filename{ s_packageFileNames[type] };
 
                 wil::com_ptr_nothrow<IAppxBlockMapFile> blockMapFile;
-                const HRESULT hr{ m_blockMapReader->GetFile(filename, &blockMapFile) };
+                const HRESULT hr{ blockMapReader->GetFile(filename, &blockMapFile) };
                 if (SUCCEEDED(hr))
                 {
                     std::uint64_t size{};
@@ -122,12 +177,67 @@ public:
         return S_OK;
     }
 
-    HRESULT LoadPayloadSizes()
+    HRESULT LoadFootprintSizes(IAppxBundleReader* bundleReader, IAppxBlockMapReader* blockMapReader)
     {
-        RETURN_HR_IF(E_NOT_VALID_STATE, !m_packageReader);
+        for (const auto type : s_bundleFootprintFileTypes)
+        {
+            // AppxBlockMap.xml and AppxSignature.p7x sizes aren't available via the block map
+            if ((type == APPX_BUNDLE_FOOTPRINT_FILE_TYPE_BLOCKMAP) || (type == APPX_BUNDLE_FOOTPRINT_FILE_TYPE_SIGNATURE))
+            {
+                wil::com_ptr_nothrow<IAppxFile> footprintFile;
+                RETURN_IF_FAILED(bundleReader->GetFootprintFile(type, &footprintFile));
+                wil::com_ptr_nothrow<IStream> stream;
+                RETURN_IF_FAILED(footprintFile->GetStream(&stream));
+                STATSTG stat{};
+                RETURN_IF_FAILED(stream->Stat(&stat, STATFLAG_NONAME));
+                std::uint64_t size{ stat.cbSize.QuadPart };
+                m_footprintFileSize[FootprintFileSizeIndex(type, false)] = size;
+                // Packaging API doesn't exposed the compressed sizes
+                //TODO Read the .msix as a ZIP file and examine the CentralDirectory entry
+            }
+            else
+            {
+                PCWSTR filename{ s_bundleFileNames[type] };
 
+                wil::com_ptr_nothrow<IAppxBlockMapFile> blockMapFile;
+                const HRESULT hr{ blockMapReader->GetFile(filename, &blockMapFile) };
+                if (SUCCEEDED(hr))
+                {
+                    std::uint64_t size{};
+                    RETURN_IF_FAILED(blockMapFile->GetUncompressedSize(&size));
+                    m_footprintFileSize[FootprintFileSizeIndex(type, false)] = size;
+
+                    std::uint64_t compressedSize{};
+                    wil::com_ptr_nothrow<IAppxBlockMapBlocksEnumerator> blocksEnumerator;
+                    RETURN_IF_FAILED(blockMapFile->GetBlocks(&blocksEnumerator));
+                    BOOL hasCurrent{};
+                    RETURN_IF_FAILED(blocksEnumerator->GetHasCurrent(&hasCurrent));
+                    while (hasCurrent)
+                    {
+                        wil::com_ptr_nothrow<IAppxBlockMapBlock> block;
+                        RETURN_IF_FAILED(blocksEnumerator->GetCurrent(&block));
+                        UINT32 blockCompressedSize{};
+                        RETURN_IF_FAILED(block->GetCompressedSize(&blockCompressedSize));
+                        compressedSize += blockCompressedSize;
+                        BOOL hasNext{};
+                        RETURN_IF_FAILED(blocksEnumerator->MoveNext(&hasNext));
+                        hasCurrent = hasNext;
+                    }
+                    m_footprintFileSize[FootprintFileSizeIndex(type, true)] = compressedSize;
+                }
+                else
+                {
+                    RETURN_HR_IF_MSG(hr, hr != HRESULT_FROM_WIN32(ERROR_FILE_NOT_FOUND), "%ls", filename);
+                }
+            }
+        }
+        return S_OK;
+    }
+
+    HRESULT LoadPayloadSizes(IAppxBlockMapReader* blockMapReader)
+    {
         wil::com_ptr_nothrow<IAppxBlockMapFilesEnumerator> filesEnumerator;
-        const HRESULT hr{ m_blockMapReader->GetFiles(&filesEnumerator) };
+        const HRESULT hr{ blockMapReader->GetFiles(&filesEnumerator) };
         if (SUCCEEDED(hr))
         {
             BOOL hasCurrent{};
@@ -244,9 +354,24 @@ public:
         return S_OK;
     }
 
+    bool IsPackage() const
+    {
+        return !!m_packageReader;
+    }
+
+    bool IsBundle() const
+    {
+        return !!m_bundleReader;
+    }
+
     IAppxPackageReader* PackageReader()
     {
         return m_packageReader.get();
+    }
+
+    IAppxBundleReader* BundleReader()
+    {
+        return m_bundleReader.get();
     }
 
     PCWSTR PackageFullName() const
@@ -368,19 +493,19 @@ public:
         return m_isRemovalPending;
     }
 
-    static constexpr PCWSTR FootprintFileName(APPX_FOOTPRINT_FILE_TYPE type)
+    static constexpr PCWSTR PackageFootprintFileName(APPX_FOOTPRINT_FILE_TYPE type)
     {
         static_assert(APPX_FOOTPRINT_FILE_TYPE_MANIFEST == 0, "APPX_FOOTPRINT_FILE_TYPE_MANIFEST != 0");
-        static_assert(APPX_FOOTPRINT_FILE_TYPE_CONTENTGROUPMAP == ARRAYSIZE(s_fileNames) - 1, "APPX_FOOTPRINT_FILE_TYPE_CONTENTGROUPMAP != size of s_fileNames");
+        static_assert(APPX_FOOTPRINT_FILE_TYPE_CONTENTGROUPMAP == ARRAYSIZE(s_packageFileNames) - 1, "APPX_FOOTPRINT_FILE_TYPE_CONTENTGROUPMAP != size of s_packageFileNames");
         if ((type < APPX_FOOTPRINT_FILE_TYPE_MANIFEST) || (type > APPX_FOOTPRINT_FILE_TYPE_CONTENTGROUPMAP))
         {
             return L"???";
         }
-        return s_fileNames[type];
+        return s_packageFileNames[type];
     };
 
 
-    std::uint64_t FootprintFileSize(APPX_FOOTPRINT_FILE_TYPE type, bool compressed) const
+    std::uint64_t PackageFootprintFileSize(APPX_FOOTPRINT_FILE_TYPE type, bool compressed) const
     {
         static_assert(APPX_FOOTPRINT_FILE_TYPE_MANIFEST == 0, "APPX_FOOTPRINT_FILE_TYPE_MANIFEST != 0");
         if ((type < APPX_FOOTPRINT_FILE_TYPE_MANIFEST) || (type > APPX_FOOTPRINT_FILE_TYPE_CONTENTGROUPMAP))
@@ -390,10 +515,58 @@ public:
         return m_footprintFileSize[FootprintFileSizeIndex(type, compressed)];
     }
 
+    static constexpr PCWSTR BundleFootprintFileName(APPX_BUNDLE_FOOTPRINT_FILE_TYPE type)
+    {
+        static_assert(APPX_BUNDLE_FOOTPRINT_FILE_TYPE_MANIFEST == 0, "APPX_BUNDLE_FOOTPRINT_FILE_TYPE_MANIFEST != 0");
+        static_assert(APPX_BUNDLE_FOOTPRINT_FILE_TYPE_SIGNATURE == ARRAYSIZE(s_bundleFileNames) - 1, "APPX_BUNDLE_FOOTPRINT_FILE_TYPE_SIGNATURE != size of s_bundleFileNames");
+        if ((type < APPX_BUNDLE_FOOTPRINT_FILE_TYPE_MANIFEST) || (type > APPX_BUNDLE_FOOTPRINT_FILE_TYPE_SIGNATURE))
+        {
+            return L"???";
+        }
+        return s_bundleFileNames[type];
+    };
+
+
+    std::uint64_t BundleFootprintFileSize(APPX_BUNDLE_FOOTPRINT_FILE_TYPE type, bool compressed) const
+    {
+        static_assert(APPX_BUNDLE_FOOTPRINT_FILE_TYPE_MANIFEST == 0, "APPX_BUNDLE_FOOTPRINT_FILE_TYPE_MANIFEST != 0");
+        if ((type < APPX_BUNDLE_FOOTPRINT_FILE_TYPE_MANIFEST) || (type > APPX_BUNDLE_FOOTPRINT_FILE_TYPE_SIGNATURE))
+        {
+            return 0;
+        }
+        return m_footprintFileSize[FootprintFileSizeIndex(type, compressed)];
+    }
+
     std::uint64_t FootprintTotalSizeCompressed(bool compressed) const
     {
+        if (IsPackage())
+        {
+            return PackageFootprintTotalSizeCompressed(compressed);
+        }
+        else if (IsBundle())
+        {
+            return BundleFootprintTotalSizeCompressed(compressed);
+        }
+        else
+        {
+            return 0;
+        }
+    }
+
+    std::uint64_t PackageFootprintTotalSizeCompressed(bool compressed) const
+    {
         std::uint64_t size{};
-        for (const auto type : s_footprintFileTypes)
+        for (const auto type : s_packageFootprintFileTypes)
+        {
+            size += m_footprintFileSize[FootprintFileSizeIndex(type, compressed)];
+        }
+        return size;
+    }
+
+    std::uint64_t BundleFootprintTotalSizeCompressed(bool compressed) const
+    {
+        std::uint64_t size{};
+        for (const auto type : s_bundleFootprintFileTypes)
         {
             size += m_footprintFileSize[FootprintFileSizeIndex(type, compressed)];
         }
@@ -421,15 +594,20 @@ private:
         return type * 2 + (compressed ? 0 : 1);
     }
 
+    int FootprintFileSizeIndex(APPX_BUNDLE_FOOTPRINT_FILE_TYPE type, bool compressed) const
+    {
+        return type * 2 + (compressed ? 0 : 1);
+    }
+
 private:
-    inline static constexpr APPX_FOOTPRINT_FILE_TYPE s_footprintFileTypes[]{
+    inline static constexpr APPX_FOOTPRINT_FILE_TYPE s_packageFootprintFileTypes[]{
         APPX_FOOTPRINT_FILE_TYPE_MANIFEST,
         APPX_FOOTPRINT_FILE_TYPE_BLOCKMAP,
         APPX_FOOTPRINT_FILE_TYPE_SIGNATURE,
         APPX_FOOTPRINT_FILE_TYPE_CODEINTEGRITY,
         APPX_FOOTPRINT_FILE_TYPE_CONTENTGROUPMAP
     };
-    inline static constexpr PCWSTR s_fileNames[]{
+    inline static constexpr PCWSTR s_packageFileNames[]{
         L"AppxManifest.xml",
         L"AppxBlockMap.xml",
         L"AppxSignature.p7x",
@@ -438,9 +616,20 @@ private:
     };
 
 private:
+    inline static constexpr APPX_BUNDLE_FOOTPRINT_FILE_TYPE s_bundleFootprintFileTypes[]{
+        APPX_BUNDLE_FOOTPRINT_FILE_TYPE_MANIFEST,
+        APPX_BUNDLE_FOOTPRINT_FILE_TYPE_BLOCKMAP,
+        APPX_BUNDLE_FOOTPRINT_FILE_TYPE_SIGNATURE
+    };
+    inline static constexpr PCWSTR s_bundleFileNames[]{
+        L"AppxMetadata/AppxManifest.xml",
+        L"AppxBlockMap.xml",
+        L"AppxSignature.p7x"
+    };
+
+private:
     wil::com_ptr_nothrow<IAppxPackageReader> m_packageReader;
-    wil::com_ptr_nothrow<IAppxBlockMapReader> m_blockMapReader;
-    wil::com_ptr_nothrow<IAppxManifestReader> m_manifestReader;
+    wil::com_ptr_nothrow<IAppxBundleReader> m_bundleReader;
     wil::unique_cotaskmem_ptr<WCHAR[]> m_packageFullName;
     wil::unique_cotaskmem_ptr<WCHAR[]> m_packageFamilyName;
     ::PackageOrigin m_packageOrigin{ ::PackageOrigin_Unknown };

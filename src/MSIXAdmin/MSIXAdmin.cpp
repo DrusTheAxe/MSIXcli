@@ -37,6 +37,15 @@ static bool g_benchmark{};
     ::ExitProcess(1);
 }
 
+[[noreturn]] void UnknownFileType(PCWSTR filename)
+{
+    wprintf(L"Error 0x00000001: Unknown file type\n"
+            L"    Full command line: '%ls'\n"
+            L"Argument: %ls\n",
+            GetCommandLine(), filename);
+    ::ExitProcess(1);
+}
+
 HRESULT ActivateInstance(
     IInspectable** inspectable,
     PCWSTR activatableClassId)
@@ -1752,10 +1761,19 @@ constexpr PCWSTR help_Command_Version{
 
 HRESULT Command_Certificate_Add(PCWSTR filename)
 {
-    wil::com_ptr_nothrow<IAppxPackageReader> packageReader;
-    RETURN_IF_FAILED_MSG(MSIX::Packaging::Package::Reader::Open(filename, packageReader), "%ls", filename);
     MSIX::Signing::AddResult result{};
-    RETURN_IF_FAILED_MSG(MSIX::Signing::AddCertificate(packageReader.get(), result), "%ls", filename);
+    if (MSIX::IsPackage(filename))
+    {
+        wil::com_ptr_nothrow<IAppxPackageReader> packageReader;
+        RETURN_IF_FAILED_MSG(MSIX::Packaging::Package::Reader::Open(filename, packageReader), "%ls", filename);
+        RETURN_IF_FAILED_MSG(MSIX::Signing::AddCertificate(packageReader.get(), result), "%ls", filename);
+    }
+    else if (MSIX::IsBundle(filename))
+    {
+        wil::com_ptr_nothrow<IAppxBundleReader> bundleReader;
+        RETURN_IF_FAILED_MSG(MSIX::Packaging::Package::Reader::Open(filename, bundleReader), "%ls", filename);
+        RETURN_IF_FAILED_MSG(MSIX::Signing::AddCertificate(bundleReader.get(), result), "%ls", filename);
+    }
 
     if (result == MSIX::Signing::AddResult::Installed)
     {
@@ -1790,9 +1808,22 @@ HRESULT Command_Certificate_Exists(PCWSTR filename)
     }
     else
     {
-        wil::com_ptr_nothrow<IAppxPackageReader> packageReader;
-        RETURN_IF_FAILED_MSG(MSIX::Packaging::Package::Reader::Open(filename, packageReader), "%ls", filename);
-        RETURN_IF_FAILED_MSG(MSIX::Signing::IsCertificateInstalled(packageReader.get(), isInstalled), "%ls", filename);
+        if (MSIX::IsPackage(filename))
+        {
+            wil::com_ptr_nothrow<IAppxPackageReader> packageReader;
+            RETURN_IF_FAILED_MSG(MSIX::Packaging::Package::Reader::Open(filename, packageReader), "%ls", filename);
+            RETURN_IF_FAILED_MSG(MSIX::Signing::IsCertificateInstalled(packageReader.get(), isInstalled), "%ls", filename);
+        }
+        else if (MSIX::IsBundle(filename))
+        {
+            wil::com_ptr_nothrow<IAppxBundleReader> bundleReader;
+            RETURN_IF_FAILED_MSG(MSIX::Packaging::Package::Reader::Open(filename, bundleReader), "%ls", filename);
+            RETURN_IF_FAILED_MSG(MSIX::Signing::IsCertificateInstalled(bundleReader.get(), isInstalled), "%ls", filename);
+        }
+        else
+        {
+            UnknownFileType(filename);
+        }
         wprintf(L"Certificate from '%ls' is%ls installed\n", filename, isInstalled ? L"" : L" not");
     }
 
@@ -1956,12 +1987,26 @@ HRESULT PrintCertificate(PCCERT_CONTEXT certificate)
 
 HRESULT Command_Certificate_List(PCWSTR filename)
 {
-    wil::com_ptr_nothrow<IAppxPackageReader> packageReader;
-    RETURN_IF_FAILED_MSG(MSIX::Packaging::Package::Reader::Open(filename, packageReader), "%ls", filename);
+    const auto isPackage{ MSIX::IsPackage(filename) };
+    if (!isPackage && !MSIX::IsBundle(filename))
+    {
+        UnknownFileType(filename);
+    }
 
     // Classify where the package's trust comes from (read-only; no elevation needed)
     MSIX::SignatureOrigin origin{ MSIX::SignatureOrigin::Unsigned };
-    RETURN_IF_FAILED_MSG(MSIX::Signing::DetectSignatureOrigin(packageReader.get(), origin), "%ls", filename);
+    wil::com_ptr_nothrow<IAppxPackageReader> packageReader;
+    wil::com_ptr_nothrow<IAppxBundleReader> bundleReader;
+    if (isPackage)
+    {
+        RETURN_IF_FAILED_MSG(MSIX::Packaging::Package::Reader::Open(filename, packageReader), "%ls", filename);
+        RETURN_IF_FAILED_MSG(MSIX::Signing::DetectSignatureOrigin(packageReader.get(), origin), "%ls", filename);
+    }
+    else
+    {
+        RETURN_IF_FAILED_MSG(MSIX::Packaging::Package::Reader::Open(filename, bundleReader), "%ls", filename);
+        RETURN_IF_FAILED_MSG(MSIX::Signing::DetectSignatureOrigin(bundleReader.get(), origin), "%ls", filename);
+    }
 
     wprintf(L"Package: %ls\n", filename);
     wprintf(L"Origin:  %ls\n", MSIX::ToString(origin));
@@ -1974,7 +2019,10 @@ HRESULT Command_Certificate_List(PCWSTR filename)
 
     // Extract and display the leaf (signing) certificate carried in the package
     wil::unique_cert_context signingCertificate;
-    const HRESULT signerHr{ MSIX::Signing::GetSigningCertificate(packageReader.get(), signingCertificate) };
+    const HRESULT signerHr{
+        isPackage ?
+        MSIX::Signing::GetSigningCertificate(packageReader.get(), signingCertificate) :
+        MSIX::Signing::GetSigningCertificate(bundleReader.get(), signingCertificate) };
     RETURN_IF_FAILED_MSG(signerHr, "%ls", filename);
     if ((signerHr == S_FALSE) || !signingCertificate)
     {
@@ -1999,11 +2047,21 @@ HRESULT Command_Certificate_Remove(PCWSTR filename)
         RETURN_IF_FAILED(wil::parse_hexstring(filename + 2, thumbprintSize, thumbprint.get()));
         RETURN_IF_FAILED_MSG(hr = MSIX::Signing::RemoveCertificate(thumbprintSize, thumbprint.get()), "%ls", filename);
     }
-    else
+    else if (MSIX::IsPackage(filename))
     {
         wil::com_ptr_nothrow<IAppxPackageReader> packageReader;
         RETURN_IF_FAILED_MSG(MSIX::Packaging::Package::Reader::Open(filename, packageReader), "%ls", filename);
         RETURN_IF_FAILED_MSG(hr = MSIX::Signing::RemoveCertificate(packageReader.get()), "%ls", filename);
+    }
+    else if (MSIX::IsBundle(filename))
+    {
+        wil::com_ptr_nothrow<IAppxBundleReader> bundleReader;
+        RETURN_IF_FAILED_MSG(MSIX::Packaging::Package::Reader::Open(filename, bundleReader), "%ls", filename);
+        RETURN_IF_FAILED_MSG(hr = MSIX::Signing::RemoveCertificate(bundleReader.get()), "%ls", filename);
+    }
+    else
+    {
+        UnknownFileType(filename);
     }
     wprintf(L"Certificate with thumbprint '%ls' %ls\n", filename + 2, (hr == S_OK ? L"is removed" : (hr == S_FALSE ? L"is not found" : L"???")));
     return S_OK;
@@ -2237,15 +2295,44 @@ HRESULT Command_Help(int argc, wchar_t* argv[])
     return S_OK;
 }
 
-HRESULT PackageToPackageFullName(PCWSTR package, wil::unique_cotaskmem_ptr<WCHAR[]>& packageFullName)
+HRESULT PackageToPackageFullName(IAppxPackageReader* packageReader, wil::unique_cotaskmem_ptr<WCHAR[]>& packageFullName)
 {
-    wil::com_ptr_nothrow<IAppxPackageReader> packageReader;
-    RETURN_IF_FAILED_MSG(MSIX::Packaging::Package::Reader::Open(package, packageReader), "%ls", package);
     wil::com_ptr_nothrow<IAppxManifestReader> manifestReader;
     RETURN_IF_FAILED(packageReader->GetManifest(&manifestReader));
     wil::com_ptr_nothrow<IAppxManifestPackageId> manifestPackageId;
     RETURN_IF_FAILED(manifestReader->GetPackageId(&manifestPackageId));
     RETURN_IF_FAILED(manifestPackageId->GetPackageFullName(wil::out_param(packageFullName)));
+    return S_OK;
+}
+
+HRESULT PackageToPackageFullName(IAppxBundleReader* bundleReader, wil::unique_cotaskmem_ptr<WCHAR[]>& packageFullName)
+{
+    wil::com_ptr_nothrow<IAppxBundleManifestReader> manifestReader;
+    RETURN_IF_FAILED(bundleReader->GetManifest(&manifestReader));
+    wil::com_ptr_nothrow<IAppxManifestPackageId> manifestPackageId;
+    RETURN_IF_FAILED(manifestReader->GetPackageId(&manifestPackageId));
+    RETURN_IF_FAILED(manifestPackageId->GetPackageFullName(wil::out_param(packageFullName)));
+    return S_OK;
+}
+
+HRESULT PackageToPackageFullName(PCWSTR filename, wil::unique_cotaskmem_ptr<WCHAR[]>& packageFullName)
+{
+    if (MSIX::IsPackage(filename))
+    {
+        wil::com_ptr_nothrow<IAppxPackageReader> packageReader;
+        RETURN_IF_FAILED_MSG(MSIX::Packaging::Package::Reader::Open(filename, packageReader), "%ls", filename);
+        RETURN_IF_FAILED(PackageToPackageFullName(packageReader.get(), packageFullName));
+    }
+    else if (MSIX::IsBundle(filename))
+    {
+        wil::com_ptr_nothrow<IAppxBundleReader> bundleReader;
+        RETURN_IF_FAILED_MSG(MSIX::Packaging::Package::Reader::Open(filename, bundleReader), "%ls", filename);
+        RETURN_IF_FAILED(PackageToPackageFullName(bundleReader.get(), packageFullName));
+    }
+    else
+    {
+        RETURN_HR_MSG(E_INVALIDARG, "%ls", filename);
+    }
     return S_OK;
 }
 
@@ -4222,7 +4309,7 @@ HRESULT Command_Shortcut_Add(int argc, wchar_t* argv[])
             (CompareStringOrdinal(arg, -1, L"-h", -1, FALSE) == CSTR_EQUAL) ||
             (CompareStringOrdinal(arg, -1, L"--help", -1, FALSE) == CSTR_EQUAL))
         {
-            Help(help_Command_Provision_Add);
+            Help(help_Command_Shortcut_Add);
         }
         else if (wil::string_starts_with(arg, L"--arguments="))
         {
@@ -4486,7 +4573,7 @@ HRESULT Command_Tool_PropertySheet_Install(int argc, wchar_t* argv[])
             (CompareStringOrdinal(arg, -1, L"-h", -1, FALSE) == CSTR_EQUAL) ||
             (CompareStringOrdinal(arg, -1, L"--help", -1, FALSE) == CSTR_EQUAL))
         {
-            Help(help_Command_Provision_Add);
+            Help(help_Command_Tool_PropertySheet_Install);
         }
         else if (wil::string_starts_with(arg, L"--path="))
         {
@@ -4556,7 +4643,7 @@ HRESULT Command_Tool_PropertySheet_List(int argc, wchar_t* argv[])
             (CompareStringOrdinal(arg, -1, L"-h", -1, FALSE) == CSTR_EQUAL) ||
             (CompareStringOrdinal(arg, -1, L"--help", -1, FALSE) == CSTR_EQUAL))
         {
-            Help(help_Command_Provision_Add);
+            Help(help_Command_Tool_PropertySheet_List);
         }
         else if (CompareStringOrdinal(arg, -1, L"--benchmark", -1, FALSE) == CSTR_EQUAL)
         {
@@ -4610,7 +4697,7 @@ HRESULT Command_Tool_PropertySheet_List(int argc, wchar_t* argv[])
     }
     {
         wprintf(L"Supported File Types:\n");
-        PCWSTR fileTypes[]{ L".appx", L".msix" };
+        PCWSTR fileTypes[]{ L".appx", L".appxbundle", L".msix", L".msixbundle" };
         for (PCWSTR fileType : fileTypes)
         {
             wil::unique_cotaskmem_string subkey;
@@ -4649,7 +4736,7 @@ HRESULT Command_Tool_PropertySheet_Uninstall(int argc, wchar_t* argv[])
             (CompareStringOrdinal(arg, -1, L"-h", -1, FALSE) == CSTR_EQUAL) ||
             (CompareStringOrdinal(arg, -1, L"--help", -1, FALSE) == CSTR_EQUAL))
         {
-            Help(help_Command_Provision_Add);
+            Help(help_Command_Tool_PropertySheet_Uninstall);
         }
         else if (wil::string_starts_with(arg, L"--path="))
         {

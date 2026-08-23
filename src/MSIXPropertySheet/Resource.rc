@@ -10,7 +10,7 @@
 #define MSIXCLI_PRODUCT_NAME    "MSIX Property Sheet"
 #include "VersionInfo.ver"
 
-ID_ICON    ICON "MSIXPropertySheet.ico"
+IDI_ICON    ICON "MSIXPropertySheet.ico"
 
 LANGUAGE LANG_ENGLISH, SUBLANG_ENGLISH_US
 
@@ -64,8 +64,8 @@ BEGIN
     LTEXT         "&Volume:",                   IDC_VOLUME_LABEL,            91, 194,  26,  8
     COMBOBOX                                    IDC_VOLUME,                 119, 192, 126, 60,  CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
 
-    ICON          "HomeIcon",                   IDI_ICON,                     7, 217,  32, 32
-    CONTROL       IDC_HOME_LABEL, IDC_HOME, "SysLink", WS_TABSTOP,           31, 229, 106, 14
+    ICON          IDI_ICON,                     IDC_HOME_ICON,                7, 225,  32, 32
+    CONTROL       IDC_HOME_LABEL, IDC_HOME, "SysLink", WS_TABSTOP,           31, 232, 106, 14
     COMBOBOX                                    IDC_INSTALLACTION,          140, 229,  50, 60,  CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
     PUSHBUTTON    "&Install",                   IDC_INSTALL,                195, 229,  50, 14,  BS_DEFPUSHBUTTON | WS_TABSTOP
 END
