@@ -10,7 +10,9 @@ have to decide for yourself whether you find these tools useful or dead ends (or
 
 # Requirements
 
-- Windows 11 (aka >=21H2 aka >=10.0.22000.0)
+- Windows 11 version 21H2 or newer (aka >= 10.0.22000.0)
+
+NOTE: Experimental support for Windows 10 version 2004 or newer (aka >= 10.0.19041.0).
 
 # msix.exe
 
