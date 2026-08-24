@@ -17,7 +17,9 @@ IF ERRORLEVEL 1 GoTo TheEnd
 CALL .\makenuget.cmd %VERSION%
 IF ERRORLEVEL 1 GoTo TheEnd
 
-CALL .\makezip.cmd %VERSION%
+CALL .\makezip.cmd %VERSION% x64
+IF ERRORLEVEL 1 GoTo TheEnd
+CALL .\makezip.cmd %VERSION% arm64
 IF ERRORLEVEL 1 GoTo TheEnd
 
 CALL .\makemsix.cmd %VERSION% x64
