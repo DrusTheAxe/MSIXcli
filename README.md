@@ -33,7 +33,7 @@ This command line executable provides access to MSIX functionality requiring adm
 If not launched elevated you'll see a UAC prompt to allow elevation, or process creation will fail.
 Nothing magical, just the usual Fusion manifest games (OK, perhaps that is a bit magical... :P).
 
-Run `msixadmin --help` for more information.
+Run `msixadmin --help` from an admin command line for more information.
 
 ## MSIX Property Sheet
 
