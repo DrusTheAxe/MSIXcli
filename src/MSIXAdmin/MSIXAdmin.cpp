@@ -46,6 +46,56 @@ static bool g_benchmark{};
     ::ExitProcess(1);
 }
 
+HRESULT FindPackageDependencies(
+    PCWSTR packageFamilyName,
+    std::uint32_t& packageDependencyIdsCount,
+    PWSTR** packageDependencyIds)
+{
+    packageDependencyIdsCount = 0;
+    *packageDependencyIds = nullptr;
+
+    decltype(::FindPackageDependency)* findPackageDependencyFunction{};
+
+    wil::unique_hmodule module;
+    RETURN_IF_FAILED(wil::win32::load_library(L"kernelbase.dll", wil::out_param(module)));
+    if (module)
+    {
+        RETURN_IF_FAILED(wil::win32::try_get_function(module.get(), "FindPackageDependency", &findPackageDependencyFunction));
+    }
+    if (!findPackageDependencyFunction)
+    {
+        return S_OK;
+    }
+
+    FindPackageDependencyCriteria findPackageDependencyCriteria{};
+    findPackageDependencyCriteria.PackageFamilyName = packageFamilyName;
+    RETURN_IF_FAILED(findPackageDependencyFunction(&findPackageDependencyCriteria, &packageDependencyIdsCount, packageDependencyIds));
+    return S_OK;
+}
+
+HRESULT GetPackageDependencyResolvedToPackageFullName(
+    PCWSTR packageDependencyId,
+    PWSTR* packageFullName)
+{
+    *packageFullName = nullptr;
+
+    decltype(::GetResolvedPackageFullNameForPackageDependency)* getResolvedPackageFullNameForPackageDependencyFunction{};
+
+    wil::unique_hmodule module;
+    RETURN_IF_FAILED(wil::win32::load_library(L"kernelbase.dll", wil::out_param(module)));
+    if (module)
+    {
+        RETURN_IF_FAILED(wil::win32::try_get_function(module.get(), "GetResolvedPackageFullNameForPackageDependency", &getResolvedPackageFullNameForPackageDependencyFunction));
+    }
+    if (!getResolvedPackageFullNameForPackageDependencyFunction)
+    {
+        return S_OK;
+    }
+
+    RETURN_IF_FAILED(getResolvedPackageFullNameForPackageDependencyFunction(packageDependencyId, packageFullName));
+    return S_OK;
+}
+
 HRESULT ActivateInstance(
     IInspectable** inspectable,
     PCWSTR activatableClassId)
@@ -220,6 +270,11 @@ void PrintPackageValue(PCWSTR key)
     wprintf(L"%-30ls :\n", key);
 }
 
+void PrintPackageValue(PCWSTR prefix, PCWSTR key)
+{
+    wprintf(L"%ls%-30ls :\n", prefix, key);
+}
+
 void PrintPackageValue(PCWSTR key, HRESULT hr, PCWSTR value)
 {
     if (FAILED(hr))
@@ -229,6 +284,18 @@ void PrintPackageValue(PCWSTR key, HRESULT hr, PCWSTR value)
     else
     {
         wprintf(L"%-30ls : %ls\n", key, value);
+    }
+}
+
+void PrintPackageValue(PCWSTR prefix, PCWSTR key, HRESULT hr, PCWSTR value)
+{
+    if (FAILED(hr))
+    {
+        PrintPackageKeyValueError(key, hr);
+    }
+    else
+    {
+        wprintf(L"%s%-30ls : %ls\n", prefix, key, value);
     }
 }
 
@@ -330,24 +397,28 @@ HRESULT ToPackageType(
     if (value)
     {
         packageType = ABI::Windows::Management::Deployment::PackageTypes_Framework;
+        return S_OK;
     }
 
     RETURN_IF_FAILED(package.package2()->get_IsResourcePackage(&value));
     if (value)
     {
         packageType = ABI::Windows::Management::Deployment::PackageTypes_Resource;
+        return S_OK;
     }
 
     RETURN_IF_FAILED(package.package4()->get_IsOptional(&value));
     if (value)
     {
         packageType = ABI::Windows::Management::Deployment::PackageTypes_Optional;
+        return S_OK;
     }
 
     RETURN_IF_FAILED(package.package2()->get_IsBundle(&value));
     if (value)
     {
         packageType = ABI::Windows::Management::Deployment::PackageTypes_Bundle;
+        return S_OK;
     }
 
     packageType = ABI::Windows::Management::Deployment::PackageTypes_Main;
@@ -923,11 +994,11 @@ void PrintPackage(
     PCWSTR packageFullName{ WindowsGetStringRawBuffer(packageFullNameHString.get(), nullptr) };
     PrintPackageValue(L"    PackageFullName", hrPackageFullName, packageFullName);
     wil::unique_hstring packageFamilyNameHString;
-    HRESULT hr{ LOG_IF_FAILED(packageId->get_FamilyName(wil::out_param(packageFamilyNameHString))) };
+    HRESULT hrPackageFamilyName{ LOG_IF_FAILED(packageId->get_FamilyName(wil::out_param(packageFamilyNameHString))) };
     PCWSTR packageFamilyName{ WindowsGetStringRawBuffer(packageFamilyNameHString.get(), nullptr) };
-    PrintPackageValue(L"    PackageFamilyName", hr, packageFamilyName);
+    PrintPackageValue(L"    PackageFamilyName", hrPackageFamilyName, packageFamilyName);
     wil::unique_hstring string;
-    hr = LOG_IF_FAILED(packageId->get_Name(wil::out_param(string)));
+    HRESULT hr{ LOG_IF_FAILED(packageId->get_Name(wil::out_param(string))) };
     PrintPackageValue(L"    Name", hr, string);
     ABI::Windows::ApplicationModel::PackageVersion version{};
     PrintPackageValue(L"    Version", LOG_IF_FAILED(packageId->get_Version(&version)), version);
@@ -1092,7 +1163,31 @@ void PrintPackage(
         wprintf(L"References\n");
         if (WI_IsFlagSet(references, ReferenceType::Dynamic))
         {
-            wprintf(L"    Dynamic                    : ? ==> TODO\n");
+            if (!packageFamilyName)
+            {
+                PrintPackageKeyValueError(L"    HostRuntimeDependency", hrPackageFamilyName);
+            }
+            else
+            {
+                std::uint32_t packageDependencyIdsCount{};
+                wil::unique_process_heap_ptr<PWSTR[]> packageDependencyIds;
+                hr = FindPackageDependencies(packageFamilyName, packageDependencyIdsCount, wil::out_param(packageDependencyIds));
+                if (FAILED(hr))
+                {
+                    PrintPackageKeyValueError(L"    Dynamic", hr);
+                }
+                else
+                {
+                    wprintf(L"    Dynamic                    : %u PackageDependencyId%s\n", packageDependencyIdsCount, packageDependencyIdsCount == 1 ? L"" : L"s");
+                    for (std::uint32_t index = 0; index < packageDependencyIdsCount; ++index)
+                    {
+                        PCWSTR packageDependencyId{ packageDependencyIds[index] };
+                        wil::unique_process_heap_ptr<WCHAR[]> resolvedPackageFullName;
+                        hr = GetPackageDependencyResolvedToPackageFullName(packageDependencyId, wil::out_param(resolvedPackageFullName));
+                        PrintPackageValue(L"        ", packageDependencyId, hr, resolvedPackageFullName.get());
+                    }
+                }
+            }
         }
         if (WI_IsFlagSet(references, ReferenceType::Explicit))
         {
@@ -1744,10 +1839,12 @@ constexpr PCWSTR help_Command_Tool_PropertySheet_Install{
     L"  " MSIX_EXE_NAME L" tool propertysheet install [options]\n"
     L"\n"
     L"Options:\n"
-    L"  --path=<FILE>         The path to the MSIX property sheet DLL (default = GetPath(" MSIX_EXE_NAME L".exe) + \\MSIXPropertySheet.dll)\n"
-    L"  --benchmark           Display elapsed time\n"
-    L"  -nologo, --no-logo    Do not display startup banner or copyright message\n"
-    L"  -?, -h, --help        Show command line help\n"
+    L"  --copy-to:applicationdata  Copy MSIXPropertySheet.dll to ApplicationData\n"
+    L"  --copy-to=<FILE>           Install a copy of MSIXPropertySheet.dll\n"
+    L"  --path=<FILE>              The path to the MSIX property sheet DLL (default = GetPath(" MSIX_EXE_NAME L".exe) + \\MSIXPropertySheet.dll)\n"
+    L"  --benchmark                Display elapsed time\n"
+    L"  -nologo, --no-logo         Do not display startup banner or copyright message\n"
+    L"  -?, -h, --help             Show command line help\n"
 };
 
 constexpr PCWSTR help_Command_Tool_PropertySheet_List{

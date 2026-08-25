@@ -46,8 +46,6 @@ msixadmin tool propertysheet install
 to install the MSIX PropertySheet page. This shows a new `MSIX` tab in Explorer's property sheet for
 MSIX files.
 
-**NOTE**: Currently supports *.msix and *.appx. Bundles and more are on the [TODO list](https://github.com/DrusTheAxe/MSIXcli/issues).
-
 ### Screenshots
 
 #1 MSIX tab for a new .msix file. Install button will Add the package.
@@ -71,6 +69,10 @@ MSIX files.
 1. **Handler not appearing**: Make sure the DLL is registered correctly
 2. **Wrong architecture**: Match DLL architecture (x64/arm64) with Explorer process
 
+# Known Issues
+
+See https://github.com/DrusTheAxe/MSIXcli/issues.
+
 # License
 
 See the LICENSE file in the root directory.
@@ -84,4 +86,6 @@ See [Code of Conduct](https://github.com/drustheaxe/msixcli/docs/CODE-OF-CONDUCT
 
 - [Implementing Shell Extension Handlers](https://docs.microsoft.com/en-us/windows/win32/shell/handlers)
 - [IShellPropSheetExt Interface](https://docs.microsoft.com/en-us/windows/win32/api/shobjidl_core/nn-shobjidl_core-ishellpropsheetext)
+- [PackageManager Class](https://learn.microsoft.com/uwp/api/windows.management.deployment.packagemanager)
+- [PackageVolume Class](https://learn.microsoft.com/uwp/api/windows.management.deployment.packagevolume)
 - [Property Sheet Handlers](https://docs.microsoft.com/en-us/windows/win32/shell/propsheet-handlers)

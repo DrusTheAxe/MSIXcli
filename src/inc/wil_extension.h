@@ -575,4 +575,33 @@ namespace filetime
         return S_OK;
     }
 }
+
+namespace win32
+{
+inline HRESULT load_library(PCWSTR moduleName, _Out_ HMODULE* module)
+{
+    auto hmodule{ ::LoadLibraryExW(moduleName, nullptr, LOAD_LIBRARY_SEARCH_SYSTEM32) };
+    if (!hmodule)
+    {
+        const auto rc{ ::GetLastError() };
+        RETURN_HR_IF_MSG(HRESULT_FROM_WIN32(rc), rc != ERROR_MOD_NOT_FOUND, "%ls", moduleName);
+        RETURN_HR(E_NOTIMPL);
+    }
+    *module = hmodule;
+    return S_OK;
+}
+
+template <typename T>
+inline HRESULT try_get_function(HMODULE module, PCSTR functionName, _Out_ T* function)
+{
+    auto fn{ reinterpret_cast<T>(::GetProcAddress(module, functionName)) };
+    if (!fn)
+    {
+        const auto rc{ ::GetLastError() };
+        RETURN_HR_IF_MSG(HRESULT_FROM_WIN32(rc), rc != ERROR_PROC_NOT_FOUND, "%hs", functionName);
+    }
+    *function = fn;
+    return S_OK;
+}
+}
 }
