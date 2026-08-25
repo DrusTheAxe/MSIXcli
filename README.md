@@ -8,25 +8,39 @@ This repository is based on various projects, musings, investigations and experi
 to explore interesting, useful or simply neat ideas and scratch some personal itches. You'll
 have to decide for yourself whether you find these tools useful or dead ends (or both).
 
-# Requirements
+## Installation
 
-- Windows 11 version 21H2 or newer (aka >= 10.0.22000.0)
+There are multiple ways to install MSIXcli - choose whichever you prefer!
 
-NOTE: Experimental support for Windows 10 version 2004 or newer (aka >= 10.0.19041.0).
+### Install via Microsoft Store (recommended)
 
-# msix.exe
+[![Download from the Microsoft Store](docs/images/DownloadFromTheMicrosoftStore.png)](https://apps.microsoft.com/detail/9NW86TXSG9G7?hl=en-us&gl=US&ocid=pdpshare)
+
+### Install via WinGet
+
+`winget install --exact --id 9NW86TXSG9G7 --source msstore`
+
+## Tools
+
+MSIXcli is a collection of tools:
+
+* msix.exe
+* msixadmin.exe
+* MSIX Property Sheet
+
+## msix.exe
 
 This command line executable provides access to MSIX functionality.
 
 Run `msix --help` for more information.
 
-## Command Tree
+### Command Tree
 
 Run `msix help commands tree`
 
 ![Display the commands tree](docs/images/msix/MSIX-help-commands-tree.png)
 
-# msixadmin.exe
+## msixadmin.exe
 
 This command line executable provides access to MSIX functionality requiring admin privilege.
 
@@ -68,6 +82,12 @@ MSIX files.
 
 1. **Handler not appearing**: Make sure the DLL is registered correctly
 2. **Wrong architecture**: Match DLL architecture (x64/arm64) with Explorer process
+
+# Requirements
+
+- Windows 11 version 21H2 or newer (aka >= 10.0.22000.0)
+
+NOTE: Experimental support for Windows 10 version 2004 or newer (aka >= 10.0.19041.0).
 
 # Known Issues
 
