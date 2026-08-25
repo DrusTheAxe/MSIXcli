@@ -11,9 +11,9 @@
    xmlns:desktop="http://schemas.microsoft.com/appx/manifest/desktop/windows10"
    IgnorableNamespaces="uap uap3 uap5 uap10 uap17 rescap desktop mp">
   <mp:PhoneIdentity PhoneProductId="00000000-0000-0000-0000-000000000000" PhonePublisherId="00000000-0000-0000-0000-000000000000" />
-  <Identity Name="MSIXcli"
+  <Identity Name="37849TrollCaveEnterprises.MSIXcli"
     ProcessorArchitecture="$architecture$"
-    Publisher="CN=TrollCaveEnterprises"
+    Publisher="CN=3E30C666-25E6-43DE-85CB-AE8C73750032"
     Version="$version$.0" />
   <Properties>
     <DisplayName>MSIXcli</DisplayName>
