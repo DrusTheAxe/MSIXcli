@@ -10,7 +10,7 @@
     <summary>Command line applications to manage MSIX packages</summary>
     <description>MSIXcli is a set of utilities to access and manage [MSIX](https://learn.microsoft.com/windows/msix/overview) packages.
 
-    msix.exe provides access to MSIX functionality..
+    msix.exe provides access to MSIX functionality.
 
     msixadmin.exe provides access to MSIX functionality requiring admin privilege, including provisioning and deprovisioning packages, adding and removing certifications and more.
 
@@ -20,7 +20,7 @@
     <projectUrl>https://github.com/DrusTheAxe/MSIXPropertySheet</projectUrl>
     <license type="expression">MIT</license>
     <tags>MSIXcli MSIXadmin MSIX APPX Provisioning Provision Deprovision Certificate Shortcut Package PackageManager PackageVolume</tags>
-    <copyright>Copyright (C) Howard Kapustein</copyright>
+    <copyright>Copyright (C) Howard Kapustein. All rights reserved.</copyright>
     <requireLicenseAcceptance>false</requireLicenseAcceptance>
     <repository type="git" url="https://github.com/DrusTheAxe/MSIXPropertySheet" branch="main" />
     <releaseNotes></releaseNotes>
