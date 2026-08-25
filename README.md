@@ -82,6 +82,10 @@ See the LICENSE file in the root directory.
 See [Code of Conduct](https://github.com/drustheaxe/msixcli/docs/CODE-OF-CONDUCT.md) or contact
 [howard.kapustein@gmail.com](mailto:howard.kapustein@gmail.com) with any additional questions or comments.
 
+## Privacy
+
+See [PRIVACY.md](https://github.com/DrusTheAxe/AppData/blob/main/PRIVACY.md) for details.
+
 # References
 
 - [Implementing Shell Extension Handlers](https://docs.microsoft.com/en-us/windows/win32/shell/handlers)
