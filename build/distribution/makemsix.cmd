@@ -24,8 +24,9 @@ COPY %ROOTDIR%\build\distribution\appxmanifest.xml %SCRATCH%\*
 pwsh.exe -NoProfile -Command "$p='%SCRATCH%\appxmanifest.xml'; $s=[IO.File]::ReadAllText($p); [IO.File]::WriteAllText($p,$s.Replace('$version$','%VERSION%').Replace('$architecture$','%ARCH%'))"
 COPY %ROOTDIR%\LICENSE %SCRATCH%\*
 COPY %ROOTDIR%\README.md %SCRATCH%\*
-COPY %ROOTDIR%\images\msixcli-48x48.png %SCRATCH%\*
 COPY %ROOTDIR%\images\msixcli-100x100.png %SCRATCH%\*
+COPY %ROOTDIR%\images\msix-48x48.png %SCRATCH%\*
+COPY %ROOTDIR%\images\msix-100x100.png %SCRATCH%\*
 COPY %ROOTDIR%\images\msixadmin-48x48.png %SCRATCH%\*
 COPY %ROOTDIR%\images\msixadmin-100x100.png %SCRATCH%\*
 

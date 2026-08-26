@@ -39,11 +39,11 @@
       <uap3:VisualElements
             BackgroundColor="transparent"
             DisplayName="MSIX CLI"
-            Square150x150Logo="msixcli-100x100.png"
-            Square44x44Logo="msixcli-48x48.png"
+            Square150x150Logo="msix-100x100.png"
+            Square44x44Logo="msix-48x48.png"
             Description="MSIX package management"
             AppListEntry="none">
-        <uap:SplashScreen BackgroundColor="transparent" Image="msixcli-100x100.png" uap5:Optional="true"/>
+        <uap:SplashScreen BackgroundColor="transparent" Image="msix-100x100.png" uap5:Optional="true"/>
       </uap3:VisualElements>
       <Extensions>
         <uap3:Extension Category="windows.appExecutionAlias">
