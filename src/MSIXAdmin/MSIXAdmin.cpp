@@ -1510,7 +1510,7 @@ constexpr PCWSTR help_Command_Package_List{
     L"  Display the currently installed packages\n"
     L"\n"
     L"Usage:\n"
-    L"  " MSIX_EXE_NAME L" package list [options]\n"
+    L"  " MSIX_EXE_NAME L" package list [options] [GLOB]\n"
     L"\n"
     L"Options:\n"
     L"  --dependencies[:<DEPTYPE>]     Display dependencies of the package\n"
@@ -1523,11 +1523,13 @@ constexpr PCWSTR help_Command_Package_List{
     L"  --user=<SID>                   Display packages for a user (*=all, default=current)\n"
     L"  --timezone=<TIMEZONE>          Display timezone for timestamps (default=local)\n"
     L"  --no-summary                   Do not display summary information\n"
+    L"  --                             End option processing\n"
     L"  --benchmark                    Display elapsed time\n"
     L"  -nologo, --no-logo             Do not display startup banner or copyright message\n"
     L"  -?, -h, --help                 Show command line help\n"
     L"\n"
     L"Arguments:\n"
+    L"  [GLOB] = Same as '--glob=GLOB'\n"
     L"  <DEPTYPE> = f (framework), h (hostruntime), o (optional), r (resource)\n"
     L"  <FORMAT> = full|packagefamilyname|packagefullname\n"
     L"  <PROPERTY> = name|packagefamilyname|packagefullname\n"
@@ -2834,6 +2836,11 @@ HRESULT Command_Package_List(int argc, wchar_t* argv[])
         {
             summary = false;
         }
+        else if (CompareStringOrdinal(arg, -1, L"--", -1, FALSE) == CSTR_EQUAL)
+        {
+            ++argn;
+            break;
+        }
         else if (CompareStringOrdinal(arg, -1, L"--benchmark", -1, FALSE) == CSTR_EQUAL)
         {
             g_benchmark = true;
@@ -2843,10 +2850,18 @@ HRESULT Command_Package_List(int argc, wchar_t* argv[])
         {
             logo = false;
         }
+        else if (arg[0] != L'-')
+        {
+            break;
+        }
         else
         {
-            UnknownArgument(arg);
+            UnknownArgument(argv[argn]);
         }
+    }
+    if (argn < argc)
+    {
+        glob_name = argv[argn++];
     }
     if (argn < argc)
     {
@@ -2897,9 +2912,9 @@ HRESULT Command_Package_List(int argc, wchar_t* argv[])
         RETURN_IF_FAILED(ActivateInstance(inspectablePackageManager, RuntimeClass_Windows_Management_Deployment_PackageManager));
 
         // Choose the optimal FindPackage*() variant given our inputs/options
-        if (!user || (CompareStringOrdinal(user, -1, L"*", -1, FALSE) == CSTR_EQUAL))
+        if (CompareStringOrdinal(user, -1, L"*", -1, FALSE) == CSTR_EQUAL)
         {
-            // No user context
+            // No user context i.e. all packages on the machine
             if (packageTypes == ABI::Windows::Management::Deployment::PackageTypes_None)
             {
                 wil::com_ptr_nothrow<ABI::Windows::Management::Deployment::IPackageManager> packageManager;
@@ -2918,7 +2933,7 @@ HRESULT Command_Package_List(int argc, wchar_t* argv[])
             // User context
             HSTRING_HEADER userHeader{};
             HSTRING userHString{};
-            RETURN_IF_FAILED(wil::to_hstring_reference(user, userHeader, userHString));
+            RETURN_IF_FAILED(wil::to_hstring_reference(user ? user : L"", userHeader, userHString));
             if (packageTypes == ABI::Windows::Management::Deployment::PackageTypes_None)
             {
                 wil::com_ptr_nothrow<ABI::Windows::Management::Deployment::IPackageManager> packageManager;
@@ -3105,7 +3120,7 @@ HRESULT Command_Package_List(int argc, wchar_t* argv[])
                 wil::unique_hstring nameAsHString;
                 RETURN_IF_FAILED(packageId->get_Name(wil::out_param(nameAsHString)));
                 PCWSTR name{ WindowsGetStringRawBuffer(nameAsHString.get(), nullptr) };
-                if (glob_name)
+                if (name)
                 {
                     bool match{};
                     RETURN_IF_FAILED(wil::glob(name, glob_name, match));
@@ -4837,14 +4852,14 @@ HRESULT Command_Tool_PropertySheet_Install(int argc, wchar_t* argv[])
         UnknownArgument(argv[argn]);
     }
 
-    if (logo)
-    {
-        ShowLogo();
-    }
-
     if (!confirm)
     {
         Help(help_Command_Tool_PropertySheet_Install);
+    }
+
+    if (logo)
+    {
+        ShowLogo();
     }
 
     wil::unique_process_heap_string filename;
@@ -5010,14 +5025,14 @@ HRESULT Command_Tool_PropertySheet_Uninstall(int argc, wchar_t* argv[])
         UnknownArgument(argv[argn]);
     }
 
-    if (logo)
-    {
-        ShowLogo();
-    }
-
     if (!confirm)
     {
         Help(help_Command_Tool_PropertySheet_Uninstall);
+    }
+
+    if (logo)
+    {
+        ShowLogo();
     }
 
     wil::unique_process_heap_string filename;
