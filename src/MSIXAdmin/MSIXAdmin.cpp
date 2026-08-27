@@ -1839,12 +1839,10 @@ constexpr PCWSTR help_Command_Tool_PropertySheet_Install{
     L"  " MSIX_EXE_NAME L" tool propertysheet install [options]\n"
     L"\n"
     L"Options:\n"
-    L"  --copy-to:applicationdata  Copy MSIXPropertySheet.dll to ApplicationData\n"
-    L"  --copy-to=<FILE>           Install a copy of MSIXPropertySheet.dll\n"
-    L"  --path=<FILE>              The path to the MSIX property sheet DLL (default = GetPath(" MSIX_EXE_NAME L".exe) + \\MSIXPropertySheet.dll)\n"
-    L"  --benchmark                Display elapsed time\n"
-    L"  -nologo, --no-logo         Do not display startup banner or copyright message\n"
-    L"  -?, -h, --help             Show command line help\n"
+    L"  --path=<FILE>         The path to the MSIX property sheet DLL (default = GetPath(" MSIX_EXE_NAME L".exe) + \\MSIXPropertySheet.dll)\n"
+    L"  --benchmark           Display elapsed time\n"
+    L"  -nologo, --no-logo    Do not display startup banner or copyright message\n"
+    L"  -?, -h, --help        Show command line help\n"
 };
 
 constexpr PCWSTR help_Command_Tool_PropertySheet_List{
@@ -1868,6 +1866,7 @@ constexpr PCWSTR help_Command_Tool_PropertySheet_Uninstall{
     L"  " MSIX_EXE_NAME L" tool propertysheet uninstall [options]\n"
     L"\n"
     L"Options:\n"
+    L"  --confirm             The uninstall is approved (required to do the work)\n"
     L"  --path=<FILE>         The path to the MSIX property sheet DLL (default = GetPath(" MSIX_EXE_NAME L".exe) + \\MSIXPropertySheet.dll)\n"
     L"  --benchmark           Display elapsed time\n"
     L"  -nologo, --no-logo    Do not display startup banner or copyright message\n"
@@ -4797,6 +4796,7 @@ HRESULT Command_Tool_PropertySheet_Install(int argc, wchar_t* argv[])
         Help(help_Command_Tool_PropertySheet_Install);
     }
 
+    bool confirm{};
     bool logo{ true };
     PCWSTR path{};
 
@@ -4809,6 +4809,10 @@ HRESULT Command_Tool_PropertySheet_Install(int argc, wchar_t* argv[])
             (CompareStringOrdinal(arg, -1, L"--help", -1, FALSE) == CSTR_EQUAL))
         {
             Help(help_Command_Tool_PropertySheet_Install);
+        }
+        else if (CompareStringOrdinal(arg, -1, L"--confirm", -1, FALSE) == CSTR_EQUAL)
+        {
+            confirm = true;
         }
         else if (wil::string_starts_with(arg, L"--path="))
         {
@@ -4836,6 +4840,11 @@ HRESULT Command_Tool_PropertySheet_Install(int argc, wchar_t* argv[])
     if (logo)
     {
         ShowLogo();
+    }
+
+    if (!confirm)
+    {
+        Help(help_Command_Tool_PropertySheet_Install);
     }
 
     wil::unique_process_heap_string filename;
@@ -4960,6 +4969,7 @@ HRESULT Command_Tool_PropertySheet_Uninstall(int argc, wchar_t* argv[])
         Help(help_Command_Tool_PropertySheet_Uninstall);
     }
 
+    bool confirm{};
     bool logo{ true };
     PCWSTR path{};
 
@@ -4972,6 +4982,10 @@ HRESULT Command_Tool_PropertySheet_Uninstall(int argc, wchar_t* argv[])
             (CompareStringOrdinal(arg, -1, L"--help", -1, FALSE) == CSTR_EQUAL))
         {
             Help(help_Command_Tool_PropertySheet_Uninstall);
+        }
+        else if (CompareStringOrdinal(arg, -1, L"--confirm", -1, FALSE) == CSTR_EQUAL)
+        {
+            confirm = true;
         }
         else if (wil::string_starts_with(arg, L"--path="))
         {
@@ -4999,6 +5013,11 @@ HRESULT Command_Tool_PropertySheet_Uninstall(int argc, wchar_t* argv[])
     if (logo)
     {
         ShowLogo();
+    }
+
+    if (!confirm)
+    {
+        Help(help_Command_Tool_PropertySheet_Uninstall);
     }
 
     wil::unique_process_heap_string filename;

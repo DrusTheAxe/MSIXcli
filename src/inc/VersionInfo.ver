@@ -3,7 +3,7 @@
 
 #define MSIXCLI_RELEASE_MAJOR   0
 #define MSIXCLI_RELEASE_MINOR   9
-#define MSIXCLI_RELEASE_PATCH   2
+#define MSIXCLI_RELEASE_PATCH   3
 
 #define STR1(x) #x
 #define DELIM STR1(.)
