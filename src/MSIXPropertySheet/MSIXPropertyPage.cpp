@@ -394,7 +394,7 @@ void MSIXPropertyPage::OnInitDialog(HWND hwndDlg)
 
     std::uint64_t sizeFootprintCompressed{ m_package.FootprintTotalSizeCompressed(true) };
     std::uint64_t sizeFootprintUncompressed{ m_package.FootprintTotalSizeCompressed(false) };
-    std::uint64_t footprintCompressionRatio{ (sizeFootprintCompressed * 100 + (sizeFootprintUncompressed - 1)) / sizeFootprintUncompressed };
+    std::uint64_t footprintCompressionRatio{ (sizeFootprintUncompressed > 0) ? ((sizeFootprintCompressed * 100 + (sizeFootprintUncompressed - 1)) / sizeFootprintUncompressed) : 0 };
     std::uint64_t sizePayloadCompressed{ m_package.PayloadTotalSizeCompressed() };
     std::uint64_t sizePayloadUncompressed{ m_package.PayloadTotalSizeUncompressed() };
     std::uint64_t payloadCompressionRatio{ (sizePayloadCompressed * 100 + (sizePayloadUncompressed - 1)) / sizePayloadUncompressed };

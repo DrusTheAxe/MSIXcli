@@ -399,7 +399,7 @@ public:
         return (m_signatureOrigin == MSIX::SignatureOrigin::Windows) ||
                (m_signatureOrigin == MSIX::SignatureOrigin::Store) ||
                (m_signatureOrigin == MSIX::SignatureOrigin::LineOfBusiness) ||
-               (m_signatureOrigin == MSIX::SignatureOrigin::Unsigned);
+               (m_signatureOrigin == MSIX::SignatureOrigin::Unknown);
     }
 
     PCWSTR CertificateSubject() const
