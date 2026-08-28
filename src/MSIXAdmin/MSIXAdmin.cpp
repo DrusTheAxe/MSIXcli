@@ -1841,6 +1841,7 @@ constexpr PCWSTR help_Command_Tool_PropertySheet_Install{
     L"  " MSIX_EXE_NAME L" tool propertysheet install [options]\n"
     L"\n"
     L"Options:\n"
+    L"  --confirm             The install is approved (required to do the work)\n"
     L"  --path=<FILE>         The path to the MSIX property sheet DLL (default = GetPath(" MSIX_EXE_NAME L".exe) + \\MSIXPropertySheet.dll)\n"
     L"  --benchmark           Display elapsed time\n"
     L"  -nologo, --no-logo    Do not display startup banner or copyright message\n"
