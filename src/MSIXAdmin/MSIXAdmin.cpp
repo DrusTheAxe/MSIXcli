@@ -259,10 +259,22 @@ private:
     wil::com_ptr_nothrow<ABI::Windows::ApplicationModel::IPackage9> m_package9;
 };
 
+void PrintPackageError(PCWSTR prefix, HRESULT hr)
+{
+    wil::unique_hlocal_string message{ wil::format_message_nothrow(hr) };
+    wprintf(L"%ls***ERROR 0x%08X %ls", prefix, hr, message.get());
+}
+
 void PrintPackageKeyValueError(PCWSTR key, HRESULT hr)
 {
     wil::unique_hlocal_string message{ wil::format_message_nothrow(hr) };
     wprintf(L"%-30ls : ***ERROR 0x%08X %ls", key, hr, message.get());
+}
+
+void PrintPackageKeyValueError(PCWSTR prefix, PCWSTR key, HRESULT hr)
+{
+    wil::unique_hlocal_string message{ wil::format_message_nothrow(hr) };
+    wprintf(L"%ls%-30ls : ***ERROR 0x%08X %ls", prefix, key, hr, message.get());
 }
 
 void PrintPackageValue(PCWSTR key)
@@ -311,7 +323,85 @@ void PrintPackageValue(PCWSTR key, HRESULT hr, const wil::unique_hstring& value)
     }
 }
 
-void PrintPackageValue(PCWSTR key, HRESULT hr, const ABI::Windows::ApplicationModel::PackageVersion& value)
+HRESULT TryParseInteger(PCWSTR value, std::uint16_t& integer, PCWSTR& endOfParse)
+{
+    wchar_t* endOfString{};
+    const auto n{ wcstoul(value, &endOfString, 10) };
+    RETURN_HR_IF(E_INVALIDARG, (errno != 0));
+    RETURN_HR_IF(E_INVALIDARG, n > UINT16_MAX);
+    integer = static_cast<std::uint16_t>(n);
+    endOfParse = endOfString;
+    return S_OK;
+}
+
+HRESULT ToVersion(PCWSTR value, std::uint64_t& version)
+{
+    if (wil::string_starts_with(value, L"0x"))
+    {
+        wchar_t* endOfString{};
+        version = ::wcstoull(value, &endOfString, 16);
+        RETURN_HR_IF(E_INVALIDARG, (errno != 0) || (endOfString && *endOfString));
+    }
+    else
+    {
+        if ((value[0] == L'*') && (value[0] == L'\0'))
+        {
+            version = 0xFFFFFFFFFFFFFFFFllu;
+        }
+        else
+        {
+            std::uint16_t n{};
+            PCWSTR endOfParse{};
+            RETURN_IF_FAILED(TryParseInteger(value, n, endOfParse));
+            RETURN_HR_IF(E_INVALIDARG, *endOfParse != L'.');
+            version = static_cast<std::uint64_t>(n) << 48;
+            value = endOfParse + 1;
+            if ((value[0] == L'*') && (value[0] == L'\0'))
+            {
+                version |= 0x0000FFFFFFFFFFFFllu;
+            }
+            else
+            {
+                RETURN_IF_FAILED(TryParseInteger(value, n, endOfParse));
+                RETURN_HR_IF(E_INVALIDARG, *endOfParse != L'.');
+                version |= static_cast<std::uint64_t>(n) << 32;
+                value = endOfParse + 1;
+                if ((value[0] == L'*') && (value[0] == L'\0'))
+                {
+                    version |= 0x00000000FFFFFFFFllu;
+                }
+                else
+                {
+                    RETURN_IF_FAILED(TryParseInteger(value, n, endOfParse));
+                    RETURN_HR_IF(E_INVALIDARG, *endOfParse != L'.');
+                    version |= static_cast<std::uint64_t>(n) << 16;
+                    value = endOfParse + 1;
+                    if ((value[0] == L'*') && (value[0] == L'\0'))
+                    {
+                        version |= 0x000000000000FFFFllu;
+                    }
+                    else
+                    {
+                        RETURN_IF_FAILED(TryParseInteger(value, n, endOfParse));
+                        RETURN_HR_IF(E_INVALIDARG, *endOfParse != L'\0');
+                        version |= static_cast<std::uint64_t>(n);
+                    }
+                }
+            }
+        }
+    }
+    return S_OK;
+}
+
+UINT64 ToVersion(const ABI::Windows::ApplicationModel::PackageVersion value)
+{
+    return (static_cast<std::uint64_t>(value.Major) << 48) |
+           (static_cast<std::uint64_t>(value.Minor) << 32) |
+           (static_cast<std::uint64_t>(value.Build) << 16) |
+           static_cast<std::uint64_t>(value.Revision);
+}
+
+void PrintPackageValue(PCWSTR key, HRESULT hr, const ABI::Windows::ApplicationModel::PackageVersion value)
 {
     if (FAILED(hr))
     {
@@ -1183,8 +1273,49 @@ void PrintPackage(
                     {
                         PCWSTR packageDependencyId{ packageDependencyIds[index] };
                         wil::unique_process_heap_ptr<WCHAR[]> resolvedPackageFullName;
-                        hr = GetPackageDependencyResolvedToPackageFullName(packageDependencyId, wil::out_param(resolvedPackageFullName));
+                        hr = LOG_IF_FAILED(::GetPackageDependencyResolvedToPackageFullName(packageDependencyId, wil::out_param(resolvedPackageFullName)));
                         PrintPackageValue(L"        ", packageDependencyId, hr, resolvedPackageFullName.get());
+                        if (SUCCEEDED(hr))
+                        {
+                            UINT32 processIdsCount{};
+                            wil::unique_process_heap_ptr<DWORD[]> processIds;
+                            hr = LOG_IF_FAILED(::GetProcessesUsingPackageDependency(packageDependencyId, nullptr, FALSE, &processIdsCount, wil::out_param(processIds)));
+                            if (FAILED(hr))
+                            {
+                                PrintPackageError(L"            ", hr);
+                            }
+                            else
+                            {
+                                for (UINT32 processIndex = 0; processIndex < processIdsCount; ++processIndex)
+                                {
+                                    const auto processId{ processIds[processIndex] };
+                                    wil::unique_handle processHandle{ ::OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, FALSE, processId) };
+                                    if (!processHandle)
+                                    {
+                                        LOG_LAST_ERROR();
+                                        processHandle.reset(wistd::move(::OpenProcess(PROCESS_QUERY_INFORMATION, FALSE, processId)));
+                                        if (!processHandle)
+                                        {
+                                            hr = LOG_LAST_ERROR();
+                                        }
+                                    }
+                                    wil::unique_process_heap_string imageName;
+                                    if (processHandle)
+                                    {
+                                        hr = LOG_IF_FAILED(wil::QueryFullProcessImageNameW<wil::unique_process_heap_string>(processHandle.get(), 0, imageName));
+                                    }
+                                    if (FAILED(hr))
+                                    {
+                                        wil::unique_hlocal_string message{ wil::format_message_nothrow(hr) };
+                                        wprintf(L"            PID %-10u : ***ERROR 0x%08X %ls", processId, hr, message.get());
+                                    }
+                                    else
+                                    {
+                                        wprintf(L"            PID %-14u : %ls\n", processId, imageName.get());
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -1213,7 +1344,8 @@ void PrintPackage(
         {
             if (FAILED(hrIsProvisioned))
             {
-                wprintf(L"    Provisioned                : ***ERROR 0x%08X\n", hr);
+                wil::unique_hlocal_string message{ wil::format_message_nothrow(hrIsProvisioned) };
+                wprintf(L"    Provisioned                : ***ERROR 0x%08X %ls", hrIsProvisioned, message.get());
             }
             else
             {
@@ -1516,6 +1648,8 @@ constexpr PCWSTR help_Command_Package_List{
     L"  --dependencies[:<DEPTYPE>]     Display dependencies of the package\n"
     L"  --format=<FORMAT>              Display package format (default=full)\n"
     L"  --glob[:<PROPERTY>]=<PATTERN>  Display packages with <PROPERTY> (default=name) matching PATTERN (*,? wildcards)\n"
+    L"  --max-version=<VERSION>        Display packages with version <= <VERSION>\n"
+    L"  --min-version=<VERSION>        Display packages with version >= <VERSION>\n"
     L"  --no-dependencies              Do not display dependencies of the package\n"
     L"  --no-references                Do not display references on the package\n"
     L"  --package-type=<TYPE>          Display packages of the specified package type (*=all)\n"
@@ -1536,6 +1670,7 @@ constexpr PCWSTR help_Command_Package_List{
     L"  <REFTYPE> = d (dynamic), e (explicit), f (framework), h (hostruntime), i (pinned), o (optional), p (provisioned), r (resource), u (uup)\n"
     L"  <TIMEZONE> = local|utc\n"
     L"  <TYPE> = any combination of b (bundle), f (framework), m (main), o (optional), r (resource)\n"
+    L"  <VERSION> = 0xmmmmnnnnbbbbrrrr or major.minor.build.revision (aka DotQuadNumber, optional ending wildcard (*) e.g. 1.2.* = 1.2.65535.65535)\n"
 };
 
 constexpr PCWSTR help_Command_Package_Move{
@@ -1731,17 +1866,20 @@ constexpr PCWSTR help_Command_Provision_List{
     L"  " MSIX_EXE_NAME L" provision list [options]\n"
     L"\n"
     L"Options:\n"
-    L"  --format=<FORMAT>      Display package format (default=packagefamilyname)\n"
-    L"  --glob=<PATTERN>       Display package families matching PATTERN (*,? wildcards)\n"
-    L"  --timezone=<TIMEZONE>  Display timezone for timestamps (default=local)\n"
-    L"  --no-summary           Do not display summary information\n"
-    L"  --benchmark            Display elapsed time\n"
-    L"  -nologo, --no-logo     Do not display startup banner or copyright message\n"
-    L"  -?, -h, --help         Show command line help\n"
+    L"  --format=<FORMAT>        Display package format (default=packagefamilyname)\n"
+    L"  --glob=<PATTERN>         Display package families matching PATTERN (*,? wildcards)\n"
+    L"  --max-version=<VERSION>  Display packages with version <= <VERSION>\n"
+    L"  --min-version=<VERSION>  Display packages with version >= <VERSION>\n"
+    L"  --timezone=<TIMEZONE>    Display timezone for timestamps (default=local)\n"
+    L"  --no-summary             Do not display summary information\n"
+    L"  --benchmark              Display elapsed time\n"
+    L"  -nologo, --no-logo       Do not display startup banner or copyright message\n"
+    L"  -?, -h, --help           Show command line help\n"
     L"\n"
     L"Arguments:\n"
     L"  <TIMEZONE> = local|utc\n"
     L"  <FORMAT> = full|packagefamilyname\n"
+    L"  <VERSION> = 0xmmmmnnnnbbbbrrrr or major.minor.build.revision (aka DotQuadNumber, optional ending wildcard (*) e.g. 1.2.* = 1.2.65535.65535)\n"
 };
 
 constexpr PCWSTR help_Command_Provision_Remove{
@@ -2738,6 +2876,8 @@ HRESULT Command_Package_List(int argc, wchar_t* argv[])
     PCWSTR glob_packageFamilyName{};
     PCWSTR glob_packageFullName{};
     bool logo{ true };
+    UINT64 max_version{ UINT64_MAX };
+    UINT64 min_version{};
     ABI::Windows::Management::Deployment::PackageTypes packageTypes{};
     ReferenceType references{ ReferenceType::All };
     bool references_parameter{};
@@ -2793,6 +2933,20 @@ HRESULT Command_Package_List(int argc, wchar_t* argv[])
         else if (wil::string_starts_with(arg, L"--glob:packagefullname="))
         {
             glob_packageFullName = arg + (ARRAYSIZE(L"--glob:packagefullname=") - 1);
+        }
+        else if (wil::string_starts_with(arg, L"--max-version="))
+        {
+            if (FAILED(ToVersion(arg + (ARRAYSIZE(L"--max-version=") - 1), max_version)))
+            {
+                UnknownArgument(arg);
+            }
+        }
+        else if (wil::string_starts_with(arg, L"--min-version="))
+        {
+            if (FAILED(ToVersion(arg + (ARRAYSIZE(L"--min-version=") - 1), min_version)))
+            {
+                UnknownArgument(arg);
+            }
         }
         else if (CompareStringOrdinal(arg, -1, L"--no-dependencies", -1, FALSE) == CSTR_EQUAL)
         {
@@ -3130,6 +3284,17 @@ HRESULT Command_Package_List(int argc, wchar_t* argv[])
                         continue;
                     }
                 }
+            }
+        }
+
+        if ((max_version != UINT64_MAX) || (min_version != 0))
+        {
+            ABI::Windows::ApplicationModel::PackageVersion packageVersion{};
+            RETURN_IF_FAILED(packageId->get_Version(&packageVersion));
+            const auto version{ ToVersion(packageVersion) };
+            if ((version < min_version) || (version > max_version))
+            {
+                continue;
             }
         }
 
@@ -4311,6 +4476,8 @@ HRESULT Command_Provision_List(int argc, wchar_t* argv[])
     bool logo{ true };
     PackageDisplayFormat format{};
     PCWSTR glob{};
+    UINT64 max_version{ UINT64_MAX };
+    UINT64 min_version{};
     bool summary{ true };
     bool timeZoneIsLocal{ true };
 
@@ -4335,6 +4502,20 @@ HRESULT Command_Provision_List(int argc, wchar_t* argv[])
         else if (wil::string_starts_with(arg, L"--glob="))
         {
             glob = arg + (ARRAYSIZE(L"--glob=") - 1);
+        }
+        else if (wil::string_starts_with(arg, L"--max-version="))
+        {
+            if (FAILED(ToVersion(arg + (ARRAYSIZE(L"--max-version=") - 1), max_version)))
+            {
+                UnknownArgument(arg);
+            }
+        }
+        else if (wil::string_starts_with(arg, L"--min-version="))
+        {
+            if (FAILED(ToVersion(arg + (ARRAYSIZE(L"--min-version=") - 1), min_version)))
+            {
+                UnknownArgument(arg);
+            }
         }
         else if (CompareStringOrdinal(arg, -1, L"--timezone=local", -1, FALSE) == CSTR_EQUAL)
         {
@@ -4398,6 +4579,16 @@ HRESULT Command_Provision_List(int argc, wchar_t* argv[])
             bool match{};
             RETURN_IF_FAILED(wil::glob(familyName, glob, match));
             if (!match)
+            {
+                continue;
+            }
+        }
+        if ((max_version != UINT64_MAX) || (min_version != 0))
+        {
+            ABI::Windows::ApplicationModel::PackageVersion packageVersion{};
+            RETURN_IF_FAILED(packageId->get_Version(&packageVersion));
+            const auto version{ ToVersion(packageVersion) };
+            if ((version < min_version) || (version > max_version))
             {
                 continue;
             }
