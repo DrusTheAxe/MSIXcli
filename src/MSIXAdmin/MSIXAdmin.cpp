@@ -1508,6 +1508,7 @@ HRESULT ShowLogo()
                 L"  shortcut     Shortcut operations\n"
                 L"  tool         Install or manage tools that extend the MSIX experience\n"
                 L"  version      Display version\n"
+                L"  volume       Package volume management\n"
                 L"\n"
                 L"Run '" MSIX_EXE_NAME L" [command] --help' for more information on a command\n");
     }
@@ -2085,6 +2086,153 @@ constexpr PCWSTR help_Command_Version{
     L"  -?, -h, --help      Show command line help\n"
 };
 
+constexpr PCWSTR help_Command_Volume_Add{
+    L"Description:\n"
+    L"  Add a package volume\n"
+    L"\n"
+    L"Usage:\n"
+    L"  " MSIX_EXE_NAME L" volume add <PATH> [options]\n"
+    L"\n"
+    L"Options:\n"
+    L"  --benchmark           Display elapsed time\n"
+    L"  -nologo, --no-logo    Do not display startup banner or copyright message\n"
+    L"  -?, -h, --help        Show command line help\n"
+};
+
+constexpr PCWSTR help_Command_Volume_Default_Get{
+    L"Description:\n"
+    L"  Display the default package volume\n"
+    L"\n"
+    L"Usage:\n"
+    L"  " MSIX_EXE_NAME L" volume default get [options]\n"
+    L"\n"
+    L"Options:\n"
+    L"  --benchmark           Display elapsed time\n"
+    L"  -nologo, --no-logo    Do not display startup banner or copyright message\n"
+    L"  -?, -h, --help        Show command line help\n"
+};
+
+constexpr PCWSTR help_Command_Volume_Default_Set{
+    L"Description:\n"
+    L"  Set the default package volume\n"
+    L"\n"
+    L"Usage:\n"
+    L"  " MSIX_EXE_NAME L" volume default set <VOLUME> [options]\n"
+    L"\n"
+    L"Options:\n"
+    L"  --benchmark           Display elapsed time\n"
+    L"  -nologo, --no-logo    Do not display startup banner or copyright message\n"
+    L"  -?, -h, --help        Show command line help\n"
+    L"\n"
+    L"Arguments:\n"
+    L"  <VOLUME> = TODO\n"
+};
+
+constexpr PCWSTR help_Command_Volume_Default{
+    L"Description:\n"
+    L"  View or modify package volume defaults\n"
+    L"\n"
+    L"Usage:\n"
+    L"  " MSIX_EXE_NAME L" volume default <command> [options]\n"
+    L"\n"
+    L"Options:\n"
+    L"  --benchmark           Display elapsed time\n"
+    L"  -nologo, --no-logo    Do not display startup banner or copyright message\n"
+    L"  -?, -h, --help        Show command line help\n"
+    L"\n"
+    L"Commands:\n"
+    L"  get <VOLUME>    Display the default volume\n"
+    L"  set <VOLUME>    Set the default volume\n"
+    L"\n"
+    L"Arguments:\n"
+    L"  <VOLUME> = TODO\n"
+};
+
+constexpr PCWSTR help_Command_Volume_List{
+    L"Description:\n"
+    L"  Display package volumes\n"
+    L"\n"
+    L"Usage:\n"
+    L"  " MSIX_EXE_NAME L" volume list [options]\n"
+    L"\n"
+    L"Options:\n"
+    L"  --benchmark           Display elapsed time\n"
+    L"  -nologo, --no-logo    Do not display startup banner or copyright message\n"
+    L"  -?, -h, --help        Show command line help\n"
+};
+
+constexpr PCWSTR help_Command_Volume_Offline{
+    L"Description:\n"
+    L"  Set a package volume to offline\n"
+    L"\n"
+    L"Usage:\n"
+    L"  " MSIX_EXE_NAME L" volume offline <VOLUME> [options]\n"
+    L"\n"
+    L"Options:\n"
+    L"  --benchmark           Display elapsed time\n"
+    L"  -nologo, --no-logo    Do not display startup banner or copyright message\n"
+    L"  -?, -h, --help        Show command line help\n"
+    L"\n"
+    L"Arguments:\n"
+    L"  <VOLUME> = TODO\n"
+};
+
+constexpr PCWSTR help_Command_Volume_Online{
+    L"Description:\n"
+    L"  Set a package volume to online\n"
+    L"\n"
+    L"Usage:\n"
+    L"  " MSIX_EXE_NAME L" volume online <VOLUME> [options]\n"
+    L"\n"
+    L"Options:\n"
+    L"  --benchmark           Display elapsed time\n"
+    L"  -nologo, --no-logo    Do not display startup banner or copyright message\n"
+    L"  -?, -h, --help        Show command line help\n"
+    L"\n"
+    L"Arguments:\n"
+    L"  <VOLUME> = TODO\n"
+};
+
+constexpr PCWSTR help_Command_Volume_Remove{
+    L"Description:\n"
+    L"  Remove a package volume\n"
+    L"\n"
+    L"Usage:\n"
+    L"  " MSIX_EXE_NAME L" volume remove <VOLUME> [options]\n"
+    L"\n"
+    L"Options:\n"
+    L"  --benchmark           Display elapsed time\n"
+    L"  -nologo, --no-logo    Do not display startup banner or copyright message\n"
+    L"  -?, -h, --help        Show command line help\n"
+    L"\n"
+    L"Arguments:\n"
+    L"  <VOLUME> = TODO\n"
+};
+
+constexpr PCWSTR help_Command_Volume{
+    L"Description:\n"
+    L"  View or modify package volumes\n"
+    L"\n"
+    L"Usage:\n"
+    L"  " MSIX_EXE_NAME L" volume <command> [options]\n"
+    L"\n"
+    L"Options:\n"
+    L"  --benchmark           Display elapsed time\n"
+    L"  -nologo, --no-logo    Do not display startup banner or copyright message\n"
+    L"  -?, -h, --help        Show command line help\n"
+    L"\n"
+    L"Commands:\n"
+    L"  add <PATH>          Add a package volume\n"
+    L"  default             Display or modify the default package volume\n"
+    L"  list                Display package volumes\n"
+    L"  offline <VOLUME>    Set a package volume offline\n"
+    L"  online <VOLUME>     Set a package volume online\n"
+    L"  remove <VOLUME>     Remove a package volume\n"
+    L"\n"
+    L"Arguments:\n"
+    L"  <VOLUME> = TODO\n"
+};
+
 HRESULT Command_Certificate_Add(PCWSTR filename)
 {
     constexpr auto help_string{ help_Command_Certificate_Add };
@@ -2592,6 +2740,15 @@ HRESULT Command_Help_Commands_Tree(int argc, wchar_t* argv[])
                 L"|     +--list\n"
                 L"|     +--uninstall" MSIXADMIN_ELEVATION L"\n"
                 L"+--version\n"
+                L"+--volume\n"
+                L"|  +--add\n"
+                L"|  +--default\n"
+                L"|     +--get\n"
+                L"|     +--set\n"
+                L"|  +--list\n"
+                L"|  +--offline\n"
+                L"|  +--online\n"
+                L"|  +--remove\n"
                 MSIXADMIN_ELEVATION_MESSAGE);
     }
     else
@@ -2625,7 +2782,16 @@ HRESULT Command_Help_Commands_Tree(int argc, wchar_t* argv[])
                 L"\u2502     \u251C\u2500\u2500install" MSIXADMIN_ELEVATION L"\n"
                 L"\u2502     \u251C\u2500\u2500list\n"
                 L"\u2502     \u2514\u2500\u2500uninstall" MSIXADMIN_ELEVATION L"\n"
-                L"\u2514\u2500\u2500version\n"
+                L"\u251C\u2500\u2500version\n"
+                L"\u2514\u2500\u2500volume\n"
+                L"   \u251C\u2500\u2500add\n"
+                L"   \u251C\u2500\u2500default\n"
+                L"   \u2502  \u251C\u2500\u2500get\n"
+                L"   \u2502  \u2514\u2500\u2500set\n"
+                L"   \u251C\u2500\u2500list\n"
+                L"   \u251C\u2500\u2500offline\n"
+                L"   \u251C\u2500\u2500online\n"
+                L"   \u2514\u2500\u2500remove\n"
                 MSIXADMIN_ELEVATION_MESSAGE);
     }
 
@@ -4489,6 +4655,7 @@ HRESULT Command_Package_Verify(int argc, wchar_t* argv[])
     HSTRING packageFullNameHString{};
     RETURN_IF_FAILED(wil::to_hstring_reference(packageFullName, packageFullNameHeader, packageFullNameHString));
 
+    //TODO empty
     HSTRING_HEADER emptyStringHeader{};
     HSTRING emptyStringHString{};
     RETURN_IF_FAILED(wil::to_hstring_reference(L"", emptyStringHeader, emptyStringHString));
@@ -5602,6 +5769,718 @@ HRESULT Command_Version(int argc, wchar_t* argv[])
     return S_OK;
 }
 
+HRESULT Command_Volume_Add(int argc, wchar_t* argv[])
+{
+    constexpr auto help_string{ help_Command_Volume_Add };
+
+    if (argc < 4)
+    {
+        Help(help_string);
+    }
+
+    PCWSTR path{ argv[3] };
+    if ((CompareStringOrdinal(path, -1, L"-?", -1, FALSE) == CSTR_EQUAL) ||
+        (CompareStringOrdinal(path, -1, L"-h", -1, FALSE) == CSTR_EQUAL) ||
+        (CompareStringOrdinal(path, -1, L"--help", -1, FALSE) == CSTR_EQUAL))
+    {
+        Help(help_string);
+    }
+
+    bool logo{ true };
+
+    int argn{ 4 };
+    for (; argn < argc; ++argn)
+    {
+        PCWSTR arg{ argv[argn] };
+        if ((CompareStringOrdinal(arg, -1, L"-?", -1, FALSE) == CSTR_EQUAL) ||
+            (CompareStringOrdinal(arg, -1, L"-h", -1, FALSE) == CSTR_EQUAL) ||
+            (CompareStringOrdinal(arg, -1, L"--help", -1, FALSE) == CSTR_EQUAL))
+        {
+            Help(help_string);
+        }
+        else if (CompareStringOrdinal(arg, -1, L"--benchmark", -1, FALSE) == CSTR_EQUAL)
+        {
+            g_benchmark = true;
+        }
+        else if ((CompareStringOrdinal(arg, -1, L"-nologo", -1, FALSE) == CSTR_EQUAL) ||
+                 (CompareStringOrdinal(arg, -1, L"--no-logo", -1, FALSE) == CSTR_EQUAL))
+        {
+            logo = false;
+        }
+        else
+        {
+            UnknownArgument(arg);
+        }
+    }
+    if (argn < argc)
+    {
+        UnknownArgument(argv[argn]);
+    }
+
+    if (logo)
+    {
+        ShowLogo();
+    }
+
+    HSTRING_HEADER pathHeader{};
+    HSTRING pathHString{};
+    RETURN_IF_FAILED(wil::to_hstring_reference(path, pathHeader, pathHString));
+
+    wil::com_ptr_nothrow<ABI::Windows::Management::Deployment::IPackageManager> packageManager;
+    {
+        wil::com_ptr_nothrow<IInspectable> inspectable;
+        RETURN_IF_FAILED(ActivateInstance(inspectable, RuntimeClass_Windows_Management_Deployment_PackageManager));
+        RETURN_IF_FAILED(inspectable.query_to(packageManager.put()));
+    }
+
+    //TODO add
+
+    return S_OK;
+}
+
+void PrintVolumeKeyValueError(PCWSTR key, HRESULT hr)
+{
+    wil::unique_hlocal_string message{ wil::format_message_nothrow(hr) };
+    wprintf(L"%-30ls : ***ERROR 0x%08X %ls", key, hr, message.get());
+}
+
+void PrintVolumeValue(PCWSTR key, HRESULT hr, PCWSTR value)
+{
+    if (FAILED(hr))
+    {
+        PrintVolumeKeyValueError(key, hr);
+    }
+    else
+    {
+        wprintf(L"%-30ls : %ls\n", key, value);
+    }
+}
+
+void PrintVolumeValue(PCWSTR key, HRESULT hr, const wil::unique_hstring& value)
+{
+    if (FAILED(hr))
+    {
+        PrintVolumeKeyValueError(key, hr);
+    }
+    else
+    {
+        PrintVolumeValue(key, hr, WindowsGetStringRawBuffer(value.get(), nullptr));
+    }
+}
+
+void PrintVolumeValue(PCWSTR key, HRESULT hr, const boolean& value)
+{
+    if (FAILED(hr))
+    {
+        PrintVolumeKeyValueError(key, hr);
+    }
+    else
+    {
+        wprintf(L"%-30ls : %ls\n", key, value ? L"Yes" : L"No");
+    }
+}
+
+HRESULT Command_Volume_List(int argc, wchar_t* argv[])
+{
+    constexpr auto help_string{ help_Command_Volume_List };
+
+    enum class PackageDisplayFormat { Full = 0, PackageFullName = 1, PackageFamilyName = 2 };
+
+    bool logo{ true };
+    bool summary{ true };
+
+    int argn{ 3 };
+    for (; argn < argc; ++argn)
+    {
+        PCWSTR arg{ argv[argn] };
+        if ((CompareStringOrdinal(arg, -1, L"-?", -1, FALSE) == CSTR_EQUAL) ||
+            (CompareStringOrdinal(arg, -1, L"-h", -1, FALSE) == CSTR_EQUAL) ||
+            (CompareStringOrdinal(arg, -1, L"--help", -1, FALSE) == CSTR_EQUAL))
+        {
+            Help(help_string);
+        }
+        else if (CompareStringOrdinal(arg, -1, L"--no-summary", -1, FALSE) == CSTR_EQUAL)
+        {
+            summary = false;
+        }
+        else if (CompareStringOrdinal(arg, -1, L"--", -1, FALSE) == CSTR_EQUAL)
+        {
+            ++argn;
+            break;
+        }
+        else if (CompareStringOrdinal(arg, -1, L"--benchmark", -1, FALSE) == CSTR_EQUAL)
+        {
+            g_benchmark = true;
+        }
+        else if ((CompareStringOrdinal(arg, -1, L"-nologo", -1, FALSE) == CSTR_EQUAL) ||
+                 (CompareStringOrdinal(arg, -1, L"--no-logo", -1, FALSE) == CSTR_EQUAL))
+        {
+            logo = false;
+        }
+        else if (arg[0] != L'-')
+        {
+            break;
+        }
+        else
+        {
+            UnknownArgument(argv[argn]);
+        }
+    }
+    if (argn < argc)
+    {
+        UnknownArgument(argv[argn]);
+    }
+
+    if (logo)
+    {
+        ShowLogo();
+    }
+
+    std::uint32_t countDisplayed{};
+
+    wil::com_ptr_nothrow<ABI::Windows::Management::Deployment::IPackageManager3> packageManager3;
+    {
+        wil::com_ptr_nothrow<IInspectable> inspectable;
+        RETURN_IF_FAILED(ActivateInstance(inspectable, RuntimeClass_Windows_Management_Deployment_PackageManager));
+        RETURN_IF_FAILED(inspectable.query_to(packageManager3.put()));
+    }
+
+    wil::com_ptr_nothrow<ABI::Windows::Foundation::Collections::IIterable<ABI::Windows::Management::Deployment::PackageVolume*>> volumes;
+    RETURN_IF_FAILED(packageManager3->FindPackageVolumes(&volumes));
+    if (volumes)
+    {
+        wil::com_ptr_nothrow<ABI::Windows::Foundation::Collections::IIterator<ABI::Windows::Management::Deployment::PackageVolume*>> volumesIterator;
+        RETURN_IF_FAILED(volumes->First(&volumesIterator));
+        if (volumesIterator)
+        {
+            boolean hasCurrent{};
+            RETURN_IF_FAILED(volumesIterator->get_HasCurrent(&hasCurrent));
+            while (hasCurrent)
+            {
+                wil::com_ptr_nothrow<ABI::Windows::Management::Deployment::IPackageVolume> volume;
+                RETURN_IF_FAILED(volumesIterator->get_Current(&volume));
+                if (volume)
+                {
+                    wil::com_ptr_nothrow<ABI::Windows::Management::Deployment::IPackageVolume2> volume2;
+                    RETURN_IF_FAILED(volume.query_to(volume2.put()));
+
+                    wprintf(L"#%u\n", countDisplayed);
+                    wil::unique_hstring string;
+                    HRESULT hr{ LOG_IF_FAILED(volume->get_PackageStorePath(wil::out_param(string))) };
+                    PrintVolumeValue(L"Path", hr, string);
+                    boolean isOffline{};
+                    HRESULT hrIsOffline{ LOG_IF_FAILED(volume->get_IsOffline(&isOffline)) };
+                    if (FAILED(hrIsOffline))
+                    {
+                        PrintVolumeKeyValueError(L"    AvailableSpace", hrIsOffline);
+                    }
+                    else if (isOffline)
+                    {
+                        wprintf(L"    %-26ls : --Offline--\n", L"AvailableSpace");
+                    }
+                    else
+                    {
+                        std::uint64_t availableSpace{};
+                        wil::com_ptr_nothrow<ABI::Windows::Foundation::__FIAsyncOperation_1_UINT64_t> operation;
+                        hr = LOG_IF_FAILED(volume2->GetAvailableSpaceAsync(operation.put()));
+                        if (SUCCEEDED(hr))
+                        {
+                            hr = LOG_IF_FAILED(wil::wait_for_completion_nothrow(operation.get(), &availableSpace));
+                        }
+                        if (FAILED(hr))
+                        {
+                            PrintVolumeKeyValueError(L"    AvailableSpace", hr);
+                        }
+                        else
+                        {
+                            PCWSTR units{};
+                            const std::uint64_t kb{ 1024 };
+                            const std::uint64_t mb{ kb * 1024 };
+                            const std::uint64_t gb{ mb * 1024 };
+                            const std::uint64_t tb{ gb * 1024 };
+                            if (availableSpace > tb)
+                            {
+                                availableSpace /= tb;
+                                units = L"TB";
+                            }
+                            else if (availableSpace > gb)
+                            {
+                                availableSpace /= gb;
+                                units = L"GB";
+                            }
+                            else if (availableSpace > mb)
+                            {
+                                availableSpace /= mb;
+                                units = L"MB";
+                            }
+                            else if (availableSpace > kb)
+                            {
+                                availableSpace /= kb;
+                                units = L"KB";
+                            }
+                            else
+                            {
+                                units = L"bytes";
+                            }
+                            wprintf(L"    %-26ls : %llu %ls\n", L"AvailableSpace", availableSpace, units);
+                        }
+                    }
+                    if (FAILED(hrIsOffline))
+                    {
+                        PrintVolumeKeyValueError(L"    FileSystem", hrIsOffline);
+                    }
+                    else if (isOffline)
+                    {
+                        wprintf(L"    %-26ls : --Offline--\n", L"FileSystem");
+                    }
+                    else
+                    {
+                        PCWSTR path{ WindowsGetStringRawBuffer(string.get(), nullptr) };
+                        WCHAR volumeName[]{ path[0], L':', L'\\', L'\0' };
+                        WCHAR fileSystemName[MAX_PATH + 1]{};
+                        DWORD fileSystemNameSize{ ARRAYSIZE(fileSystemName) };
+                        hr = LOG_IF_WIN32_BOOL_FALSE_MSG(::GetVolumeInformation(volumeName, nullptr, 0, nullptr, nullptr, nullptr, fileSystemName, fileSystemNameSize), "%ls", volumeName);
+                        PrintVolumeValue(L"    FileSystem", hr, fileSystemName);
+                    }
+                    hr = LOG_IF_FAILED(volume->get_MountPoint(wil::out_param(string)));
+                    PrintVolumeValue(L"    MountPoint", hr, string);
+                    hr = LOG_IF_FAILED(volume->get_Name(wil::out_param(string)));
+                    PrintVolumeValue(L"    Name", hr, string);
+                    PrintVolumeValue(L"    State", hrIsOffline, isOffline ? L"Offline" : L"Online");
+                    boolean boolean{};
+                    hr = LOG_IF_FAILED(volume2->get_IsFullTrustPackageSupported(&boolean));
+                    PrintVolumeValue(L"    SupportsFullTrustPackages", hr, boolean);
+                    hr = LOG_IF_FAILED(volume->get_SupportsHardLinks(&boolean));
+                    PrintVolumeValue(L"    SupportsHardLinks", hr, boolean);
+                    hr = LOG_IF_FAILED(volume->get_IsSystemVolume(&boolean));
+                    PrintVolumeValue(L"    SystemVolume", hr, boolean);
+                }
+                if (FAILED_LOG(volumesIterator->MoveNext(&hasCurrent)))
+                {
+                    break;
+                }
+            }
+        }
+    }
+
+    if (summary)
+    {
+        wprintf(L"%u volumes%ls\n", countDisplayed, countDisplayed == 1 ? L"" : L"s");
+    }
+
+    return S_OK;
+}
+
+HRESULT Command_Volume_Default_Get(int argc, wchar_t* argv[])
+{
+    constexpr auto help_string{ help_Command_Volume_Default_Get };
+
+    if (argc < 5)
+    {
+        Help(help_string);
+    }
+
+    PCWSTR volume{ argv[4] };
+    if ((CompareStringOrdinal(volume, -1, L"-?", -1, FALSE) == CSTR_EQUAL) ||
+        (CompareStringOrdinal(volume, -1, L"-h", -1, FALSE) == CSTR_EQUAL) ||
+        (CompareStringOrdinal(volume, -1, L"--help", -1, FALSE) == CSTR_EQUAL))
+    {
+        Help(help_string);
+    }
+
+    bool logo{ true };
+
+    int argn{ 5 };
+    for (; argn < argc; ++argn)
+    {
+        PCWSTR arg{ argv[argn] };
+        if ((CompareStringOrdinal(arg, -1, L"-?", -1, FALSE) == CSTR_EQUAL) ||
+            (CompareStringOrdinal(arg, -1, L"-h", -1, FALSE) == CSTR_EQUAL) ||
+            (CompareStringOrdinal(arg, -1, L"--help", -1, FALSE) == CSTR_EQUAL))
+        {
+            Help(help_string);
+        }
+        else if (CompareStringOrdinal(arg, -1, L"--benchmark", -1, FALSE) == CSTR_EQUAL)
+        {
+            g_benchmark = true;
+        }
+        else if ((CompareStringOrdinal(arg, -1, L"-nologo", -1, FALSE) == CSTR_EQUAL) ||
+                 (CompareStringOrdinal(arg, -1, L"--no-logo", -1, FALSE) == CSTR_EQUAL))
+        {
+            logo = false;
+        }
+        else
+        {
+            UnknownArgument(arg);
+        }
+    }
+    if (argn < argc)
+    {
+        UnknownArgument(argv[argn]);
+    }
+
+    if (logo)
+    {
+        ShowLogo();
+    }
+
+    HSTRING_HEADER volumeHeader{};
+    HSTRING volumeHString{};
+    RETURN_IF_FAILED(wil::to_hstring_reference(volume, volumeHeader, volumeHString));
+
+    wil::com_ptr_nothrow<ABI::Windows::Management::Deployment::IPackageManager3> packageManager3;
+    {
+        wil::com_ptr_nothrow<IInspectable> inspectable;
+        RETURN_IF_FAILED(ActivateInstance(inspectable, RuntimeClass_Windows_Management_Deployment_PackageManager));
+        RETURN_IF_FAILED(inspectable.query_to(packageManager3.put()));
+    }
+
+    //TODO default get
+
+    return S_OK;
+}
+HRESULT Command_Volume_Default_Set(int argc, wchar_t* argv[])
+{
+    constexpr auto help_string{ help_Command_Volume_Default_Set };
+
+    if (argc < 5)
+    {
+        Help(help_string);
+    }
+
+    PCWSTR volume{ argv[4] };
+    if ((CompareStringOrdinal(volume, -1, L"-?", -1, FALSE) == CSTR_EQUAL) ||
+        (CompareStringOrdinal(volume, -1, L"-h", -1, FALSE) == CSTR_EQUAL) ||
+        (CompareStringOrdinal(volume, -1, L"--help", -1, FALSE) == CSTR_EQUAL))
+    {
+        Help(help_string);
+    }
+
+    bool logo{ true };
+
+    int argn{ 5 };
+    for (; argn < argc; ++argn)
+    {
+        PCWSTR arg{ argv[argn] };
+        if ((CompareStringOrdinal(arg, -1, L"-?", -1, FALSE) == CSTR_EQUAL) ||
+            (CompareStringOrdinal(arg, -1, L"-h", -1, FALSE) == CSTR_EQUAL) ||
+            (CompareStringOrdinal(arg, -1, L"--help", -1, FALSE) == CSTR_EQUAL))
+        {
+            Help(help_string);
+        }
+        else if (CompareStringOrdinal(arg, -1, L"--benchmark", -1, FALSE) == CSTR_EQUAL)
+        {
+            g_benchmark = true;
+        }
+        else if ((CompareStringOrdinal(arg, -1, L"-nologo", -1, FALSE) == CSTR_EQUAL) ||
+                 (CompareStringOrdinal(arg, -1, L"--no-logo", -1, FALSE) == CSTR_EQUAL))
+        {
+            logo = false;
+        }
+        else
+        {
+            UnknownArgument(arg);
+        }
+    }
+    if (argn < argc)
+    {
+        UnknownArgument(argv[argn]);
+    }
+
+    if (logo)
+    {
+        ShowLogo();
+    }
+
+    HSTRING_HEADER volumeHeader{};
+    HSTRING volumeHString{};
+    RETURN_IF_FAILED(wil::to_hstring_reference(volume, volumeHeader, volumeHString));
+
+    wil::com_ptr_nothrow<ABI::Windows::Management::Deployment::IPackageManager3> packageManager3;
+    {
+        wil::com_ptr_nothrow<IInspectable> inspectable;
+        RETURN_IF_FAILED(ActivateInstance(inspectable, RuntimeClass_Windows_Management_Deployment_PackageManager));
+        RETURN_IF_FAILED(inspectable.query_to(packageManager3.put()));
+    }
+
+    //TODO default set
+
+    return S_OK;
+}
+
+HRESULT Command_Volume_Default(int argc, wchar_t* argv[])
+{
+    constexpr auto help_string{ help_Command_Volume_Default };
+
+    if (argc < 4)
+    {
+        Help(help_string);
+    }
+
+    PCWSTR command{ argv[3] };
+    if (CompareStringOrdinal(command, -1, L"get", -1, FALSE) == CSTR_EQUAL)
+    {
+        RETURN_IF_FAILED(Command_Volume_Default_Get(argc, argv));
+    }
+    else if (CompareStringOrdinal(command, -1, L"set", -1, FALSE) == CSTR_EQUAL)
+    {
+        RETURN_IF_FAILED(Command_Volume_Default_Set(argc, argv));
+    }
+    else
+    {
+        Help(help_string);
+    }
+    return S_OK;
+}
+
+HRESULT Command_Volume_Offline(int argc, wchar_t* argv[])
+{
+    constexpr auto help_string{ help_Command_Volume_Offline };
+
+    if (argc < 4)
+    {
+        Help(help_string);
+    }
+
+    PCWSTR volume{ argv[3] };
+    if ((CompareStringOrdinal(volume, -1, L"-?", -1, FALSE) == CSTR_EQUAL) ||
+        (CompareStringOrdinal(volume, -1, L"-h", -1, FALSE) == CSTR_EQUAL) ||
+        (CompareStringOrdinal(volume, -1, L"--help", -1, FALSE) == CSTR_EQUAL))
+    {
+        Help(help_string);
+    }
+
+    bool logo{ true };
+
+    int argn{ 4 };
+    for (; argn < argc; ++argn)
+    {
+        PCWSTR arg{ argv[argn] };
+        if ((CompareStringOrdinal(arg, -1, L"-?", -1, FALSE) == CSTR_EQUAL) ||
+            (CompareStringOrdinal(arg, -1, L"-h", -1, FALSE) == CSTR_EQUAL) ||
+            (CompareStringOrdinal(arg, -1, L"--help", -1, FALSE) == CSTR_EQUAL))
+        {
+            Help(help_string);
+        }
+        else if (CompareStringOrdinal(arg, -1, L"--benchmark", -1, FALSE) == CSTR_EQUAL)
+        {
+            g_benchmark = true;
+        }
+        else if ((CompareStringOrdinal(arg, -1, L"-nologo", -1, FALSE) == CSTR_EQUAL) ||
+                 (CompareStringOrdinal(arg, -1, L"--no-logo", -1, FALSE) == CSTR_EQUAL))
+        {
+            logo = false;
+        }
+        else
+        {
+            UnknownArgument(arg);
+        }
+    }
+    if (argn < argc)
+    {
+        UnknownArgument(argv[argn]);
+    }
+
+    if (logo)
+    {
+        ShowLogo();
+    }
+
+    HSTRING_HEADER volumeHeader{};
+    HSTRING volumeHString{};
+    RETURN_IF_FAILED(wil::to_hstring_reference(volume, volumeHeader, volumeHString));
+
+    wil::com_ptr_nothrow<ABI::Windows::Management::Deployment::IPackageManager> packageManager;
+    {
+        wil::com_ptr_nothrow<IInspectable> inspectable;
+        RETURN_IF_FAILED(ActivateInstance(inspectable, RuntimeClass_Windows_Management_Deployment_PackageManager));
+        RETURN_IF_FAILED(inspectable.query_to(packageManager.put()));
+    }
+
+    //TODO offline
+
+    return S_OK;
+}
+
+HRESULT Command_Volume_Online(int argc, wchar_t* argv[])
+{
+    constexpr auto help_string{ help_Command_Volume_Online };
+
+    if (argc < 4)
+    {
+        Help(help_string);
+    }
+
+    PCWSTR volume{ argv[3] };
+    if ((CompareStringOrdinal(volume, -1, L"-?", -1, FALSE) == CSTR_EQUAL) ||
+        (CompareStringOrdinal(volume, -1, L"-h", -1, FALSE) == CSTR_EQUAL) ||
+        (CompareStringOrdinal(volume, -1, L"--help", -1, FALSE) == CSTR_EQUAL))
+    {
+        Help(help_string);
+    }
+
+    bool logo{ true };
+
+    int argn{ 4 };
+    for (; argn < argc; ++argn)
+    {
+        PCWSTR arg{ argv[argn] };
+        if ((CompareStringOrdinal(arg, -1, L"-?", -1, FALSE) == CSTR_EQUAL) ||
+            (CompareStringOrdinal(arg, -1, L"-h", -1, FALSE) == CSTR_EQUAL) ||
+            (CompareStringOrdinal(arg, -1, L"--help", -1, FALSE) == CSTR_EQUAL))
+        {
+            Help(help_string);
+        }
+        else if (CompareStringOrdinal(arg, -1, L"--benchmark", -1, FALSE) == CSTR_EQUAL)
+        {
+            g_benchmark = true;
+        }
+        else if ((CompareStringOrdinal(arg, -1, L"-nologo", -1, FALSE) == CSTR_EQUAL) ||
+                 (CompareStringOrdinal(arg, -1, L"--no-logo", -1, FALSE) == CSTR_EQUAL))
+        {
+            logo = false;
+        }
+        else
+        {
+            UnknownArgument(arg);
+        }
+    }
+    if (argn < argc)
+    {
+        UnknownArgument(argv[argn]);
+    }
+
+    if (logo)
+    {
+        ShowLogo();
+    }
+
+    HSTRING_HEADER volumeHeader{};
+    HSTRING volumeHString{};
+    RETURN_IF_FAILED(wil::to_hstring_reference(volume, volumeHeader, volumeHString));
+
+    wil::com_ptr_nothrow<ABI::Windows::Management::Deployment::IPackageManager> packageManager;
+    {
+        wil::com_ptr_nothrow<IInspectable> inspectable;
+        RETURN_IF_FAILED(ActivateInstance(inspectable, RuntimeClass_Windows_Management_Deployment_PackageManager));
+        RETURN_IF_FAILED(inspectable.query_to(packageManager.put()));
+    }
+
+    //TODO online
+
+    return S_OK;
+}
+
+HRESULT Command_Volume_Remove(int argc, wchar_t* argv[])
+{
+    constexpr auto help_string{ help_Command_Volume_Remove };
+
+    if (argc < 4)
+    {
+        Help(help_string);
+    }
+
+    PCWSTR volume{ argv[3] };
+    if ((CompareStringOrdinal(volume, -1, L"-?", -1, FALSE) == CSTR_EQUAL) ||
+        (CompareStringOrdinal(volume, -1, L"-h", -1, FALSE) == CSTR_EQUAL) ||
+        (CompareStringOrdinal(volume, -1, L"--help", -1, FALSE) == CSTR_EQUAL))
+    {
+        Help(help_string);
+    }
+
+    bool logo{ true };
+
+    int argn{ 4 };
+    for (; argn < argc; ++argn)
+    {
+        PCWSTR arg{ argv[argn] };
+        if ((CompareStringOrdinal(arg, -1, L"-?", -1, FALSE) == CSTR_EQUAL) ||
+            (CompareStringOrdinal(arg, -1, L"-h", -1, FALSE) == CSTR_EQUAL) ||
+            (CompareStringOrdinal(arg, -1, L"--help", -1, FALSE) == CSTR_EQUAL))
+        {
+            Help(help_string);
+        }
+        else if (CompareStringOrdinal(arg, -1, L"--benchmark", -1, FALSE) == CSTR_EQUAL)
+        {
+            g_benchmark = true;
+        }
+        else if ((CompareStringOrdinal(arg, -1, L"-nologo", -1, FALSE) == CSTR_EQUAL) ||
+                 (CompareStringOrdinal(arg, -1, L"--no-logo", -1, FALSE) == CSTR_EQUAL))
+        {
+            logo = false;
+        }
+        else
+        {
+            UnknownArgument(arg);
+        }
+    }
+    if (argn < argc)
+    {
+        UnknownArgument(argv[argn]);
+    }
+
+    if (logo)
+    {
+        ShowLogo();
+    }
+
+    HSTRING_HEADER volumeHeader{};
+    HSTRING volumeHString{};
+    RETURN_IF_FAILED(wil::to_hstring_reference(volume, volumeHeader, volumeHString));
+
+    wil::com_ptr_nothrow<ABI::Windows::Management::Deployment::IPackageManager> packageManager;
+    {
+        wil::com_ptr_nothrow<IInspectable> inspectable;
+        RETURN_IF_FAILED(ActivateInstance(inspectable, RuntimeClass_Windows_Management_Deployment_PackageManager));
+        RETURN_IF_FAILED(inspectable.query_to(packageManager.put()));
+    }
+
+    //TODO remove
+
+    return S_OK;
+}
+
+HRESULT Command_Volume(int argc, wchar_t* argv[])
+{
+    constexpr auto help_string{ help_Command_Volume };
+
+    if (argc < 3)
+    {
+        Help(help_string);
+    }
+
+    PCWSTR command{ argv[2] };
+    if (CompareStringOrdinal(command, -1, L"add", -1, FALSE) == CSTR_EQUAL)
+    {
+        RETURN_IF_FAILED(Command_Volume_Add(argc, argv));
+    }
+    else if (CompareStringOrdinal(command, -1, L"default", -1, FALSE) == CSTR_EQUAL)
+    {
+        RETURN_IF_FAILED(Command_Volume_Default(argc, argv));
+    }
+    else if (CompareStringOrdinal(command, -1, L"list", -1, FALSE) == CSTR_EQUAL)
+    {
+        RETURN_IF_FAILED(Command_Volume_List(argc, argv));
+    }
+    else if (CompareStringOrdinal(command, -1, L"offline", -1, FALSE) == CSTR_EQUAL)
+    {
+        RETURN_IF_FAILED(Command_Volume_Offline(argc, argv));
+    }
+    else if (CompareStringOrdinal(command, -1, L"online", -1, FALSE) == CSTR_EQUAL)
+    {
+        RETURN_IF_FAILED(Command_Volume_Online(argc, argv));
+    }
+    else if (CompareStringOrdinal(command, -1, L"remove", -1, FALSE) == CSTR_EQUAL)
+    {
+        RETURN_IF_FAILED(Command_Volume_Remove(argc, argv));
+    }
+    else
+    {
+        Help(help_string);
+    }
+    return S_OK;
+}
+
 HRESULT MessageOnError(HRESULT hr)
 {
     if (FAILED(hr))
@@ -5658,6 +6537,10 @@ int Main(int argc, wchar_t* argv[])
     else if (CompareStringOrdinal(arg, -1, L"version", -1, FALSE) == CSTR_EQUAL)
     {
         return MessageOnError(Command_Version(argc, argv));
+    }
+    else if (CompareStringOrdinal(arg, -1, L"volume", -1, FALSE) == CSTR_EQUAL)
+    {
+        return MessageOnError(Command_Volume(argc, argv));
     }
     else
     {
