@@ -1514,6 +1514,64 @@ HRESULT ShowLogo()
     ::ExitProcess(1);
 }
 
+constexpr PCWSTR help_Command_Certificate_Add{
+    L"Description:\n"
+    L"  Add the certificate from the signed package file to the system certificate store\n"
+    L"\n"
+    L"Usage:\n"
+    L"  " MSIX_EXE_NAME L" certificate add <FILE> [options]\n"
+    L"\n"
+    L"Options:\n"
+    L"  --benchmark         Display elapsed time\n"
+    L"  -nologo, --no-logo  Do not display startup banner or copyright message\n"
+    L"  -?, -h, --help      Show command line help\n"
+};
+
+constexpr PCWSTR help_Command_Certificate_Exists{
+    L"Description:\n"
+    L"  Check if the certificate for the signed package file exists in the system certificate store\n"
+    L"\n"
+    L"Usage:\n"
+    L"  " MSIX_EXE_NAME L" certificate exists <FILE*> [options]\n"
+    L"\n"
+    L"Options:\n"
+    L"  --benchmark         Display elapsed time\n"
+    L"  -nologo, --no-logo  Do not display startup banner or copyright message\n"
+    L"  -?, -h, --help      Show command line help\n"
+    L"\n"
+    L"Arguments:\n"
+    L"  <FILE*> can be '0x<HEX>' to specify a certificate by its SHA-256 thumbprint\n"
+};
+
+constexpr PCWSTR help_Command_Certificate_List{
+    L"Description:\n"
+    L"  Display the certificate from the signed package file\n"
+    L"\n"
+    L"Usage:\n"
+    L"  " MSIX_EXE_NAME L" certificate list <FILE> [options]\n"
+    L"\n"
+    L"Options:\n"
+    L"  --benchmark         Display elapsed time\n"
+    L"  -nologo, --no-logo  Do not display startup banner or copyright message\n"
+    L"  -?, -h, --help      Show command line help\n"
+};
+
+constexpr PCWSTR help_Command_Certificate_Remove{
+    L"Description:\n"
+    L"  Remove the certificate for the signed package file from the system certificate store\n"
+    L"\n"
+    L"Usage:\n"
+    L"  " MSIX_EXE_NAME L" certificate remove <FILE*> [options]\n"
+    L"\n"
+    L"Options:\n"
+    L"  --benchmark         Display elapsed time\n"
+    L"  -nologo, --no-logo  Do not display startup banner or copyright message\n"
+    L"  -?, -h, --help      Show command line help\n"
+    L"\n"
+    L"Arguments:\n"
+    L"  <FILE*> can be '0x<HEX>' to specify a certificate by its SHA-256 thumbprint\n"
+};
+
 constexpr PCWSTR help_Command_Certificate{
     L"Description:\n"
     L"  MSIX Certificate Management\n"
@@ -2029,6 +2087,15 @@ constexpr PCWSTR help_Command_Version{
 
 HRESULT Command_Certificate_Add(PCWSTR filename)
 {
+    constexpr auto help_string{ help_Command_Certificate_Add };
+
+    if ((CompareStringOrdinal(filename, -1, L"-?", -1, FALSE) == CSTR_EQUAL) ||
+        (CompareStringOrdinal(filename, -1, L"-h", -1, FALSE) == CSTR_EQUAL) ||
+        (CompareStringOrdinal(filename, -1, L"--help", -1, FALSE) == CSTR_EQUAL))
+    {
+        Help(help_string);
+    }
+
     MSIX::Signing::AddResult result{};
     if (MSIX::IsPackage(filename))
     {
@@ -2062,6 +2129,15 @@ HRESULT Command_Certificate_Add(PCWSTR filename)
 
 HRESULT Command_Certificate_Exists(PCWSTR filename)
 {
+    constexpr auto help_string{ help_Command_Certificate_Exists };
+
+    if ((CompareStringOrdinal(filename, -1, L"-?", -1, FALSE) == CSTR_EQUAL) ||
+        (CompareStringOrdinal(filename, -1, L"-h", -1, FALSE) == CSTR_EQUAL) ||
+        (CompareStringOrdinal(filename, -1, L"--help", -1, FALSE) == CSTR_EQUAL))
+    {
+        Help(help_string);
+    }
+
     bool isInstalled{};
     if (wil::string_starts_with(filename, L"0x"))
     {
@@ -2255,6 +2331,15 @@ HRESULT PrintCertificate(PCCERT_CONTEXT certificate)
 
 HRESULT Command_Certificate_List(PCWSTR filename)
 {
+    constexpr auto help_string{ help_Command_Certificate_List };
+
+    if ((CompareStringOrdinal(filename, -1, L"-?", -1, FALSE) == CSTR_EQUAL) ||
+        (CompareStringOrdinal(filename, -1, L"-h", -1, FALSE) == CSTR_EQUAL) ||
+        (CompareStringOrdinal(filename, -1, L"--help", -1, FALSE) == CSTR_EQUAL))
+    {
+        Help(help_string);
+    }
+
     const auto isPackage{ MSIX::IsPackage(filename) };
     if (!isPackage && !MSIX::IsBundle(filename))
     {
@@ -2304,6 +2389,15 @@ HRESULT Command_Certificate_List(PCWSTR filename)
 
 HRESULT Command_Certificate_Remove(PCWSTR filename)
 {
+    constexpr auto help_string{ help_Command_Certificate_Remove };
+
+    if ((CompareStringOrdinal(filename, -1, L"-?", -1, FALSE) == CSTR_EQUAL) ||
+        (CompareStringOrdinal(filename, -1, L"-h", -1, FALSE) == CSTR_EQUAL) ||
+        (CompareStringOrdinal(filename, -1, L"--help", -1, FALSE) == CSTR_EQUAL))
+    {
+        Help(help_string);
+    }
+
     HRESULT hr{};
     if (wil::string_starts_with(filename, L"0x"))
     {
@@ -2337,19 +2431,51 @@ HRESULT Command_Certificate_Remove(PCWSTR filename)
 
 HRESULT Command_Certificate(int argc, wchar_t* argv[])
 {
-    if (argc < 4)
+    constexpr auto help_string{ help_Command_Certificate };
+
+    if (argc < 3)
     {
-        Help(help_Command_Certificate);
+        Help(help_string);
     }
 
     PCWSTR action{ argv[2] };
-    PCWSTR filename{ argv[3] };
-    if ((CompareStringOrdinal(action, -1, L"add", -1, FALSE) != CSTR_EQUAL) &&
-        (CompareStringOrdinal(action, -1, L"exists", -1, FALSE) != CSTR_EQUAL) &&
-        (CompareStringOrdinal(action, -1, L"list", -1, FALSE) != CSTR_EQUAL) &&
-        (CompareStringOrdinal(action, -1, L"remove", -1, FALSE) != CSTR_EQUAL))
+    HRESULT (*command)(PCWSTR){};
+    PCWSTR commandHelp{};
+    if (CompareStringOrdinal(action, -1, L"add", -1, FALSE) == CSTR_EQUAL)
     {
-        UnknownArgument(action);
+        command = Command_Certificate_Add;
+        commandHelp = help_Command_Certificate_Add;
+    }
+    else if (CompareStringOrdinal(action, -1, L"exists", -1, FALSE) == CSTR_EQUAL)
+    {
+        command = Command_Certificate_Exists;
+        commandHelp = help_Command_Certificate_Exists;
+    }
+    else if (CompareStringOrdinal(action, -1, L"list", -1, FALSE) == CSTR_EQUAL)
+    {
+        command = Command_Certificate_List;
+        commandHelp = help_Command_Certificate_List;
+    }
+    else if (CompareStringOrdinal(action, -1, L"remove", -1, FALSE) == CSTR_EQUAL)
+    {
+        command = Command_Certificate_Remove;
+        commandHelp = help_Command_Certificate_Remove;
+    }
+    else
+    {
+        Help(help_string);
+    }
+
+    if (argc < 4)
+    {
+        Help(commandHelp);
+    }
+    PCWSTR filename{ argv[3] };
+    if ((CompareStringOrdinal(filename, -1, L"-?", -1, FALSE) == CSTR_EQUAL) ||
+        (CompareStringOrdinal(filename, -1, L"-h", -1, FALSE) == CSTR_EQUAL) ||
+        (CompareStringOrdinal(filename, -1, L"--help", -1, FALSE) == CSTR_EQUAL))
+    {
+        Help(commandHelp);
     }
 
     bool logo{ true };
@@ -2362,7 +2488,7 @@ HRESULT Command_Certificate(int argc, wchar_t* argv[])
             (CompareStringOrdinal(arg, -1, L"-h", -1, FALSE) == CSTR_EQUAL) ||
             (CompareStringOrdinal(arg, -1, L"--help", -1, FALSE) == CSTR_EQUAL))
         {
-            Help(help_Command_Certificate);
+            Help(commandHelp);
         }
         else if (CompareStringOrdinal(arg, -1, L"--benchmark", -1, FALSE) == CSTR_EQUAL)
         {
@@ -2388,28 +2514,7 @@ HRESULT Command_Certificate(int argc, wchar_t* argv[])
         ShowLogo();
     }
 
-    HRESULT exitCode{};
-    if (CompareStringOrdinal(action, -1, L"add", -1, FALSE) == CSTR_EQUAL)
-    {
-        RETURN_IF_FAILED(exitCode = Command_Certificate_Add(filename));
-    }
-    else if (CompareStringOrdinal(action, -1, L"exists", -1, FALSE) == CSTR_EQUAL)
-    {
-        RETURN_IF_FAILED(exitCode = Command_Certificate_Exists(filename));
-    }
-    else if (CompareStringOrdinal(action, -1, L"list", -1, FALSE) == CSTR_EQUAL)
-    {
-        RETURN_IF_FAILED(exitCode = Command_Certificate_List(filename));
-    }
-    else if (CompareStringOrdinal(action, -1, L"remove", -1, FALSE) == CSTR_EQUAL)
-    {
-        RETURN_IF_FAILED(exitCode = Command_Certificate_Remove(filename));
-    }
-    else
-    {
-        FAIL_FAST_HR(E_UNEXPECTED);
-    }
-    return exitCode;
+    return command(filename);
 }
 
 #if defined(MSIXADMIN) && (MSIXADMIN == 0)
@@ -2422,6 +2527,8 @@ HRESULT Command_Certificate(int argc, wchar_t* argv[])
 
 HRESULT Command_Help_Commands_Tree(int argc, wchar_t* argv[])
 {
+    constexpr auto help_string{ help_Command_Help_Commands_Tree };
+
     bool logo{};
     bool ascii{};
 
@@ -2433,7 +2540,7 @@ HRESULT Command_Help_Commands_Tree(int argc, wchar_t* argv[])
             (CompareStringOrdinal(arg, -1, L"-h", -1, FALSE) == CSTR_EQUAL) ||
             (CompareStringOrdinal(arg, -1, L"--help", -1, FALSE) == CSTR_EQUAL))
         {
-            Help(help_Command_Help_Commands_Tree);
+            Help(help_string);
         }
         else if (CompareStringOrdinal(arg, -1, L"--ascii", -1, FALSE) == CSTR_EQUAL)
         {
@@ -2527,9 +2634,11 @@ HRESULT Command_Help_Commands_Tree(int argc, wchar_t* argv[])
 
 HRESULT Command_Help_Commands(int argc, wchar_t* argv[])
 {
+    constexpr auto help_string{ help_Command_Help_Commands };
+
     if (argc < 4)
     {
-        Help(help_Command_Help_Commands);
+        Help(help_string);
     }
 
     PCWSTR command{ argv[3] };
@@ -2539,16 +2648,18 @@ HRESULT Command_Help_Commands(int argc, wchar_t* argv[])
     }
     else
     {
-        Help(help_Command_Help_Commands);
+        Help(help_string);
     }
     return S_OK;
 }
 
 HRESULT Command_Help(int argc, wchar_t* argv[])
 {
+    constexpr auto help_string{ help_Command_Help };
+
     if (argc < 3)
     {
-        Help(help_Command_Help);
+        Help(help_string);
     }
 
     PCWSTR command{ argv[2] };
@@ -2558,7 +2669,7 @@ HRESULT Command_Help(int argc, wchar_t* argv[])
     }
     else
     {
-        Help(help_Command_Help);
+        Help(help_string);
     }
     return S_OK;
 }
@@ -2645,12 +2756,20 @@ ABI::Windows::Management::Deployment::PackageTypes ToPackageTypes(PCWSTR string)
 
 HRESULT Command_Package_Add(int argc, wchar_t* argv[])
 {
+    constexpr auto help_string{ help_Command_Package_Add };
+
     if (argc < 4)
     {
-        Help(help_Command_Package_Add);
+        Help(help_string);
     }
 
     PCWSTR package{ argv[3] };
+    if ((CompareStringOrdinal(package, -1, L"-?", -1, FALSE) == CSTR_EQUAL) ||
+        (CompareStringOrdinal(package, -1, L"-h", -1, FALSE) == CSTR_EQUAL) ||
+        (CompareStringOrdinal(package, -1, L"--help", -1, FALSE) == CSTR_EQUAL))
+    {
+        Help(help_string);
+    }
 
     bool logo{ true };
     bool allowUnsigned{};
@@ -2682,7 +2801,7 @@ HRESULT Command_Package_Add(int argc, wchar_t* argv[])
             (CompareStringOrdinal(arg, -1, L"-h", -1, FALSE) == CSTR_EQUAL) ||
             (CompareStringOrdinal(arg, -1, L"--help", -1, FALSE) == CSTR_EQUAL))
         {
-            Help(help_Command_Package_Add);
+            Help(help_string);
         }
         else if (CompareStringOrdinal(arg, -1, L"--allow-unsigned", -1, FALSE) == CSTR_EQUAL)
         {
@@ -2868,6 +2987,8 @@ HRESULT Command_Package_Add(int argc, wchar_t* argv[])
 
 HRESULT Command_Package_List(int argc, wchar_t* argv[])
 {
+    constexpr auto help_string{ help_Command_Package_List };
+
     enum class PackageDisplayFormat { Full = 0, PackageFullName = 1, PackageFamilyName = 2 };
 
     DependencyType dependencies{ DependencyType::All };
@@ -2893,7 +3014,7 @@ HRESULT Command_Package_List(int argc, wchar_t* argv[])
             (CompareStringOrdinal(arg, -1, L"-h", -1, FALSE) == CSTR_EQUAL) ||
             (CompareStringOrdinal(arg, -1, L"--help", -1, FALSE) == CSTR_EQUAL))
         {
-            Help(help_Command_Package_List);
+            Help(help_string);
         }
         else if (CompareStringOrdinal(arg, -1, L"--dependencies", -1, FALSE) == CSTR_EQUAL)
         {
@@ -3343,13 +3464,27 @@ HRESULT Command_Package_List(int argc, wchar_t* argv[])
 
 HRESULT Command_Package_Move(int argc, wchar_t* argv[])
 {
+    constexpr auto help_string{ help_Command_Package_Move };
+
     if (argc < 5)
     {
-        Help(help_Command_Package_Move);
+        Help(help_string);
     }
 
     PCWSTR packageFullName{ argv[3] };
+    if ((CompareStringOrdinal(packageFullName, -1, L"-?", -1, FALSE) == CSTR_EQUAL) ||
+        (CompareStringOrdinal(packageFullName, -1, L"-h", -1, FALSE) == CSTR_EQUAL) ||
+        (CompareStringOrdinal(packageFullName, -1, L"--help", -1, FALSE) == CSTR_EQUAL))
+    {
+        Help(help_string);
+    }
     PCWSTR target{ argv[4] };
+    if ((CompareStringOrdinal(target, -1, L"-?", -1, FALSE) == CSTR_EQUAL) ||
+        (CompareStringOrdinal(target, -1, L"-h", -1, FALSE) == CSTR_EQUAL) ||
+        (CompareStringOrdinal(target, -1, L"--help", -1, FALSE) == CSTR_EQUAL))
+    {
+        Help(help_string);
+    }
 
     bool logo{ true };
     bool force{};
@@ -3363,7 +3498,7 @@ HRESULT Command_Package_Move(int argc, wchar_t* argv[])
             (CompareStringOrdinal(arg, -1, L"-h", -1, FALSE) == CSTR_EQUAL) ||
             (CompareStringOrdinal(arg, -1, L"--help", -1, FALSE) == CSTR_EQUAL))
         {
-            Help(help_Command_Package_Move);
+            Help(help_string);
         }
         else if (CompareStringOrdinal(arg, -1, L"--force", -1, FALSE) == CSTR_EQUAL)
         {
@@ -3431,12 +3566,20 @@ HRESULT Command_Package_Move(int argc, wchar_t* argv[])
 
 HRESULT Command_Package_Register(int argc, wchar_t* argv[])
 {
+    constexpr auto help_string{ help_Command_Package_Register };
+
     if (argc < 4)
     {
-        Help(help_Command_Package_Add);
+        Help(help_string);
     }
 
     PCWSTR package{ argv[3] };
+    if ((CompareStringOrdinal(package, -1, L"-?", -1, FALSE) == CSTR_EQUAL) ||
+        (CompareStringOrdinal(package, -1, L"-h", -1, FALSE) == CSTR_EQUAL) ||
+        (CompareStringOrdinal(package, -1, L"--help", -1, FALSE) == CSTR_EQUAL))
+    {
+        Help(help_string);
+    }
 
     bool logo{ true };
     bool allowUnsigned{};
@@ -3463,7 +3606,7 @@ HRESULT Command_Package_Register(int argc, wchar_t* argv[])
             (CompareStringOrdinal(arg, -1, L"-h", -1, FALSE) == CSTR_EQUAL) ||
             (CompareStringOrdinal(arg, -1, L"--help", -1, FALSE) == CSTR_EQUAL))
         {
-            Help(help_Command_Package_Add);
+            Help(help_string);
         }
         else if (CompareStringOrdinal(arg, -1, L"--allow-unsigned", -1, FALSE) == CSTR_EQUAL)
         {
@@ -3685,12 +3828,20 @@ HRESULT Command_Package_Register(int argc, wchar_t* argv[])
 
 HRESULT Command_Package_Remove(int argc, wchar_t* argv[])
 {
+    constexpr auto help_string{ help_Command_Package_Remove };
+
     if (argc < 4)
     {
-        Help(help_Command_Package_Remove);
+        Help(help_string);
     }
 
     PCWSTR package{ argv[3] };
+    if ((CompareStringOrdinal(package, -1, L"-?", -1, FALSE) == CSTR_EQUAL) ||
+        (CompareStringOrdinal(package, -1, L"-h", -1, FALSE) == CSTR_EQUAL) ||
+        (CompareStringOrdinal(package, -1, L"--help", -1, FALSE) == CSTR_EQUAL))
+    {
+        Help(help_string);
+    }
 
     bool allUsers{};
     bool defer{};
@@ -3705,7 +3856,7 @@ HRESULT Command_Package_Remove(int argc, wchar_t* argv[])
             (CompareStringOrdinal(arg, -1, L"-h", -1, FALSE) == CSTR_EQUAL) ||
             (CompareStringOrdinal(arg, -1, L"--help", -1, FALSE) == CSTR_EQUAL))
         {
-            Help(help_Command_Package_List);
+            Help(help_string);
         }
         else if (CompareStringOrdinal(arg, -1, L"--all-users", -1, FALSE) == CSTR_EQUAL)
         {
@@ -3804,12 +3955,20 @@ HRESULT Command_Package_Remove(int argc, wchar_t* argv[])
 
 HRESULT Command_Package_Stage(int argc, wchar_t* argv[])
 {
+    constexpr auto help_string{ help_Command_Package_Stage };
+
     if (argc < 4)
     {
-        Help(help_Command_Package_Stage);
+        Help(help_string);
     }
 
     PCWSTR package{ argv[3] };
+    if ((CompareStringOrdinal(package, -1, L"-?", -1, FALSE) == CSTR_EQUAL) ||
+        (CompareStringOrdinal(package, -1, L"-h", -1, FALSE) == CSTR_EQUAL) ||
+        (CompareStringOrdinal(package, -1, L"--help", -1, FALSE) == CSTR_EQUAL))
+    {
+        Help(help_string);
+    }
 
     bool logo{ true };
     bool allowUnsigned{};
@@ -3838,7 +3997,7 @@ HRESULT Command_Package_Stage(int argc, wchar_t* argv[])
             (CompareStringOrdinal(arg, -1, L"-h", -1, FALSE) == CSTR_EQUAL) ||
             (CompareStringOrdinal(arg, -1, L"--help", -1, FALSE) == CSTR_EQUAL))
         {
-            Help(help_Command_Package_Stage);
+            Help(help_string);
         }
         else if (CompareStringOrdinal(arg, -1, L"--allow-unsigned", -1, FALSE) == CSTR_EQUAL)
         {
@@ -4073,13 +4232,27 @@ HRESULT SetPackageStatus(PCWSTR packageFullName, ABI::Windows::Management::Deplo
 
 HRESULT Command_Package_Status_Clear(int argc, wchar_t* argv[])
 {
+    constexpr auto help_string{ help_Command_Package_Status_Clear };
+
     if (argc < 6)
     {
-        Help(help_Command_Package_Status_Clear);
+        Help(help_string);
     }
 
     PCWSTR package{ argv[4] };
+    if ((CompareStringOrdinal(package, -1, L"-?", -1, FALSE) == CSTR_EQUAL) ||
+        (CompareStringOrdinal(package, -1, L"-h", -1, FALSE) == CSTR_EQUAL) ||
+        (CompareStringOrdinal(package, -1, L"--help", -1, FALSE) == CSTR_EQUAL))
+    {
+        Help(help_string);
+    }
     PCWSTR status{ argv[5] };
+    if ((CompareStringOrdinal(status, -1, L"-?", -1, FALSE) == CSTR_EQUAL) ||
+        (CompareStringOrdinal(status, -1, L"-h", -1, FALSE) == CSTR_EQUAL) ||
+        (CompareStringOrdinal(status, -1, L"--help", -1, FALSE) == CSTR_EQUAL))
+    {
+        Help(help_string);
+    }
 
     bool logo{ true };
 
@@ -4091,7 +4264,7 @@ HRESULT Command_Package_Status_Clear(int argc, wchar_t* argv[])
             (CompareStringOrdinal(arg, -1, L"-h", -1, FALSE) == CSTR_EQUAL) ||
             (CompareStringOrdinal(arg, -1, L"--help", -1, FALSE) == CSTR_EQUAL))
         {
-            Help(help_Command_Package_Status_Clear);
+            Help(help_string);
         }
         else if (CompareStringOrdinal(arg, -1, L"--benchmark", -1, FALSE) == CSTR_EQUAL)
         {
@@ -4142,13 +4315,27 @@ HRESULT Command_Package_Status_Clear(int argc, wchar_t* argv[])
 
 HRESULT Command_Package_Status_Set(int argc, wchar_t* argv[])
 {
+    constexpr auto help_string{ help_Command_Package_Status_Set };
+
     if (argc < 6)
     {
-        Help(help_Command_Package_Status_Set);
+        Help(help_string);
     }
 
     PCWSTR package{ argv[4] };
+    if ((CompareStringOrdinal(package, -1, L"-?", -1, FALSE) == CSTR_EQUAL) ||
+        (CompareStringOrdinal(package, -1, L"-h", -1, FALSE) == CSTR_EQUAL) ||
+        (CompareStringOrdinal(package, -1, L"--help", -1, FALSE) == CSTR_EQUAL))
+    {
+        Help(help_string);
+    }
     PCWSTR status{ argv[5] };
+    if ((CompareStringOrdinal(status, -1, L"-?", -1, FALSE) == CSTR_EQUAL) ||
+        (CompareStringOrdinal(status, -1, L"-h", -1, FALSE) == CSTR_EQUAL) ||
+        (CompareStringOrdinal(status, -1, L"--help", -1, FALSE) == CSTR_EQUAL))
+    {
+        Help(help_string);
+    }
 
     bool logo{ true };
 
@@ -4160,7 +4347,7 @@ HRESULT Command_Package_Status_Set(int argc, wchar_t* argv[])
             (CompareStringOrdinal(arg, -1, L"-h", -1, FALSE) == CSTR_EQUAL) ||
             (CompareStringOrdinal(arg, -1, L"--help", -1, FALSE) == CSTR_EQUAL))
         {
-            Help(help_Command_Package_Status_Set);
+            Help(help_string);
         }
         else if (CompareStringOrdinal(arg, -1, L"--benchmark", -1, FALSE) == CSTR_EQUAL)
         {
@@ -4222,9 +4409,11 @@ HRESULT Command_Package_Status_Set(int argc, wchar_t* argv[])
 
 HRESULT Command_Package_Status(int argc, wchar_t* argv[])
 {
+    constexpr auto help_string{ help_Command_Package_Status };
+
     if (argc < 4)
     {
-        Help(help_Command_Package_Status);
+        Help(help_string);
     }
 
     PCWSTR command{ argv[3] };
@@ -4238,19 +4427,27 @@ HRESULT Command_Package_Status(int argc, wchar_t* argv[])
     }
     else
     {
-        Help(help_Command_Package_Status);
+        Help(help_string);
     }
     return S_OK;
 }
 
 HRESULT Command_Package_Verify(int argc, wchar_t* argv[])
 {
+    constexpr auto help_string{ help_Command_Package_Verify };
+
     if (argc < 4)
     {
-        Help(help_Command_Package_Verify);
+        Help(help_string);
     }
 
     PCWSTR packageFullName{ argv[3] };
+    if ((CompareStringOrdinal(packageFullName, -1, L"-?", -1, FALSE) == CSTR_EQUAL) ||
+        (CompareStringOrdinal(packageFullName, -1, L"-h", -1, FALSE) == CSTR_EQUAL) ||
+        (CompareStringOrdinal(packageFullName, -1, L"--help", -1, FALSE) == CSTR_EQUAL))
+    {
+        Help(help_string);
+    }
 
     bool logo{ true };
 
@@ -4262,7 +4459,7 @@ HRESULT Command_Package_Verify(int argc, wchar_t* argv[])
             (CompareStringOrdinal(arg, -1, L"-h", -1, FALSE) == CSTR_EQUAL) ||
             (CompareStringOrdinal(arg, -1, L"--help", -1, FALSE) == CSTR_EQUAL))
         {
-            Help(help_Command_Package_Verify);
+            Help(help_string);
         }
         else if (CompareStringOrdinal(arg, -1, L"--benchmark", -1, FALSE) == CSTR_EQUAL)
         {
@@ -4319,9 +4516,11 @@ HRESULT Command_Package_Verify(int argc, wchar_t* argv[])
 
 HRESULT Command_Package(int argc, wchar_t* argv[])
 {
+    constexpr auto help_string{ help_Command_Package };
+
     if (argc < 3)
     {
-        Help(help_Command_Package);
+        Help(help_string);
     }
 
     PCWSTR command{ argv[2] };
@@ -4355,19 +4554,27 @@ HRESULT Command_Package(int argc, wchar_t* argv[])
     }
     else
     {
-        Help(help_Command_Package);
+        Help(help_string);
     }
     return S_OK;
 }
 
 HRESULT Command_Provision_Add(int argc, wchar_t* argv[])
 {
+    constexpr auto help_string{ help_Command_Provision_Add };
+
     if (argc < 4)
     {
-        Help(help_Command_Provision_Add);
+        Help(help_string);
     }
 
     PCWSTR packageFamilyName{ argv[3] };
+    if ((CompareStringOrdinal(packageFamilyName, -1, L"-?", -1, FALSE) == CSTR_EQUAL) ||
+        (CompareStringOrdinal(packageFamilyName, -1, L"-h", -1, FALSE) == CSTR_EQUAL) ||
+        (CompareStringOrdinal(packageFamilyName, -1, L"--help", -1, FALSE) == CSTR_EQUAL))
+    {
+        Help(help_string);
+    }
 
     bool deferRegistration{ true };
     bool logo{ true };
@@ -4380,7 +4587,7 @@ HRESULT Command_Provision_Add(int argc, wchar_t* argv[])
             (CompareStringOrdinal(arg, -1, L"-h", -1, FALSE) == CSTR_EQUAL) ||
             (CompareStringOrdinal(arg, -1, L"--help", -1, FALSE) == CSTR_EQUAL))
         {
-            Help(help_Command_Provision_Add);
+            Help(help_string);
         }
         else if (CompareStringOrdinal(arg, -1, L"--defer-registration", -1, FALSE) == CSTR_EQUAL)
         {
@@ -4471,6 +4678,8 @@ HRESULT Command_Provision_Add(int argc, wchar_t* argv[])
 
 HRESULT Command_Provision_List(int argc, wchar_t* argv[])
 {
+    constexpr auto help_string{ help_Command_Provision_List };
+
     enum class PackageDisplayFormat { PackageFamilyName = 0, Full = 1 };
 
     bool logo{ true };
@@ -4489,7 +4698,7 @@ HRESULT Command_Provision_List(int argc, wchar_t* argv[])
             (CompareStringOrdinal(arg, -1, L"-h", -1, FALSE) == CSTR_EQUAL) ||
             (CompareStringOrdinal(arg, -1, L"--help", -1, FALSE) == CSTR_EQUAL))
         {
-            Help(help_Command_Provision_List);
+            Help(help_string);
         }
         else if (CompareStringOrdinal(arg, -1, L"--format=full", -1, FALSE) == CSTR_EQUAL)
         {
@@ -4620,12 +4829,20 @@ HRESULT Command_Provision_List(int argc, wchar_t* argv[])
 
 HRESULT Command_Provision_Remove(int argc, wchar_t* argv[])
 {
+    constexpr auto help_string{ help_Command_Provision_Remove };
+
     if (argc < 4)
     {
-        Help(help_Command_Provision_Remove);
+        Help(help_string);
     }
 
     PCWSTR packageFamilyName{ argv[3] };
+    if ((CompareStringOrdinal(packageFamilyName, -1, L"-?", -1, FALSE) == CSTR_EQUAL) ||
+        (CompareStringOrdinal(packageFamilyName, -1, L"-h", -1, FALSE) == CSTR_EQUAL) ||
+        (CompareStringOrdinal(packageFamilyName, -1, L"--help", -1, FALSE) == CSTR_EQUAL))
+    {
+        Help(help_string);
+    }
 
     bool logo{ true };
 
@@ -4637,7 +4854,7 @@ HRESULT Command_Provision_Remove(int argc, wchar_t* argv[])
             (CompareStringOrdinal(arg, -1, L"-h", -1, FALSE) == CSTR_EQUAL) ||
             (CompareStringOrdinal(arg, -1, L"--help", -1, FALSE) == CSTR_EQUAL))
         {
-            Help(help_Command_Provision_Remove);
+            Help(help_string);
         }
         else if (CompareStringOrdinal(arg, -1, L"--benchmark", -1, FALSE) == CSTR_EQUAL)
         {
@@ -4687,9 +4904,11 @@ HRESULT Command_Provision_Remove(int argc, wchar_t* argv[])
 
 HRESULT Command_Provision(int argc, wchar_t* argv[])
 {
+    constexpr auto help_string{ help_Command_Provision };
+
     if (argc < 3)
     {
-        Help(help_Command_Provision);
+        Help(help_string);
     }
 
     PCWSTR command{ argv[2] };
@@ -4707,7 +4926,7 @@ HRESULT Command_Provision(int argc, wchar_t* argv[])
     }
     else
     {
-        Help(help_Command_Provision);
+        Help(help_string);
     }
     return S_OK;
 }
@@ -4723,14 +4942,28 @@ enum class ShortcutTargetType
 
 HRESULT Command_Shortcut_Add(int argc, wchar_t* argv[])
 {
+    constexpr auto help_string{ help_Command_Shortcut_Add };
+
     if (argc < 5)
     {
-        Help(help_Command_Shortcut_Add);
+        Help(help_string);
     }
 
     bool logo{ true };
     PCWSTR file{ argv[3] };
+    if ((CompareStringOrdinal(file, -1, L"-?", -1, FALSE) == CSTR_EQUAL) ||
+        (CompareStringOrdinal(file, -1, L"-h", -1, FALSE) == CSTR_EQUAL) ||
+        (CompareStringOrdinal(file, -1, L"--help", -1, FALSE) == CSTR_EQUAL))
+    {
+        Help(help_string);
+    }
     PCWSTR target{ argv[4] };
+    if ((CompareStringOrdinal(target, -1, L"-?", -1, FALSE) == CSTR_EQUAL) ||
+        (CompareStringOrdinal(target, -1, L"-h", -1, FALSE) == CSTR_EQUAL) ||
+        (CompareStringOrdinal(target, -1, L"--help", -1, FALSE) == CSTR_EQUAL))
+    {
+        Help(help_string);
+    }
 
     PCWSTR arguments{};
     PCWSTR description{};
@@ -4750,7 +4983,7 @@ HRESULT Command_Shortcut_Add(int argc, wchar_t* argv[])
             (CompareStringOrdinal(arg, -1, L"-h", -1, FALSE) == CSTR_EQUAL) ||
             (CompareStringOrdinal(arg, -1, L"--help", -1, FALSE) == CSTR_EQUAL))
         {
-            Help(help_Command_Shortcut_Add);
+            Help(help_string);
         }
         else if (wil::string_starts_with(arg, L"--arguments="))
         {
@@ -4858,7 +5091,7 @@ HRESULT Command_Shortcut_Add(int argc, wchar_t* argv[])
     {
         if (arguments || description || runAsAdministrator || showCommand || workingDirectory)
         {
-            Help(help_Command_Shortcut_Add);
+            Help(help_string);
         }
     }
 
@@ -4979,9 +5212,11 @@ HRESULT Command_Shortcut_Add(int argc, wchar_t* argv[])
 
 HRESULT Command_Shortcut(int argc, wchar_t* argv[])
 {
+    constexpr auto help_string{ help_Command_Shortcut };
+
     if (argc < 3)
     {
-        Help(help_Command_Shortcut);
+        Help(help_string);
     }
 
     PCWSTR command{ argv[2] };
@@ -4991,16 +5226,18 @@ HRESULT Command_Shortcut(int argc, wchar_t* argv[])
     }
     else
     {
-        Help(help_Command_Shortcut);
+        Help(help_string);
     }
     return S_OK;
 }
 
 HRESULT Command_Tool_PropertySheet_Install(int argc, wchar_t* argv[])
 {
+    constexpr auto help_string{ help_Command_Tool_PropertySheet_Install };
+
     if (argc < 4)
     {
-        Help(help_Command_Tool_PropertySheet_Install);
+        Help(help_string);
     }
 
     bool confirm{};
@@ -5015,7 +5252,7 @@ HRESULT Command_Tool_PropertySheet_Install(int argc, wchar_t* argv[])
             (CompareStringOrdinal(arg, -1, L"-h", -1, FALSE) == CSTR_EQUAL) ||
             (CompareStringOrdinal(arg, -1, L"--help", -1, FALSE) == CSTR_EQUAL))
         {
-            Help(help_Command_Tool_PropertySheet_Install);
+            Help(help_string);
         }
         else if (CompareStringOrdinal(arg, -1, L"--confirm", -1, FALSE) == CSTR_EQUAL)
         {
@@ -5046,7 +5283,7 @@ HRESULT Command_Tool_PropertySheet_Install(int argc, wchar_t* argv[])
 
     if (!confirm)
     {
-        Help(help_Command_Tool_PropertySheet_Install);
+        Help(help_string);
     }
 
     if (logo)
@@ -5079,9 +5316,11 @@ HRESULT Command_Tool_PropertySheet_Install(int argc, wchar_t* argv[])
 
 HRESULT Command_Tool_PropertySheet_List(int argc, wchar_t* argv[])
 {
+    constexpr auto help_string{ help_Command_Tool_PropertySheet_List };
+
     if (argc < 4)
     {
-        Help(help_Command_Tool_PropertySheet_List);
+        Help(help_string);
     }
 
     bool logo{ true };
@@ -5094,7 +5333,7 @@ HRESULT Command_Tool_PropertySheet_List(int argc, wchar_t* argv[])
             (CompareStringOrdinal(arg, -1, L"-h", -1, FALSE) == CSTR_EQUAL) ||
             (CompareStringOrdinal(arg, -1, L"--help", -1, FALSE) == CSTR_EQUAL))
         {
-            Help(help_Command_Tool_PropertySheet_List);
+            Help(help_string);
         }
         else if (CompareStringOrdinal(arg, -1, L"--benchmark", -1, FALSE) == CSTR_EQUAL)
         {
@@ -5171,9 +5410,11 @@ HRESULT Command_Tool_PropertySheet_List(int argc, wchar_t* argv[])
 
 HRESULT Command_Tool_PropertySheet_Uninstall(int argc, wchar_t* argv[])
 {
+    constexpr auto help_string{ help_Command_Tool_PropertySheet_Uninstall };
+
     if (argc < 4)
     {
-        Help(help_Command_Tool_PropertySheet_Uninstall);
+        Help(help_string);
     }
 
     bool confirm{};
@@ -5188,7 +5429,7 @@ HRESULT Command_Tool_PropertySheet_Uninstall(int argc, wchar_t* argv[])
             (CompareStringOrdinal(arg, -1, L"-h", -1, FALSE) == CSTR_EQUAL) ||
             (CompareStringOrdinal(arg, -1, L"--help", -1, FALSE) == CSTR_EQUAL))
         {
-            Help(help_Command_Tool_PropertySheet_Uninstall);
+            Help(help_string);
         }
         else if (CompareStringOrdinal(arg, -1, L"--confirm", -1, FALSE) == CSTR_EQUAL)
         {
@@ -5219,7 +5460,7 @@ HRESULT Command_Tool_PropertySheet_Uninstall(int argc, wchar_t* argv[])
 
     if (!confirm)
     {
-        Help(help_Command_Tool_PropertySheet_Uninstall);
+        Help(help_string);
     }
 
     if (logo)
@@ -5252,9 +5493,11 @@ HRESULT Command_Tool_PropertySheet_Uninstall(int argc, wchar_t* argv[])
 
 HRESULT Command_Tool_PropertySheet(int argc, wchar_t* argv[])
 {
+    constexpr auto help_string{ help_Command_Tool_PropertySheet };
+
     if (argc < 4)
     {
-        Help(help_Command_Tool_PropertySheet);
+        Help(help_string);
     }
 
     PCWSTR command{ argv[3] };
@@ -5272,16 +5515,18 @@ HRESULT Command_Tool_PropertySheet(int argc, wchar_t* argv[])
     }
     else
     {
-        Help(help_Command_Tool_PropertySheet);
+        Help(help_string);
     }
     return S_OK;
 }
 
 HRESULT Command_Tool(int argc, wchar_t* argv[])
 {
+    constexpr auto help_string{ help_Command_Tool };
+
     if (argc < 3)
     {
-        Help(help_Command_Tool);
+        Help(help_string);
     }
 
     PCWSTR command{ argv[2] };
@@ -5291,16 +5536,18 @@ HRESULT Command_Tool(int argc, wchar_t* argv[])
     }
     else
     {
-        Help(help_Command_Tool);
+        Help(help_string);
     }
     return S_OK;
 }
 
 HRESULT Command_Version(int argc, wchar_t* argv[])
 {
+    constexpr auto help_string{ help_Command_Version };
+
     if (argc < 2)
     {
-        Help(help_Command_Version);
+        Help(help_string);
     }
 
     bool logo{ true };
@@ -5313,7 +5560,7 @@ HRESULT Command_Version(int argc, wchar_t* argv[])
             (CompareStringOrdinal(arg, -1, L"-h", -1, FALSE) == CSTR_EQUAL) ||
             (CompareStringOrdinal(arg, -1, L"--help", -1, FALSE) == CSTR_EQUAL))
         {
-            Help(help_Command_Version);
+            Help(help_string);
         }
         else if (CompareStringOrdinal(arg, -1, L"--benchmark", -1, FALSE) == CSTR_EQUAL)
         {
