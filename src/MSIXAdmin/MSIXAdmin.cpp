@@ -1060,6 +1060,55 @@ void PrintPackageRelated(
     }
 }
 
+void PrintPackagePhysicalPath(
+    PCWSTR key,
+    HRESULT hr,
+    PCWSTR packagePath)
+{
+    if (FAILED(hr) || wil::string_is_null_or_empty(packagePath))
+    {
+        PrintPackageValue(key);
+    }
+    else
+    {
+        wil::unique_hfile file{ ::CreateFileW(packagePath, FILE_READ_ATTRIBUTES,
+            FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+            nullptr, OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS, nullptr) };
+        if (!file)
+        {
+            PrintPackageKeyValueError(key, LOG_LAST_ERROR());
+        }
+        else
+        {
+            DWORD length{ GetFinalPathNameByHandleW(file.get(), nullptr, 0, FILE_NAME_NORMALIZED | VOLUME_NAME_DOS) };
+            if (length == 0)
+            {
+                PrintPackageKeyValueError(key, LOG_LAST_ERROR());
+            }
+            else
+            {
+                auto physicalPath{ wil::make_unique_cotaskmem_nothrow<WCHAR[]>(length) };
+                if (!physicalPath)
+                {
+                    PrintPackageKeyValueError(key, E_OUTOFMEMORY);
+                }
+                else
+                {
+                    length = GetFinalPathNameByHandleW(file.get(), physicalPath.get(), length, FILE_NAME_NORMALIZED | VOLUME_NAME_DOS);
+                    if (length == 0)
+                    {
+                        PrintPackageKeyValueError(key, LOG_LAST_ERROR());
+                    }
+                    else
+                    {
+                        PrintPackageValue(key, S_OK, physicalPath.get());
+                    }
+                }
+            }
+        }
+    }
+}
+
 void PrintPackage(
     PackageX& package,
     ABI::Windows::ApplicationModel::IPackageId* packageId,
@@ -1123,16 +1172,32 @@ void PrintPackage(
     wprintf(L"Location\n");
     hr = LOG_IF_FAILED(package.package8()->get_EffectivePath(wil::out_param(string)));
     PrintPackageValue(L"    EffectivePath", hr, string);
-    hr = LOG_IF_FAILED(package.package8()->get_InstalledPath(wil::out_param(string)));
-    PrintPackageValue(L"    InstalledPath", hr, string);
-    hr = LOG_IF_FAILED(package.package8()->get_MutablePath(wil::out_param(string)));
-    PrintPackageValue(L"    MutablePath", hr, string);
-    hr = LOG_IF_FAILED(package.package8()->get_MachineExternalPath(wil::out_param(string)));
-    PrintPackageValue(L"    MachineExternalPath", hr, string);
-    hr = LOG_IF_FAILED(package.package8()->get_UserExternalPath(wil::out_param(string)));
-    PrintPackageValue(L"    UserExternalPath", hr, string);
-    hr = LOG_IF_FAILED(package.package8()->get_EffectiveExternalPath(wil::out_param(string)));
-    PrintPackageValue(L"    EffectiveExternalPath", hr, string);
+    wil::unique_hstring installedPathHString;
+    HRESULT hrInstalledPath{ LOG_IF_FAILED(package.package8()->get_InstalledPath(wil::out_param(installedPathHString))) };
+    PCWSTR installedPath{ WindowsGetStringRawBuffer(installedPathHString.get(), nullptr) };
+    PrintPackageValue(L"    InstalledPath", hrInstalledPath, installedPath);
+    wil::unique_hstring mutablePathHString;
+    HRESULT hrMutablePath{ LOG_IF_FAILED(package.package8()->get_MutablePath(wil::out_param(mutablePathHString))) };
+    PCWSTR mutablePath{ WindowsGetStringRawBuffer(installedPathHString.get(), nullptr) };
+    PrintPackageValue(L"    MutablePath", hrMutablePath, mutablePath);
+    wil::unique_hstring machineExternalPathHString;
+    HRESULT hrMachineExternalPath{ LOG_IF_FAILED(package.package8()->get_MachineExternalPath(wil::out_param(machineExternalPathHString))) };
+    PCWSTR machineExternalPath{ WindowsGetStringRawBuffer(machineExternalPathHString.get(), nullptr) };
+    PrintPackageValue(L"    MachineExternalPath", hrMachineExternalPath, machineExternalPath);
+    wil::unique_hstring userExternalPathHString;
+    HRESULT hrUserExternalPath{ LOG_IF_FAILED(package.package8()->get_UserExternalPath(wil::out_param(userExternalPathHString))) };
+    PCWSTR userExternalPath{ WindowsGetStringRawBuffer(userExternalPathHString.get(), nullptr) };
+    PrintPackageValue(L"    UserExternalPath", hrUserExternalPath, userExternalPath);
+    wil::unique_hstring effectiveExternalPathHString;
+    HRESULT hrEffectiveExternalPath{ LOG_IF_FAILED(package.package8()->get_EffectiveExternalPath(wil::out_param(effectiveExternalPathHString))) };
+    PCWSTR effectiveExternalPath{ WindowsGetStringRawBuffer(effectiveExternalPathHString.get(), nullptr) };
+    PrintPackageValue(L"    EffectiveExternalPath", hrEffectiveExternalPath, effectiveExternalPath);
+
+    wprintf(L"Physical Location\n");
+    PrintPackagePhysicalPath(L"    InstalledPath", hrInstalledPath, installedPath);
+    PrintPackagePhysicalPath(L"    MutablePath", hrMutablePath, mutablePath);
+    PrintPackagePhysicalPath(L"    MachineExternalPath", hrMachineExternalPath, machineExternalPath);
+    PrintPackagePhysicalPath(L"    UserExternalPath", hrUserExternalPath, userExternalPath);
 
     wprintf(L"Signing\n");
     PackageOrigin packageOrigin{};
@@ -5880,6 +5945,12 @@ void PrintVolumeValue(PCWSTR key, HRESULT hr, const boolean& value)
     }
 }
 
+constexpr PCWSTR ToDriveTypeString(UINT driveType)
+{
+    constexpr PCWSTR driveTypes[]{ L"Unknown", L"No volume mounted at path", L"Removable", L"Fixed", L"Remote", L"CD-ROM", L"RAM disk" };
+    return driveType < ARRAYSIZE(driveTypes) ? driveTypes[driveType] : L"???";
+}
+
 void PrintVolume(wil::com_ptr_nothrow<ABI::Windows::Management::Deployment::IPackageVolume>& volume)
 {
     if (!volume)
@@ -5956,16 +6027,19 @@ void PrintVolume(wil::com_ptr_nothrow<ABI::Windows::Management::Deployment::IPac
     }
     if (FAILED(hrIsOffline))
     {
+        PrintVolumeKeyValueError(L"    DriveType", hrIsOffline);
         PrintVolumeKeyValueError(L"    FileSystem", hrIsOffline);
     }
     else if (isOffline)
     {
+        wprintf(L"    %-26ls : --Offline--\n", L"DriveType");
         wprintf(L"    %-26ls : --Offline--\n", L"FileSystem");
     }
     else
     {
         PCWSTR path{ WindowsGetStringRawBuffer(string.get(), nullptr) };
         WCHAR volumeName[]{ path[0], L':', L'\\', L'\0' };
+        wprintf(L"    %-26ls : %ls\n", L"DriveType", ToDriveTypeString(::GetDriveTypeW(volumeName)));
         WCHAR fileSystemName[MAX_PATH + 1]{};
         DWORD fileSystemNameSize{ ARRAYSIZE(fileSystemName) };
         hr = LOG_IF_WIN32_BOOL_FALSE_MSG(::GetVolumeInformation(volumeName, nullptr, 0, nullptr, nullptr, nullptr, fileSystemName, fileSystemNameSize), "%ls", volumeName);
@@ -6086,22 +6160,14 @@ HRESULT Command_Volume_Default_Get(int argc, wchar_t* argv[])
 {
     constexpr auto help_string{ help_Command_Volume_Default_Get };
 
-    if (argc < 5)
-    {
-        Help(help_string);
-    }
-
-    PCWSTR volume{ argv[4] };
-    if ((CompareStringOrdinal(volume, -1, L"-?", -1, FALSE) == CSTR_EQUAL) ||
-        (CompareStringOrdinal(volume, -1, L"-h", -1, FALSE) == CSTR_EQUAL) ||
-        (CompareStringOrdinal(volume, -1, L"--help", -1, FALSE) == CSTR_EQUAL))
+    if (argc < 4)
     {
         Help(help_string);
     }
 
     bool logo{ true };
 
-    int argn{ 5 };
+    int argn{ 4 };
     for (; argn < argc; ++argn)
     {
         PCWSTR arg{ argv[argn] };
@@ -6135,10 +6201,6 @@ HRESULT Command_Volume_Default_Get(int argc, wchar_t* argv[])
         ShowLogo();
     }
 
-    HSTRING_HEADER volumeHeader{};
-    HSTRING volumeHString{};
-    RETURN_IF_FAILED(wil::to_hstring_reference(volume, volumeHeader, volumeHString));
-
     wil::com_ptr_nothrow<ABI::Windows::Management::Deployment::IPackageManager3> packageManager3;
     {
         wil::com_ptr_nothrow<IInspectable> inspectable;
@@ -6146,8 +6208,9 @@ HRESULT Command_Volume_Default_Get(int argc, wchar_t* argv[])
         RETURN_IF_FAILED(inspectable.query_to(packageManager3.put()));
     }
 
-    //TODO default get
-
+    wil::com_ptr_nothrow<ABI::Windows::Management::Deployment::IPackageVolume> packageVolume;
+    RETURN_IF_FAILED(packageManager3->GetDefaultPackageVolume(wil::out_param(packageVolume)));
+    PrintVolume(packageVolume);
     return S_OK;
 }
 HRESULT Command_Volume_Default_Set(int argc, wchar_t* argv[])
