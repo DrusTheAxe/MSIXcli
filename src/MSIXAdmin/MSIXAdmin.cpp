@@ -5880,6 +5880,111 @@ void PrintVolumeValue(PCWSTR key, HRESULT hr, const boolean& value)
     }
 }
 
+void PrintVolume(wil::com_ptr_nothrow<ABI::Windows::Management::Deployment::IPackageVolume>& volume)
+{
+    if (!volume)
+    {
+        return;
+    }
+
+    wil::com_ptr_nothrow<ABI::Windows::Management::Deployment::IPackageVolume2> volume2;
+    const HRESULT hrVolume2{ LOG_IF_FAILED(volume.query_to(volume2.put())) };
+
+    wil::unique_hstring string;
+    HRESULT hr{ LOG_IF_FAILED(volume->get_PackageStorePath(wil::out_param(string))) };
+    PrintVolumeValue(L"Path", hr, string);
+    boolean isOffline{};
+    HRESULT hrIsOffline{ LOG_IF_FAILED(volume->get_IsOffline(&isOffline)) };
+    if (FAILED(hrIsOffline))
+    {
+        PrintVolumeKeyValueError(L"    AvailableSpace", hrIsOffline);
+    }
+    else if (isOffline)
+    {
+        wprintf(L"    %-26ls : --Offline--\n", L"AvailableSpace");
+    }
+    else if (FAILED(hrVolume2))
+    {
+        PrintVolumeKeyValueError(L"    AvailableSpace", hrVolume2);
+    }
+    else
+    {
+        std::uint64_t availableSpace{};
+        wil::com_ptr_nothrow<ABI::Windows::Foundation::__FIAsyncOperation_1_UINT64_t> operation;
+        hr = LOG_IF_FAILED(volume2->GetAvailableSpaceAsync(operation.put()));
+        if (SUCCEEDED(hr))
+        {
+            hr = LOG_IF_FAILED(wil::wait_for_completion_nothrow(operation.get(), &availableSpace));
+        }
+        if (FAILED(hr))
+        {
+            PrintVolumeKeyValueError(L"    AvailableSpace", hr);
+        }
+        else
+        {
+            PCWSTR units{};
+            const std::uint64_t kb{ 1024 };
+            const std::uint64_t mb{ kb * 1024 };
+            const std::uint64_t gb{ mb * 1024 };
+            const std::uint64_t tb{ gb * 1024 };
+            if (availableSpace > tb)
+            {
+                availableSpace /= tb;
+                units = L"TB";
+            }
+            else if (availableSpace > gb)
+            {
+                availableSpace /= gb;
+                units = L"GB";
+            }
+            else if (availableSpace > mb)
+            {
+                availableSpace /= mb;
+                units = L"MB";
+            }
+            else if (availableSpace > kb)
+            {
+                availableSpace /= kb;
+                units = L"KB";
+            }
+            else
+            {
+                units = L"bytes";
+            }
+            wprintf(L"    %-26ls : %llu %ls\n", L"AvailableSpace", availableSpace, units);
+        }
+    }
+    if (FAILED(hrIsOffline))
+    {
+        PrintVolumeKeyValueError(L"    FileSystem", hrIsOffline);
+    }
+    else if (isOffline)
+    {
+        wprintf(L"    %-26ls : --Offline--\n", L"FileSystem");
+    }
+    else
+    {
+        PCWSTR path{ WindowsGetStringRawBuffer(string.get(), nullptr) };
+        WCHAR volumeName[]{ path[0], L':', L'\\', L'\0' };
+        WCHAR fileSystemName[MAX_PATH + 1]{};
+        DWORD fileSystemNameSize{ ARRAYSIZE(fileSystemName) };
+        hr = LOG_IF_WIN32_BOOL_FALSE_MSG(::GetVolumeInformation(volumeName, nullptr, 0, nullptr, nullptr, nullptr, fileSystemName, fileSystemNameSize), "%ls", volumeName);
+        PrintVolumeValue(L"    FileSystem", hr, fileSystemName);
+    }
+    hr = LOG_IF_FAILED(volume->get_MountPoint(wil::out_param(string)));
+    PrintVolumeValue(L"    MountPoint", hr, string);
+    hr = LOG_IF_FAILED(volume->get_Name(wil::out_param(string)));
+    PrintVolumeValue(L"    Name", hr, string);
+    PrintVolumeValue(L"    State", hrIsOffline, isOffline ? L"Offline" : L"Online");
+    boolean boolean{};
+    hr = LOG_IF_FAILED(volume2->get_IsFullTrustPackageSupported(&boolean));
+    PrintVolumeValue(L"    SupportsFullTrustPackages", hr, boolean);
+    hr = LOG_IF_FAILED(volume->get_SupportsHardLinks(&boolean));
+    PrintVolumeValue(L"    SupportsHardLinks", hr, boolean);
+    hr = LOG_IF_FAILED(volume->get_IsSystemVolume(&boolean));
+    PrintVolumeValue(L"    SystemVolume", hr, boolean);
+}
+
 HRESULT Command_Volume_List(int argc, wchar_t* argv[])
 {
     constexpr auto help_string{ help_Command_Volume_List };
@@ -5959,102 +6064,8 @@ HRESULT Command_Volume_List(int argc, wchar_t* argv[])
             {
                 wil::com_ptr_nothrow<ABI::Windows::Management::Deployment::IPackageVolume> volume;
                 RETURN_IF_FAILED(volumesIterator->get_Current(&volume));
-                if (volume)
-                {
-                    wil::com_ptr_nothrow<ABI::Windows::Management::Deployment::IPackageVolume2> volume2;
-                    RETURN_IF_FAILED(volume.query_to(volume2.put()));
-
-                    wprintf(L"#%u\n", countDisplayed);
-                    wil::unique_hstring string;
-                    HRESULT hr{ LOG_IF_FAILED(volume->get_PackageStorePath(wil::out_param(string))) };
-                    PrintVolumeValue(L"Path", hr, string);
-                    boolean isOffline{};
-                    HRESULT hrIsOffline{ LOG_IF_FAILED(volume->get_IsOffline(&isOffline)) };
-                    if (FAILED(hrIsOffline))
-                    {
-                        PrintVolumeKeyValueError(L"    AvailableSpace", hrIsOffline);
-                    }
-                    else if (isOffline)
-                    {
-                        wprintf(L"    %-26ls : --Offline--\n", L"AvailableSpace");
-                    }
-                    else
-                    {
-                        std::uint64_t availableSpace{};
-                        wil::com_ptr_nothrow<ABI::Windows::Foundation::__FIAsyncOperation_1_UINT64_t> operation;
-                        hr = LOG_IF_FAILED(volume2->GetAvailableSpaceAsync(operation.put()));
-                        if (SUCCEEDED(hr))
-                        {
-                            hr = LOG_IF_FAILED(wil::wait_for_completion_nothrow(operation.get(), &availableSpace));
-                        }
-                        if (FAILED(hr))
-                        {
-                            PrintVolumeKeyValueError(L"    AvailableSpace", hr);
-                        }
-                        else
-                        {
-                            PCWSTR units{};
-                            const std::uint64_t kb{ 1024 };
-                            const std::uint64_t mb{ kb * 1024 };
-                            const std::uint64_t gb{ mb * 1024 };
-                            const std::uint64_t tb{ gb * 1024 };
-                            if (availableSpace > tb)
-                            {
-                                availableSpace /= tb;
-                                units = L"TB";
-                            }
-                            else if (availableSpace > gb)
-                            {
-                                availableSpace /= gb;
-                                units = L"GB";
-                            }
-                            else if (availableSpace > mb)
-                            {
-                                availableSpace /= mb;
-                                units = L"MB";
-                            }
-                            else if (availableSpace > kb)
-                            {
-                                availableSpace /= kb;
-                                units = L"KB";
-                            }
-                            else
-                            {
-                                units = L"bytes";
-                            }
-                            wprintf(L"    %-26ls : %llu %ls\n", L"AvailableSpace", availableSpace, units);
-                        }
-                    }
-                    if (FAILED(hrIsOffline))
-                    {
-                        PrintVolumeKeyValueError(L"    FileSystem", hrIsOffline);
-                    }
-                    else if (isOffline)
-                    {
-                        wprintf(L"    %-26ls : --Offline--\n", L"FileSystem");
-                    }
-                    else
-                    {
-                        PCWSTR path{ WindowsGetStringRawBuffer(string.get(), nullptr) };
-                        WCHAR volumeName[]{ path[0], L':', L'\\', L'\0' };
-                        WCHAR fileSystemName[MAX_PATH + 1]{};
-                        DWORD fileSystemNameSize{ ARRAYSIZE(fileSystemName) };
-                        hr = LOG_IF_WIN32_BOOL_FALSE_MSG(::GetVolumeInformation(volumeName, nullptr, 0, nullptr, nullptr, nullptr, fileSystemName, fileSystemNameSize), "%ls", volumeName);
-                        PrintVolumeValue(L"    FileSystem", hr, fileSystemName);
-                    }
-                    hr = LOG_IF_FAILED(volume->get_MountPoint(wil::out_param(string)));
-                    PrintVolumeValue(L"    MountPoint", hr, string);
-                    hr = LOG_IF_FAILED(volume->get_Name(wil::out_param(string)));
-                    PrintVolumeValue(L"    Name", hr, string);
-                    PrintVolumeValue(L"    State", hrIsOffline, isOffline ? L"Offline" : L"Online");
-                    boolean boolean{};
-                    hr = LOG_IF_FAILED(volume2->get_IsFullTrustPackageSupported(&boolean));
-                    PrintVolumeValue(L"    SupportsFullTrustPackages", hr, boolean);
-                    hr = LOG_IF_FAILED(volume->get_SupportsHardLinks(&boolean));
-                    PrintVolumeValue(L"    SupportsHardLinks", hr, boolean);
-                    hr = LOG_IF_FAILED(volume->get_IsSystemVolume(&boolean));
-                    PrintVolumeValue(L"    SystemVolume", hr, boolean);
-                }
+                wprintf(L"#%u\n", countDisplayed);
+                PrintVolume(volume);
                 if (FAILED_LOG(volumesIterator->MoveNext(&hasCurrent)))
                 {
                     break;
