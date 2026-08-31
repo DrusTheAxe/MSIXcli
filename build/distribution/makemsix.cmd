@@ -29,6 +29,8 @@ COPY %ROOTDIR%\images\msix-48x48.png %SCRATCH%\*
 COPY %ROOTDIR%\images\msix-100x100.png %SCRATCH%\*
 COPY %ROOTDIR%\images\msixadmin-48x48.png %SCRATCH%\*
 COPY %ROOTDIR%\images\msixadmin-100x100.png %SCRATCH%\*
+REM TODO MD %SCRATCH%\Msix.AppInstaller.Data
+REM TODO COPY %ROOTDIR%\build\distribution\MSIXAppInstallerData.xml %SCRATCH%\Msix.AppInstaller.Data\MSIXAppInstallerData.xml
 
 SET MAKEAPPX=makeappx.exe
 SET MAKEAPPX_OPTS=pack /v /o /d %SCRATCH% /p %TARGET%

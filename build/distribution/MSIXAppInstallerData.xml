@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<AppInstallerUX xmlns="http://schemas.microsoft.com/msix/appinstallerux"
+                xmlns:ux="http://schemas.microsoft.com/msix/appinstallerux"
+                xmlns:ux2="http://schemas.microsoft.com/msix/appinstallerux/2"
+                IgnorableNamespaces="ux ux2" Version="1.0.0">
+  <UX AccentColor="#1676C2" FontFamily="Segoe UI" AllowUserInteraction="true" BackgroundColor="#182536"
+      AppNameInTitle="true"
+      HyperLinkFontSize="12">
+    <Icon HorizontalAlignment="center" Logo="msixcli-100x100.png" TopMargin="70"/>
+    <Buttons HorizontalAlignment="center" Text="MSIXcli" IsSecondaryButtonAccent="false"/>
+    <LaunchWhenReady HorizontalAlignment="center"/>
+    <AppInformation Mode="flyout" />
+    <HyperLinks TopMargin="30">
+      <HyperLink Text="MSIXcli homepage" Url="https://github.com/DrusTheAxe/MSIXcli" HorizontalAlignment="center"/>
+    </HyperLinks>
+  </UX>
+</AppInstallerUX>
