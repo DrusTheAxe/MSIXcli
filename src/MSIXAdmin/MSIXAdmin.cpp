@@ -1434,6 +1434,7 @@ void PrintPackage(
 
 HRESULT ToPackageVolume(
     PCWSTR path,
+    PCWSTR name,
     ABI::Windows::Management::Deployment::IPackageManager3* packageManager3,
     wil::com_ptr_nothrow<ABI::Windows::Management::Deployment::IPackageVolume>& packageVolume,
     wil::unique_hstring& packageVolumePathHString)
@@ -1458,14 +1459,44 @@ HRESULT ToPackageVolume(
                         wil::unique_hstring packageStorePathHString;
                         if (SUCCEEDED_LOG(volume->get_PackageStorePath(wil::out_param(packageStorePathHString))))
                         {
-                            PCWSTR packageStorePath{ WindowsGetStringRawBuffer(packageStorePathHString.get(), nullptr) };
-                            if (packageStorePath)
+                            if (path)
                             {
-                                if (wil::string_starts_with(packageStorePath, path, true))
+                                PCWSTR packageStorePath{ WindowsGetStringRawBuffer(packageStorePathHString.get(), nullptr) };
+                                if (packageStorePath)
                                 {
-                                    packageVolume = wistd::move(volume);
-                                    packageVolumePathHString = wistd::move(packageStorePathHString);
-                                    return S_OK;
+                                    // Only 1 online PackageVolume can exist per drive
+                                    bool isOnlineAndMatch{};
+                                    if ((path[1] == L':') && (path[2] == L'\0') && wil::string_starts_with(packageStorePath, path, true))
+                                    {
+                                        boolean isOffline{};
+                                        if (SUCCEEDED_LOG(volume->get_IsOffline(&isOffline)))
+                                        {
+                                            isOnlineAndMatch = !isOffline;
+                                        }
+                                    }
+                                    if (isOnlineAndMatch || (CompareStringOrdinal(packageStorePath, -1, path, -1, TRUE) == CSTR_EQUAL))
+                                    {
+                                        packageVolume = wistd::move(volume);
+                                        packageVolumePathHString = wistd::move(packageStorePathHString);
+                                        return S_OK;
+                                    }
+                                }
+                            }
+                            if (name)
+                            {
+                                wil::unique_hstring volumeNameHString;
+                                if (SUCCEEDED_LOG(volume->get_Name(wil::out_param(volumeNameHString))))
+                                {
+                                    PCWSTR volumeName{ WindowsGetStringRawBuffer(volumeNameHString.get(), nullptr) };
+                                    if (volumeName)
+                                    {
+                                        if (CompareStringOrdinal(volumeName, -1, name, -1, TRUE) == CSTR_EQUAL)
+                                        {
+                                            packageVolume = wistd::move(volume);
+                                            packageVolumePathHString = wistd::move(volumeNameHString);
+                                            return S_OK;
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -1483,33 +1514,36 @@ HRESULT ToPackageVolume(
 
 HRESULT ToPackageVolume(
     PCWSTR path,
+    PCWSTR name,
     ABI::Windows::Management::Deployment::IPackageManager3* packageManager3,
     wil::com_ptr_nothrow<ABI::Windows::Management::Deployment::IPackageVolume>& packageVolume)
 {
     wil::unique_hstring packageVolumePathHString;
-    RETURN_IF_FAILED(ToPackageVolume(path, packageManager3, packageVolume, packageVolumePathHString));
+    RETURN_IF_FAILED(ToPackageVolume(path, name, packageManager3, packageVolume, packageVolumePathHString));
     return S_OK;
 }
 
 HRESULT ToPackageVolume(
     PCWSTR path,
+    PCWSTR name,
     ABI::Windows::Management::Deployment::IPackageManager9* packageManager9,
     wil::com_ptr_nothrow<ABI::Windows::Management::Deployment::IPackageVolume>& packageVolume,
     wil::unique_hstring& packageVolumePathHString)
 {
     wil::com_ptr_nothrow<ABI::Windows::Management::Deployment::IPackageManager3> packageManager3;
     RETURN_IF_FAILED(packageManager9->QueryInterface(IID_PPV_ARGS(packageManager3.put())));
-    RETURN_IF_FAILED(ToPackageVolume(path, packageManager3.get(), packageVolume, packageVolumePathHString));
+    RETURN_IF_FAILED(ToPackageVolume(path, name, packageManager3.get(), packageVolume, packageVolumePathHString));
     return S_OK;
 }
 
 HRESULT ToPackageVolume(
     PCWSTR path,
+    PCWSTR name,
     ABI::Windows::Management::Deployment::IPackageManager9* packageManager9,
     wil::com_ptr_nothrow<ABI::Windows::Management::Deployment::IPackageVolume>& packageVolume)
 {
     wil::unique_hstring packageVolumePathHString;
-    RETURN_IF_FAILED(ToPackageVolume(path, packageManager9, packageVolume, packageVolumePathHString));
+    RETURN_IF_FAILED(ToPackageVolume(path, name, packageManager9, packageVolume, packageVolumePathHString));
     return S_OK;
 }
 
@@ -2190,7 +2224,7 @@ constexpr PCWSTR help_Command_Volume_Default_Set{
     L"  -?, -h, --help        Show command line help\n"
     L"\n"
     L"Arguments:\n"
-    L"  <VOLUME> = TODO\n"
+    L"  <VOLUME> = Volume by drive (E:), path (E:\\What\\Ever) or name (\\\\?\\Volume{7ce02272-043f-11ec-91b1-e8f408dc8470})\n"
 };
 
 constexpr PCWSTR help_Command_Volume_Default{
@@ -2206,11 +2240,11 @@ constexpr PCWSTR help_Command_Volume_Default{
     L"  -?, -h, --help        Show command line help\n"
     L"\n"
     L"Commands:\n"
-    L"  get <VOLUME>    Display the default volume\n"
+    L"  get             Display the default volume\n"
     L"  set <VOLUME>    Set the default volume\n"
     L"\n"
     L"Arguments:\n"
-    L"  <VOLUME> = TODO\n"
+    L"  <VOLUME> = Volume by drive (E:), path (E:\\What\\Ever) or name (\\\\?\\Volume{7ce02272-043f-11ec-91b1-e8f408dc8470})\n"
 };
 
 constexpr PCWSTR help_Command_Volume_List{
@@ -2239,7 +2273,7 @@ constexpr PCWSTR help_Command_Volume_Offline{
     L"  -?, -h, --help        Show command line help\n"
     L"\n"
     L"Arguments:\n"
-    L"  <VOLUME> = TODO\n"
+    L"  <VOLUME> = Volume by drive (E:), path (E:\\What\\Ever) or name (\\\\?\\Volume{7ce02272-043f-11ec-91b1-e8f408dc8470})\n"
 };
 
 constexpr PCWSTR help_Command_Volume_Online{
@@ -2255,7 +2289,7 @@ constexpr PCWSTR help_Command_Volume_Online{
     L"  -?, -h, --help        Show command line help\n"
     L"\n"
     L"Arguments:\n"
-    L"  <VOLUME> = TODO\n"
+    L"  <VOLUME> = Volume by drive (E:), path (E:\\What\\Ever) or name (\\\\?\\Volume{7ce02272-043f-11ec-91b1-e8f408dc8470})\n"
 };
 
 constexpr PCWSTR help_Command_Volume_Remove{
@@ -2271,7 +2305,7 @@ constexpr PCWSTR help_Command_Volume_Remove{
     L"  -?, -h, --help        Show command line help\n"
     L"\n"
     L"Arguments:\n"
-    L"  <VOLUME> = TODO\n"
+    L"  <VOLUME> = Volume by drive (E:), path (E:\\What\\Ever) or name (\\\\?\\Volume{7ce02272-043f-11ec-91b1-e8f408dc8470})\n"
 };
 
 constexpr PCWSTR help_Command_Volume{
@@ -2295,7 +2329,7 @@ constexpr PCWSTR help_Command_Volume{
     L"  remove <VOLUME>     Remove a package volume\n"
     L"\n"
     L"Arguments:\n"
-    L"  <VOLUME> = TODO\n"
+    L"  <VOLUME> = Volume by drive (E:), path (E:\\What\\Ever) or name (\\\\?\\Volume{7ce02272-043f-11ec-91b1-e8f408dc8470})\n"
 };
 
 HRESULT Command_Certificate_Add(PCWSTR filename)
@@ -3192,7 +3226,7 @@ HRESULT Command_Package_Add(int argc, wchar_t* argv[])
     if (target)
     {
         wil::com_ptr_nothrow<ABI::Windows::Management::Deployment::IPackageVolume> targetVolume;
-        RETURN_IF_FAILED(ToPackageVolume(target, packageManager9.get(), targetVolume));
+        RETURN_IF_FAILED(ToPackageVolume(target, nullptr, packageManager9.get(), targetVolume));
         RETURN_IF_FAILED(addPackageOptions->put_TargetVolume(targetVolume.get()));
     }
     if (limitToExisting)
@@ -3776,7 +3810,7 @@ HRESULT Command_Package_Move(int argc, wchar_t* argv[])
 
     wil::com_ptr_nothrow<ABI::Windows::Management::Deployment::IPackageVolume> targetVolume;
     wil::unique_hstring packageVolumePathHString;
-    RETURN_IF_FAILED(ToPackageVolume(target, packageManager3.get(), targetVolume, packageVolumePathHString));
+    RETURN_IF_FAILED(ToPackageVolume(target, nullptr, packageManager3.get(), targetVolume, packageVolumePathHString));
 
     auto deploymentOptions{ ABI::Windows::Management::Deployment::DeploymentOptions_None };
     WI_SetFlagIf(deploymentOptions, ABI::Windows::Management::Deployment::DeploymentOptions_ForceTargetApplicationShutdown, force);
@@ -4011,7 +4045,7 @@ HRESULT Command_Package_Register(int argc, wchar_t* argv[])
             UnsupportedArgument(L"--allow-unsigned not supported if PACKAGE=PackageFullName");
         }
         wil::com_ptr_nothrow<ABI::Windows::Management::Deployment::IPackageVolume> appDataVolume;
-        RETURN_IF_FAILED(ToPackageVolume(appDataTarget, packageManager9.get(), appDataVolume));
+        RETURN_IF_FAILED(ToPackageVolume(appDataTarget, nullptr, packageManager9.get(), appDataVolume));
         RETURN_IF_FAILED(registerPackageOptions->put_AppDataVolume(appDataVolume.get()));
     }
 
@@ -4362,7 +4396,7 @@ HRESULT Command_Package_Stage(int argc, wchar_t* argv[])
     if (target)
     {
         wil::com_ptr_nothrow<ABI::Windows::Management::Deployment::IPackageVolume> targetVolume;
-        RETURN_IF_FAILED(ToPackageVolume(target, packageManager9.get(), targetVolume));
+        RETURN_IF_FAILED(ToPackageVolume(target, nullptr, packageManager9.get(), targetVolume));
         RETURN_IF_FAILED(stagePackageOptions->put_TargetVolume(targetVolume.get()));
     }
     if (priority != ABI::Windows::Management::Deployment::PackageOperationPriority_Normal)
@@ -5834,75 +5868,6 @@ HRESULT Command_Version(int argc, wchar_t* argv[])
     return S_OK;
 }
 
-HRESULT Command_Volume_Add(int argc, wchar_t* argv[])
-{
-    constexpr auto help_string{ help_Command_Volume_Add };
-
-    if (argc < 4)
-    {
-        Help(help_string);
-    }
-
-    PCWSTR path{ argv[3] };
-    if ((CompareStringOrdinal(path, -1, L"-?", -1, FALSE) == CSTR_EQUAL) ||
-        (CompareStringOrdinal(path, -1, L"-h", -1, FALSE) == CSTR_EQUAL) ||
-        (CompareStringOrdinal(path, -1, L"--help", -1, FALSE) == CSTR_EQUAL))
-    {
-        Help(help_string);
-    }
-
-    bool logo{ true };
-
-    int argn{ 4 };
-    for (; argn < argc; ++argn)
-    {
-        PCWSTR arg{ argv[argn] };
-        if ((CompareStringOrdinal(arg, -1, L"-?", -1, FALSE) == CSTR_EQUAL) ||
-            (CompareStringOrdinal(arg, -1, L"-h", -1, FALSE) == CSTR_EQUAL) ||
-            (CompareStringOrdinal(arg, -1, L"--help", -1, FALSE) == CSTR_EQUAL))
-        {
-            Help(help_string);
-        }
-        else if (CompareStringOrdinal(arg, -1, L"--benchmark", -1, FALSE) == CSTR_EQUAL)
-        {
-            g_benchmark = true;
-        }
-        else if ((CompareStringOrdinal(arg, -1, L"-nologo", -1, FALSE) == CSTR_EQUAL) ||
-                 (CompareStringOrdinal(arg, -1, L"--no-logo", -1, FALSE) == CSTR_EQUAL))
-        {
-            logo = false;
-        }
-        else
-        {
-            UnknownArgument(arg);
-        }
-    }
-    if (argn < argc)
-    {
-        UnknownArgument(argv[argn]);
-    }
-
-    if (logo)
-    {
-        ShowLogo();
-    }
-
-    HSTRING_HEADER pathHeader{};
-    HSTRING pathHString{};
-    RETURN_IF_FAILED(wil::to_hstring_reference(path, pathHeader, pathHString));
-
-    wil::com_ptr_nothrow<ABI::Windows::Management::Deployment::IPackageManager> packageManager;
-    {
-        wil::com_ptr_nothrow<IInspectable> inspectable;
-        RETURN_IF_FAILED(ActivateInstance(inspectable, RuntimeClass_Windows_Management_Deployment_PackageManager));
-        RETURN_IF_FAILED(inspectable.query_to(packageManager.put()));
-    }
-
-    //TODO add
-
-    return S_OK;
-}
-
 void PrintVolumeKeyValueError(PCWSTR key, HRESULT hr)
 {
     wil::unique_hlocal_string message{ wil::format_message_nothrow(hr) };
@@ -6057,6 +6022,98 @@ void PrintVolume(wil::com_ptr_nothrow<ABI::Windows::Management::Deployment::IPac
     PrintVolumeValue(L"    SupportsHardLinks", hr, boolean);
     hr = LOG_IF_FAILED(volume->get_IsSystemVolume(&boolean));
     PrintVolumeValue(L"    SystemVolume", hr, boolean);
+}
+
+HRESULT Command_Volume_Add(int argc, wchar_t* argv[])
+{
+    constexpr auto help_string{ help_Command_Volume_Add };
+
+    if (argc < 4)
+    {
+        Help(help_string);
+    }
+
+    PCWSTR path{ argv[3] };
+    if ((CompareStringOrdinal(path, -1, L"-?", -1, FALSE) == CSTR_EQUAL) ||
+        (CompareStringOrdinal(path, -1, L"-h", -1, FALSE) == CSTR_EQUAL) ||
+        (CompareStringOrdinal(path, -1, L"--help", -1, FALSE) == CSTR_EQUAL))
+    {
+        Help(help_string);
+    }
+
+    bool logo{ true };
+
+    int argn{ 4 };
+    for (; argn < argc; ++argn)
+    {
+        PCWSTR arg{ argv[argn] };
+        if ((CompareStringOrdinal(arg, -1, L"-?", -1, FALSE) == CSTR_EQUAL) ||
+            (CompareStringOrdinal(arg, -1, L"-h", -1, FALSE) == CSTR_EQUAL) ||
+            (CompareStringOrdinal(arg, -1, L"--help", -1, FALSE) == CSTR_EQUAL))
+        {
+            Help(help_string);
+        }
+        else if (CompareStringOrdinal(arg, -1, L"--benchmark", -1, FALSE) == CSTR_EQUAL)
+        {
+            g_benchmark = true;
+        }
+        else if ((CompareStringOrdinal(arg, -1, L"-nologo", -1, FALSE) == CSTR_EQUAL) ||
+                 (CompareStringOrdinal(arg, -1, L"--no-logo", -1, FALSE) == CSTR_EQUAL))
+        {
+            logo = false;
+        }
+        else
+        {
+            UnknownArgument(arg);
+        }
+    }
+    if (argn < argc)
+    {
+        UnknownArgument(argv[argn]);
+    }
+
+    if (logo)
+    {
+        ShowLogo();
+    }
+
+    HSTRING_HEADER pathHeader{};
+    HSTRING pathHString{};
+    RETURN_IF_FAILED(wil::to_hstring_reference(path, pathHeader, pathHString));
+
+    wil::com_ptr_nothrow<ABI::Windows::Management::Deployment::IPackageManager3> packageManager3;
+    {
+        wil::com_ptr_nothrow<IInspectable> inspectable;
+        RETURN_IF_FAILED(ActivateInstance(inspectable, RuntimeClass_Windows_Management_Deployment_PackageManager));
+        RETURN_IF_FAILED(inspectable.query_to(packageManager3.put()));
+    }
+
+    wil::com_ptr_nothrow<__FIAsyncOperation_1_Windows__CManagement__CDeployment__CPackageVolume> operation;
+    RETURN_IF_FAILED(packageManager3->AddPackageVolumeAsync(pathHString, operation.put()));
+    wil::com_ptr_nothrow<ABI::Windows::Management::Deployment::IPackageVolume> volume;
+    RETURN_IF_FAILED(wil::wait_for_completion_nothrow(operation.get(), wil::out_param(volume)));
+
+    PCWSTR packageStorePathAlreadyExistsOnDriveButPathDiffers{};
+    wil::unique_hstring packageStorePathHString;
+    HRESULT hr{ LOG_IF_FAILED(volume->get_PackageStorePath(wil::out_param(packageStorePathHString))) };
+    if (SUCCEEDED(hr))
+    {
+        packageStorePathAlreadyExistsOnDriveButPathDiffers = WindowsGetStringRawBuffer(packageStorePathHString.get(), nullptr);
+        if (CompareStringOrdinal(packageStorePathAlreadyExistsOnDriveButPathDiffers, -1, path, -1, TRUE) == CSTR_EQUAL)
+        {
+            packageStorePathAlreadyExistsOnDriveButPathDiffers = nullptr;
+        }
+    }
+    if (packageStorePathAlreadyExistsOnDriveButPathDiffers)
+    {
+        wprintf(L"PackageVolume already exists at '%ls'\n", packageStorePathAlreadyExistsOnDriveButPathDiffers);
+    }
+    else
+    {
+        wprintf(L"PackageVolume '%ls' is added\n", path);
+    }
+    PrintVolume(volume);
+    return packageStorePathAlreadyExistsOnDriveButPathDiffers ? S_OK : S_FALSE;
 }
 
 HRESULT Command_Volume_List(int argc, wchar_t* argv[])
@@ -6454,10 +6511,10 @@ HRESULT Command_Volume_Remove(int argc, wchar_t* argv[])
         Help(help_string);
     }
 
-    PCWSTR volume{ argv[3] };
-    if ((CompareStringOrdinal(volume, -1, L"-?", -1, FALSE) == CSTR_EQUAL) ||
-        (CompareStringOrdinal(volume, -1, L"-h", -1, FALSE) == CSTR_EQUAL) ||
-        (CompareStringOrdinal(volume, -1, L"--help", -1, FALSE) == CSTR_EQUAL))
+    PCWSTR volumeNameOrPath{ argv[3] };
+    if ((CompareStringOrdinal(volumeNameOrPath, -1, L"-?", -1, FALSE) == CSTR_EQUAL) ||
+        (CompareStringOrdinal(volumeNameOrPath, -1, L"-h", -1, FALSE) == CSTR_EQUAL) ||
+        (CompareStringOrdinal(volumeNameOrPath, -1, L"--help", -1, FALSE) == CSTR_EQUAL))
     {
         Help(help_string);
     }
@@ -6498,19 +6555,30 @@ HRESULT Command_Volume_Remove(int argc, wchar_t* argv[])
         ShowLogo();
     }
 
-    HSTRING_HEADER volumeHeader{};
-    HSTRING volumeHString{};
-    RETURN_IF_FAILED(wil::to_hstring_reference(volume, volumeHeader, volumeHString));
+    HSTRING_HEADER volumeNameOrPathHeader{};
+    HSTRING volumeNameOrPathHString{};
+    RETURN_IF_FAILED(wil::to_hstring_reference(volumeNameOrPath, volumeNameOrPathHeader, volumeNameOrPathHString));
 
-    wil::com_ptr_nothrow<ABI::Windows::Management::Deployment::IPackageManager> packageManager;
+    wil::com_ptr_nothrow<ABI::Windows::Management::Deployment::IPackageManager3> packageManager3;
     {
         wil::com_ptr_nothrow<IInspectable> inspectable;
         RETURN_IF_FAILED(ActivateInstance(inspectable, RuntimeClass_Windows_Management_Deployment_PackageManager));
-        RETURN_IF_FAILED(inspectable.query_to(packageManager.put()));
+        RETURN_IF_FAILED(inspectable.query_to(packageManager3.put()));
     }
 
-    //TODO remove
-
+    wil::com_ptr_nothrow<ABI::Windows::Management::Deployment::IPackageVolume> volume;
+    wil::unique_hstring volumePathHString;
+    RETURN_IF_FAILED(ToPackageVolume(volumeNameOrPath, volumeNameOrPath, packageManager3.get(), volume, volumePathHString));
+    PrintVolume(volume);
+    wil::com_ptr_nothrow<__FIAsyncOperationWithProgress_2_Windows__CManagement__CDeployment__CDeploymentResult_Windows__CManagement__CDeployment__CDeploymentProgress> deploymentOperation;
+    RETURN_IF_FAILED(packageManager3->RemovePackageVolumeAsync(volume.get(), deploymentOperation.put()));
+    PCWSTR errorText{};
+    wil::unique_hstring errorTextHString{};
+    HRESULT extendedError{};
+    GUID activityId{};
+    RETURN_IF_FAILED(MSIX::Deployment::GetResults(deploymentOperation.get(), errorText, errorTextHString, extendedError, activityId));
+    PCWSTR packageStorePath{ WindowsGetStringRawBuffer(volumePathHString.get(), nullptr) };
+    wprintf(L"PackageVolume '%ls' is removed\n", packageStorePath);
     return S_OK;
 }
 
