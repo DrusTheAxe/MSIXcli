@@ -6279,10 +6279,10 @@ HRESULT Command_Volume_Default_Set(int argc, wchar_t* argv[])
         Help(help_string);
     }
 
-    PCWSTR volume{ argv[4] };
-    if ((CompareStringOrdinal(volume, -1, L"-?", -1, FALSE) == CSTR_EQUAL) ||
-        (CompareStringOrdinal(volume, -1, L"-h", -1, FALSE) == CSTR_EQUAL) ||
-        (CompareStringOrdinal(volume, -1, L"--help", -1, FALSE) == CSTR_EQUAL))
+    PCWSTR volumeNameOrPath{ argv[4] };
+    if ((CompareStringOrdinal(volumeNameOrPath, -1, L"-?", -1, FALSE) == CSTR_EQUAL) ||
+        (CompareStringOrdinal(volumeNameOrPath, -1, L"-h", -1, FALSE) == CSTR_EQUAL) ||
+        (CompareStringOrdinal(volumeNameOrPath, -1, L"--help", -1, FALSE) == CSTR_EQUAL))
     {
         Help(help_string);
     }
@@ -6323,9 +6323,9 @@ HRESULT Command_Volume_Default_Set(int argc, wchar_t* argv[])
         ShowLogo();
     }
 
-    HSTRING_HEADER volumeHeader{};
-    HSTRING volumeHString{};
-    RETURN_IF_FAILED(wil::to_hstring_reference(volume, volumeHeader, volumeHString));
+    HSTRING_HEADER volumeNameOrPathHeader{};
+    HSTRING volumeNameOrPathHString{};
+    RETURN_IF_FAILED(wil::to_hstring_reference(volumeNameOrPath, volumeNameOrPathHeader, volumeNameOrPathHString));
 
     wil::com_ptr_nothrow<ABI::Windows::Management::Deployment::IPackageManager3> packageManager3;
     {
@@ -6334,8 +6334,13 @@ HRESULT Command_Volume_Default_Set(int argc, wchar_t* argv[])
         RETURN_IF_FAILED(inspectable.query_to(packageManager3.put()));
     }
 
-    //TODO default set
-
+    wil::com_ptr_nothrow<ABI::Windows::Management::Deployment::IPackageVolume> volume;
+    wil::unique_hstring volumePathHString;
+    RETURN_IF_FAILED(ToPackageVolume(volumeNameOrPath, volumeNameOrPath, packageManager3.get(), volume, volumePathHString));
+    PrintVolume(volume);
+    RETURN_IF_FAILED(packageManager3->SetDefaultPackageVolume(volume.get()));
+    PCWSTR packageStorePath{ WindowsGetStringRawBuffer(volumePathHString.get(), nullptr) };
+    wprintf(L"PackageVolume '%ls' is the default\n", packageStorePath);
     return S_OK;
 }
 
