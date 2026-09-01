@@ -4754,11 +4754,6 @@ HRESULT Command_Package_Verify(int argc, wchar_t* argv[])
     HSTRING packageFullNameHString{};
     RETURN_IF_FAILED(wil::to_hstring_reference(packageFullName, packageFullNameHeader, packageFullNameHString));
 
-    //TODO empty
-    HSTRING_HEADER emptyStringHeader{};
-    HSTRING emptyStringHString{};
-    RETURN_IF_FAILED(wil::to_hstring_reference(L"", emptyStringHeader, emptyStringHString));
-
     wil::com_ptr_nothrow<ABI::Windows::Management::Deployment::IPackageManager> packageManager;
     {
         wil::com_ptr_nothrow<IInspectable> inspectable;

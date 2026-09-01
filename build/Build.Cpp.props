@@ -102,7 +102,7 @@
            NOTE: /Oxs is short-hand for multiple options:
                      /Ob2 Enable inline function expansion (/Ob2 = Any Suitable)
                      /Oi Enable intrinsic functions
-                     /Os Favor fast code
+                     /Os Favor code space
                      /Oy Omit frame pointers
         -->
       <InlineFunctionExpansion>AnySuitable</InlineFunctionExpansion>
