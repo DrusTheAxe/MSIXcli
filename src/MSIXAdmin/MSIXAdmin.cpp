@@ -6364,6 +6364,54 @@ HRESULT Command_Volume_Default(int argc, wchar_t* argv[])
     return S_OK;
 }
 
+HRESULT SetPackageVolumeOfflineOrOnline(PCWSTR volumeNameOrPath, bool online)
+{
+    HSTRING_HEADER volumeNameOrPathHeader{};
+    HSTRING volumeNameOrPathHString{};
+    RETURN_IF_FAILED(wil::to_hstring_reference(volumeNameOrPath, volumeNameOrPathHeader, volumeNameOrPathHString));
+
+    wil::com_ptr_nothrow<ABI::Windows::Management::Deployment::IPackageManager3> packageManager3;
+    {
+        wil::com_ptr_nothrow<IInspectable> inspectable;
+        RETURN_IF_FAILED(ActivateInstance(inspectable, RuntimeClass_Windows_Management_Deployment_PackageManager));
+        RETURN_IF_FAILED(inspectable.query_to(packageManager3.put()));
+    }
+
+    wil::com_ptr_nothrow<ABI::Windows::Management::Deployment::IPackageVolume> volume;
+    wil::unique_hstring volumePathHString;
+    RETURN_IF_FAILED(ToPackageVolume(volumeNameOrPath, volumeNameOrPath, packageManager3.get(), volume, volumePathHString));
+    PrintVolume(volume);
+    wil::com_ptr_nothrow<__FIAsyncOperationWithProgress_2_Windows__CManagement__CDeployment__CDeploymentResult_Windows__CManagement__CDeployment__CDeploymentProgress> deploymentOperation;
+    if (online)
+    {
+        RETURN_IF_FAILED(packageManager3->SetPackageVolumeOnlineAsync(volume.get(), deploymentOperation.put()));
+    }
+    else
+    {
+        RETURN_IF_FAILED(packageManager3->SetPackageVolumeOfflineAsync(volume.get(), deploymentOperation.put()));
+    }
+    PCWSTR errorText{};
+    wil::unique_hstring errorTextHString{};
+    HRESULT extendedError{};
+    GUID activityId{};
+    RETURN_IF_FAILED(MSIX::Deployment::GetResults(deploymentOperation.get(), errorText, errorTextHString, extendedError, activityId));
+    PCWSTR packageStorePath{ WindowsGetStringRawBuffer(volumePathHString.get(), nullptr) };
+    wprintf(L"PackageVolume '%ls' is %ls\n", packageStorePath, online ? L"online" : L"offline");
+    return S_OK;
+}
+
+HRESULT SetPackageVolumeOffline(PCWSTR volumeNameOrPath)
+{
+    RETURN_IF_FAILED(SetPackageVolumeOfflineOrOnline(volumeNameOrPath, false));
+    return S_OK;
+}
+
+HRESULT SetPackageVolumeOnline(PCWSTR volumeNameOrPath)
+{
+    RETURN_IF_FAILED(SetPackageVolumeOfflineOrOnline(volumeNameOrPath, true));
+    return S_OK;
+}
+
 HRESULT Command_Volume_Offline(int argc, wchar_t* argv[])
 {
     constexpr auto help_string{ help_Command_Volume_Offline };
@@ -6373,10 +6421,10 @@ HRESULT Command_Volume_Offline(int argc, wchar_t* argv[])
         Help(help_string);
     }
 
-    PCWSTR volume{ argv[3] };
-    if ((CompareStringOrdinal(volume, -1, L"-?", -1, FALSE) == CSTR_EQUAL) ||
-        (CompareStringOrdinal(volume, -1, L"-h", -1, FALSE) == CSTR_EQUAL) ||
-        (CompareStringOrdinal(volume, -1, L"--help", -1, FALSE) == CSTR_EQUAL))
+    PCWSTR volumeNameOrPath{ argv[3] };
+    if ((CompareStringOrdinal(volumeNameOrPath, -1, L"-?", -1, FALSE) == CSTR_EQUAL) ||
+        (CompareStringOrdinal(volumeNameOrPath, -1, L"-h", -1, FALSE) == CSTR_EQUAL) ||
+        (CompareStringOrdinal(volumeNameOrPath, -1, L"--help", -1, FALSE) == CSTR_EQUAL))
     {
         Help(help_string);
     }
@@ -6417,19 +6465,7 @@ HRESULT Command_Volume_Offline(int argc, wchar_t* argv[])
         ShowLogo();
     }
 
-    HSTRING_HEADER volumeHeader{};
-    HSTRING volumeHString{};
-    RETURN_IF_FAILED(wil::to_hstring_reference(volume, volumeHeader, volumeHString));
-
-    wil::com_ptr_nothrow<ABI::Windows::Management::Deployment::IPackageManager> packageManager;
-    {
-        wil::com_ptr_nothrow<IInspectable> inspectable;
-        RETURN_IF_FAILED(ActivateInstance(inspectable, RuntimeClass_Windows_Management_Deployment_PackageManager));
-        RETURN_IF_FAILED(inspectable.query_to(packageManager.put()));
-    }
-
-    //TODO offline
-
+    RETURN_IF_FAILED(SetPackageVolumeOffline(volumeNameOrPath));
     return S_OK;
 }
 
@@ -6442,10 +6478,10 @@ HRESULT Command_Volume_Online(int argc, wchar_t* argv[])
         Help(help_string);
     }
 
-    PCWSTR volume{ argv[3] };
-    if ((CompareStringOrdinal(volume, -1, L"-?", -1, FALSE) == CSTR_EQUAL) ||
-        (CompareStringOrdinal(volume, -1, L"-h", -1, FALSE) == CSTR_EQUAL) ||
-        (CompareStringOrdinal(volume, -1, L"--help", -1, FALSE) == CSTR_EQUAL))
+    PCWSTR volumeNameOrPath{ argv[3] };
+    if ((CompareStringOrdinal(volumeNameOrPath, -1, L"-?", -1, FALSE) == CSTR_EQUAL) ||
+        (CompareStringOrdinal(volumeNameOrPath, -1, L"-h", -1, FALSE) == CSTR_EQUAL) ||
+        (CompareStringOrdinal(volumeNameOrPath, -1, L"--help", -1, FALSE) == CSTR_EQUAL))
     {
         Help(help_string);
     }
@@ -6486,19 +6522,7 @@ HRESULT Command_Volume_Online(int argc, wchar_t* argv[])
         ShowLogo();
     }
 
-    HSTRING_HEADER volumeHeader{};
-    HSTRING volumeHString{};
-    RETURN_IF_FAILED(wil::to_hstring_reference(volume, volumeHeader, volumeHString));
-
-    wil::com_ptr_nothrow<ABI::Windows::Management::Deployment::IPackageManager> packageManager;
-    {
-        wil::com_ptr_nothrow<IInspectable> inspectable;
-        RETURN_IF_FAILED(ActivateInstance(inspectable, RuntimeClass_Windows_Management_Deployment_PackageManager));
-        RETURN_IF_FAILED(inspectable.query_to(packageManager.put()));
-    }
-
-    //TODO online
-
+    RETURN_IF_FAILED(SetPackageVolumeOnline(volumeNameOrPath));
     return S_OK;
 }
 
