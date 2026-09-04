@@ -4797,6 +4797,10 @@ HRESULT Command_Package(int argc, wchar_t* argv[])
     {
         RETURN_IF_FAILED(Command_Package_Move(argc, argv));
     }
+    else if (CompareStringOrdinal(command, -1, L"register", -1, FALSE) == CSTR_EQUAL)
+    {
+        RETURN_IF_FAILED(Command_Package_Register(argc, argv));
+    }
     else if (CompareStringOrdinal(command, -1, L"remove", -1, FALSE) == CSTR_EQUAL)
     {
         RETURN_IF_FAILED(Command_Package_Remove(argc, argv));
