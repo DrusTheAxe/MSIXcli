@@ -2845,9 +2845,9 @@ HRESULT Command_Help_Commands_Tree(int argc, wchar_t* argv[])
                 L"|     +--get\n"
                 L"|     +--set\n"
                 L"|  +--list\n"
-                L"|  +--offline\n"
-                L"|  +--online\n"
-                L"|  +--remove\n"
+                L"|  +--offline*\n"
+                L"|  +--online*\n"
+                L"|  +--remove*\n"
                 MSIXADMIN_ELEVATION_MESSAGE);
     }
     else
@@ -2888,9 +2888,9 @@ HRESULT Command_Help_Commands_Tree(int argc, wchar_t* argv[])
                 L"   \u2502  \u251C\u2500\u2500get\n"
                 L"   \u2502  \u2514\u2500\u2500set\n"
                 L"   \u251C\u2500\u2500list\n"
-                L"   \u251C\u2500\u2500offline\n"
-                L"   \u251C\u2500\u2500online\n"
-                L"   \u2514\u2500\u2500remove\n"
+                L"   \u251C\u2500\u2500offline*\n"
+                L"   \u251C\u2500\u2500online*\n"
+                L"   \u2514\u2500\u2500remove*\n"
                 MSIXADMIN_ELEVATION_MESSAGE);
     }
 
@@ -6196,6 +6196,7 @@ HRESULT Command_Volume_List(int argc, wchar_t* argv[])
                 RETURN_IF_FAILED(volumesIterator->get_Current(&volume));
                 wprintf(L"#%u\n", countDisplayed);
                 PrintVolume(volume);
+                ++countDisplayed;
                 if (FAILED_LOG(volumesIterator->MoveNext(&hasCurrent)))
                 {
                     break;
@@ -6206,7 +6207,7 @@ HRESULT Command_Volume_List(int argc, wchar_t* argv[])
 
     if (summary)
     {
-        wprintf(L"%u volumes%ls\n", countDisplayed, countDisplayed == 1 ? L"" : L"s");
+        wprintf(L"%u volume%ls\n", countDisplayed, countDisplayed == 1 ? L"" : L"s");
     }
 
     return S_OK;
