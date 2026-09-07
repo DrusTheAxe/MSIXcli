@@ -23,7 +23,7 @@
     <ClCompile Include="DllMain.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="MSIXadmin.cpp">
+    <ClCompile Include="MSIX.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="pch.cpp">
@@ -43,6 +43,7 @@
     <Natvis Include="$(MSBuildThisFileDirectory)..\..\natvis\wil.natstepfilter" />
   </ItemGroup>
   <ItemGroup>
-    <Manifest Include="MSIXadmin.manifest" />
+    <Manifest Condition="('$(MSIXADMIN)'=='0')" Include="MSIX.manifest" />
+    <Manifest Condition="('$(MSIXADMIN)'=='1')" Include="MSIXadmin.manifest" />
   </ItemGroup>
 </Project>

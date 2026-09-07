@@ -28,13 +28,14 @@
     </ProjectConfiguration>
   </ItemGroup>
   <PropertyGroup>
-    <MSIXADMIN Condition="('$(MSIXADMIN)'=='')">1</MSIXADMIN>
+    <MSIXADMIN Condition="('$(MSIXADMIN)'=='')">0</MSIXADMIN>
   </PropertyGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>17.0</VCProjectVersion>
     <ProjectGuid>{20EC1070-C309-4944-B66B-7788070E1B6B}</ProjectGuid>
     <Keyword>Win32Proj</Keyword>
-    <RootNamespace>msixadmin</RootNamespace>
+    <RootNamespace Condition="('$(MSIXADMIN)'=='0')">msix</RootNamespace>
+    <RootNamespace Condition="('$(MSIXADMIN)'=='1')">msixadmin</RootNamespace>
     <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <PropertyGroup>
@@ -112,7 +113,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="DllMain.cpp" />
-    <ClCompile Include="MSIXadmin.cpp" />
+    <ClCompile Include="MSIX.cpp" />
     <ClCompile Include="pch.cpp">
       <PrecompiledHeader>Create</PrecompiledHeader>
     </ClCompile>
@@ -121,8 +122,8 @@
     <None Include="packages.config" />
   </ItemGroup>
   <ItemGroup>
-    <Manifest Condition="('$(MSIXADMIN)'=='1')" Include="MSIXadmin.manifest" />
     <Manifest Condition="('$(MSIXADMIN)'=='0')" Include="MSIX.manifest" />
+    <Manifest Condition="('$(MSIXADMIN)'=='1')" Include="MSIXadmin.manifest" />
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="Resource.rc">
