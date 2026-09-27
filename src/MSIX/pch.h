@@ -11,6 +11,7 @@
 // Win32 / Shell
 #include <windows.h>
 #include <unknwn.h>
+#include <userenv.h>
 #include <shlobj.h>
 #include <shlwapi.h>
 #include <prsht.h>

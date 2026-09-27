@@ -1199,6 +1199,20 @@ void PrintPackage(
     PrintPackagePhysicalPath(L"    MachineExternalPath", hrMachineExternalPath, machineExternalPath);
     PrintPackagePhysicalPath(L"    UserExternalPath", hrUserExternalPath, userExternalPath);
 
+    wprintf(L"Security\n");
+    wil::unique_any_psid packageSid;
+    hr = LOG_IF_FAILED(::DeriveAppContainerSidFromAppContainerName(packageFamilyName, wil::out_param(packageSid)));
+    if (FAILED(hr))
+    {
+        PrintPackageKeyValueError(L"    PackageSID", hr);
+    }
+    else
+    {
+        wil::unique_hlocal_string packageSidAsString;
+        hr = wil::security::to_string(packageSid.get(), packageSidAsString);
+        PrintPackageValue(L"    PackageSID", hr, packageSidAsString.get());
+    }
+
     wprintf(L"Signing\n");
     PackageOrigin packageOrigin{};
     hr = LOG_IF_FAILED(::GetStagedPackageOrigin(packageFullName, &packageOrigin));
@@ -1753,6 +1767,7 @@ constexpr PCWSTR help_Command_Package{
     L"\n"
     L"Commands:\n"
     L"  add <PACKAGE>               Add a package\n"
+    L"  identity <IDENTITY>         Compute a package's identity\n"
     L"  list                        Display packages registered for the user\n"
     L"  move <PACKAGE>              Move a package\n"
     L"  register <PACKAGE>          Register a package\n"
@@ -1795,6 +1810,28 @@ constexpr PCWSTR help_Command_Package_Add{
     L"  <STUB>     = default|full|stub|preference\n"
 };
 
+constexpr PCWSTR help_Command_Package_Identity{
+    L"Description:\n"
+    L"  Compute a package's identiy\n"
+    L"\n"
+    L"Usage:\n"
+    L"  " MSIX_EXE_NAME L" package identity [options] <IDENTITY>\n"
+    L"\n"
+    L"Options:\n"
+    L"  --publisherid                  Publisher value is the package's PublisherId\n"
+    L"  --                             End option processing\n"
+    L"  --benchmark                    Display elapsed time\n"
+    L"  -nologo, --no-logo             Do not display startup banner or copyright message\n"
+    L"  -?, -h, --help                 Show command line help\n"
+    L"\n"
+    L"Arguments:\n"
+    L"  <IDENTITY> = PackageFullName|2TUPLE|5TUPLE\n"
+    L"  <2TUPLE> = PackageFamilyName [VERSION] [ARCHITECTURE] [RESOURCEID]\n"
+    L"  <5TUPLE> = Name Publisher [VERSION] [ARCHITECTURE] [RESOURCEID]\n"
+    L"  <ARCHITECTURE> = arm64|x64|x86|neutral (default=neutral)\n"
+    L"  <VERSION> = 0xmmmmnnnnbbbbrrrr or major.minor.build.revision (aka DotQuadNumber) (default=0.0.0.0)\n"
+};
+
 constexpr PCWSTR help_Command_Package_List{
     L"Description:\n"
     L"  Display the currently installed packages\n"
@@ -1803,6 +1840,7 @@ constexpr PCWSTR help_Command_Package_List{
     L"  " MSIX_EXE_NAME L" package list [options] [GLOB]\n"
     L"\n"
     L"Options:\n"
+    L"  --architecture=<ARCHITECTURE>  Display packages of the specified architecture(s)\n"
     L"  --dependencies[:<DEPTYPE>]     Display dependencies of the package\n"
     L"  --format=<FORMAT>              Display package format (default=full)\n"
     L"  --glob[:<PROPERTY>]=<PATTERN>  Display packages with <PROPERTY> (default=name) matching PATTERN (*,? wildcards)\n"
@@ -1822,6 +1860,7 @@ constexpr PCWSTR help_Command_Package_List{
     L"\n"
     L"Arguments:\n"
     L"  [GLOB] = Same as '--glob=GLOB'\n"
+    L"  <ARCHITECTURE> = a (arm64), 6 (x64), 8 (x86), n (neutral), u (unknown)\n"
     L"  <DEPTYPE> = f (framework), h (hostruntime), o (optional), r (resource)\n"
     L"  <FORMAT> = full|packagefamilyname|packagefullname\n"
     L"  <PROPERTY> = name|packagefamilyname|packagefullname\n"
@@ -2818,6 +2857,7 @@ HRESULT Command_Help_Commands_Tree(int argc, wchar_t* argv[])
                 L"|  +--remove" MSIXADMIN_ELEVATION L"\n"
                 L"+--package\n"
                 L"|  +--add\n"
+                L"|  +--identity\n"
                 L"|  +--list\n"
                 L"|  +--move\n"
                 L"|  +--register\n"
@@ -2861,6 +2901,7 @@ HRESULT Command_Help_Commands_Tree(int argc, wchar_t* argv[])
                 L"\u2502  \u2514\u2500\u2500remove" MSIXADMIN_ELEVATION L"\n"
                 L"\u251C\u2500\u2500package\n"
                 L"\u2502  \u251C\u2500\u2500add\n"
+                L"\u2502  \u251C\u2500\u2500identity\n"
                 L"\u2502  \u251C\u2500\u2500list\n"
                 L"\u2502  \u251C\u2500\u2500move\n"
                 L"\u2502  \u251C\u2500\u2500register\n"
@@ -3250,12 +3291,340 @@ HRESULT Command_Package_Add(int argc, wchar_t* argv[])
     return S_OK;
 }
 
+enum class Architecture
+{
+    None    = 0,
+    Arm64   = 0x0001,
+    X64     = 0x0002,
+    X86     = 0x0004,
+    Neutral = 0x0008,
+    Unknown = 0x0010,
+};
+DEFINE_ENUM_FLAG_OPERATORS(Architecture)
+
+HRESULT ToArchitectures(
+    PCWSTR string,
+    Architecture& architectures)
+{
+    architectures = Architecture::None;
+
+    RETURN_HR_IF_NULL(E_INVALIDARG, string);
+
+    for (PCWSTR s = string; *s != L'\0'; ++s)
+    {
+        if (*s == L'*')
+        {
+            WI_SetAllFlags(architectures, Architecture::Arm64 |
+                                          Architecture::X64 |
+                                          Architecture::X86 |
+                                          Architecture::Neutral |
+                                          Architecture::Unknown);
+        }
+        else if (*s == L'a')
+        {
+            WI_SetFlag(architectures, Architecture::Arm64);
+        }
+        else if (*s == L'6')
+        {
+            WI_SetFlag(architectures, Architecture::X64);
+        }
+        else if (*s == L'8')
+        {
+            WI_SetFlag(architectures, Architecture::X86);
+        }
+        else if (*s == L'n')
+        {
+            WI_SetFlag(architectures, Architecture::Neutral);
+        }
+        else if (*s == L'u')
+        {
+            WI_SetFlag(architectures, Architecture::Unknown);
+        }
+        else
+        {
+            UnknownArgument(string);
+        }
+    }
+    return S_OK;
+}
+
+Architecture ToArchitecture(
+    PCWSTR architecture)
+{
+    if (CompareStringOrdinal(architecture, -1, L"arm64", -1, FALSE) == CSTR_EQUAL)
+    {
+        return Architecture::Arm64;
+    }
+    else if (CompareStringOrdinal(architecture, -1, L"x64", -1, FALSE) == CSTR_EQUAL)
+    {
+        return Architecture::X64;
+    }
+    else if (CompareStringOrdinal(architecture, -1, L"x86", -1, FALSE) == CSTR_EQUAL)
+    {
+        return Architecture::X86;
+    }
+    else if (CompareStringOrdinal(architecture, -1, L"neutral", -1, FALSE) == CSTR_EQUAL)
+    {
+        return Architecture::Neutral;
+    }
+    else
+    {
+        return Architecture::Unknown;
+    }
+}
+
+constexpr Architecture ToArchitecture(
+    ABI::Windows::System::ProcessorArchitecture processorArchitecture)
+{
+    switch (processorArchitecture)
+    {
+        case ABI::Windows::System::ProcessorArchitecture_Arm64:   return Architecture::Arm64;
+        case ABI::Windows::System::ProcessorArchitecture_X64:     return Architecture::X64;
+        case ABI::Windows::System::ProcessorArchitecture_X86:     return Architecture::X86;
+        case ABI::Windows::System::ProcessorArchitecture_Neutral: return Architecture::Neutral;
+        default: return Architecture::Unknown;
+    }
+}
+
+std::uint32_t ToWin32ProcessorArchitecture(
+    PCWSTR architecture)
+{
+    if (CompareStringOrdinal(architecture, -1, L"arm64", -1, FALSE) == CSTR_EQUAL)
+    {
+        return PROCESSOR_ARCHITECTURE_ARM64;
+    }
+    else if (CompareStringOrdinal(architecture, -1, L"x64", -1, FALSE) == CSTR_EQUAL)
+    {
+        return PROCESSOR_ARCHITECTURE_AMD64;
+    }
+    else if (CompareStringOrdinal(architecture, -1, L"x86", -1, FALSE) == CSTR_EQUAL)
+    {
+        return PROCESSOR_ARCHITECTURE_INTEL;
+    }
+    else if (CompareStringOrdinal(architecture, -1, L"neutral", -1, FALSE) == CSTR_EQUAL)
+    {
+        return PROCESSOR_ARCHITECTURE_NEUTRAL;
+    }
+    else
+    {
+        return PROCESSOR_ARCHITECTURE_UNKNOWN;
+    }
+}
+
+HRESULT Command_Package_Identity(int argc, wchar_t* argv[])
+{
+    constexpr auto help_string{ help_Command_Package_Identity };
+
+    if (argc < 4)
+    {
+        Help(help_string);
+    }
+
+    PWSTR name{};
+    PWSTR publisher{};
+    PCWSTR packageFullName{};
+    PCWSTR packageFamilyName{};
+    PACKAGE_VERSION version{};
+    std::uint32_t architecture{ PROCESSOR_ARCHITECTURE_UNKNOWN };
+    PWSTR resourceId{};
+    bool publisherId{};
+    bool logo{ true };
+
+    int argn{ 3 };
+    for (; argn < argc; ++argn)
+    {
+        PCWSTR arg{ argv[argn] };
+        if ((CompareStringOrdinal(arg, -1, L"-?", -1, FALSE) == CSTR_EQUAL) ||
+            (CompareStringOrdinal(arg, -1, L"-h", -1, FALSE) == CSTR_EQUAL) ||
+            (CompareStringOrdinal(arg, -1, L"--help", -1, FALSE) == CSTR_EQUAL))
+        {
+            Help(help_string);
+        }
+        else if (CompareStringOrdinal(arg, -1, L"--publisherid", -1, FALSE) == CSTR_EQUAL)
+        {
+            publisherId = true;
+        }
+        else if (CompareStringOrdinal(arg, -1, L"--", -1, FALSE) == CSTR_EQUAL)
+        {
+            ++argn;
+            break;
+        }
+        else if (CompareStringOrdinal(arg, -1, L"--benchmark", -1, FALSE) == CSTR_EQUAL)
+        {
+            g_benchmark = true;
+        }
+        else if ((CompareStringOrdinal(arg, -1, L"-nologo", -1, FALSE) == CSTR_EQUAL) ||
+                 (CompareStringOrdinal(arg, -1, L"--no-logo", -1, FALSE) == CSTR_EQUAL))
+        {
+            logo = false;
+        }
+        else if (arg[0] != L'-')
+        {
+            break;
+        }
+    }
+    if (argn >= argc)
+    {
+        Help(help_string);
+    }
+    if (::VerifyPackageFullName(argv[argn]) == ERROR_SUCCESS)
+    {
+        packageFullName = argv[argn++];
+    }
+    else if (::VerifyPackageFamilyName(argv[argn]) == ERROR_SUCCESS)
+    {
+        packageFamilyName = argv[argn++];
+        if (argn < argc)
+        {
+            std::uint64_t version64{};
+            if (SUCCEEDED(ToVersion(argv[argn], version64)))
+            {
+                version.Version = version64;
+                ++argn;
+            }
+        }
+        if (argn < argc)
+        {
+            architecture = ToWin32ProcessorArchitecture(argv[argn]);
+            if (architecture != PROCESSOR_ARCHITECTURE_UNKNOWN)
+            {
+                ++argn;
+            }
+        }
+        if (argn < argc)
+        {
+            if (wcslen(argv[argn]) > PACKAGE_RESOURCEID_MAX_LENGTH)
+            {
+                UnknownArgument(argv[argn]);
+            }
+            resourceId = argv[argn++];
+        }
+    }
+    else
+    {
+        name = argv[argn++];
+        if (argn < argc)
+        {
+            publisher = argv[argn++];
+        }
+        if (argn < argc)
+        {
+            std::uint64_t version64{};
+            if (SUCCEEDED(ToVersion(argv[argn], version64)))
+            {
+                version.Version = version64;
+                ++argn;
+            }
+        }
+        if (argn < argc)
+        {
+            architecture = ToWin32ProcessorArchitecture(argv[argn]);
+            if (architecture != PROCESSOR_ARCHITECTURE_UNKNOWN)
+            {
+                ++argn;
+            }
+        }
+        if (argn < argc)
+        {
+            if (wcslen(argv[argn]) > PACKAGE_RESOURCEID_MAX_LENGTH)
+            {
+                UnknownArgument(argv[argn]);
+            }
+            resourceId = argv[argn++];
+        }
+    }
+    if (argn < argc)
+    {
+        UnknownArgument(argv[argn]);
+    }
+
+    PACKAGE_ID packageId{};
+    PACKAGE_ID* packageIdentity{};
+    BYTE packageIdentityBuffer[sizeof(packageId) + (PACKAGE_NAME_MAX_LENGTH + 1 +
+                                                    PACKAGE_RESOURCEID_MAX_LENGTH + 1 +
+                                                    PACKAGE_PUBLISHERID_MAX_LENGTH + 1) * sizeof(WCHAR)]{};
+    wchar_t packageFamilyNameBuffer[PACKAGE_FAMILY_NAME_MAX_LENGTH + 1]{};
+    wchar_t packageFullNameBuffer[PACKAGE_FULL_NAME_MAX_LENGTH + 1]{};
+    wchar_t packageNameBuffer[PACKAGE_NAME_MAX_LENGTH + 1]{};
+    wchar_t packagePublisherIdBuffer[PACKAGE_PUBLISHERID_MAX_LENGTH + 1]{};
+    if (packageFullName)
+    {
+        std::uint32_t packageIdentityBufferLength{ sizeof(packageIdentityBuffer) };
+        RETURN_IF_WIN32_ERROR(::PackageIdFromFullName(packageFullName, PACKAGE_INFORMATION_BASIC, &packageIdentityBufferLength, packageIdentityBuffer));
+        packageIdentity = reinterpret_cast<PACKAGE_ID*>(packageIdentityBuffer);
+
+        std::uint32_t packageFamilyNameBufferLength{ sizeof(packageFamilyNameBuffer) };
+        RETURN_IF_WIN32_ERROR(::PackageFamilyNameFromId(packageIdentity, &packageFamilyNameBufferLength, packageFamilyNameBuffer));
+        packageFamilyName = reinterpret_cast<PCWSTR>(packageFamilyNameBuffer);
+    }
+    else if (packageFamilyName)
+    {
+        std::uint32_t packageNameBufferLength{ sizeof(packageNameBuffer) };
+        std::uint32_t packagePublisherIdBufferLength{ sizeof(packagePublisherIdBuffer) };
+        RETURN_IF_WIN32_ERROR(::PackageNameAndPublisherIdFromFamilyName (packageFamilyName, &packageNameBufferLength, packageNameBuffer, &packagePublisherIdBufferLength, packagePublisherIdBuffer));
+        packageIdentity = &packageId;
+        auto& pi{ *packageIdentity };
+        pi.name = packageNameBuffer;
+        pi.publisherId = packagePublisherIdBuffer;
+        pi.processorArchitecture = (architecture == PROCESSOR_ARCHITECTURE_UNKNOWN ? PROCESSOR_ARCHITECTURE_NEUTRAL : architecture);
+        pi.version = version;
+        pi.resourceId = resourceId;
+
+        std::uint32_t packageFullNameBufferLength{ sizeof(packageFullNameBuffer) };
+        RETURN_IF_WIN32_ERROR(::PackageFullNameFromId(packageIdentity, &packageFullNameBufferLength, packageFullNameBuffer));
+        packageFullName = reinterpret_cast<PCWSTR>(packageFullNameBuffer);
+    }
+    else
+    {
+        packageIdentity = &packageId;
+        auto& pi{ *packageIdentity };
+        pi.name = name;
+        if (publisherId)
+        {
+            pi.publisherId = publisher;
+        }
+        else
+        {
+            pi.publisher = publisher;
+        }
+        pi.processorArchitecture = architecture;
+        pi.version = version;
+        pi.resourceId = resourceId;
+
+        std::uint32_t packageFullNameBufferLength{ sizeof(packageFullNameBuffer) };
+        RETURN_IF_WIN32_ERROR(::PackageFullNameFromId(packageIdentity, &packageFullNameBufferLength, packageFullNameBuffer));
+        packageFullName = packageFullNameBuffer;
+
+        std::uint32_t packageFamilyNameBufferLength{ sizeof(packageFamilyNameBuffer) };
+        RETURN_IF_WIN32_ERROR(::PackageFamilyNameFromId(packageIdentity, &packageFamilyNameBufferLength, packageFamilyNameBuffer));
+        packageFamilyName = packageFamilyNameBuffer;
+    }
+
+    wil::unique_any_psid packageSid;
+    RETURN_IF_FAILED(::DeriveAppContainerSidFromAppContainerName(packageFamilyName, wil::out_param(packageSid)));
+    wil::unique_hlocal_string packageSidAsString;
+    RETURN_IF_FAILED(wil::security::to_string(packageSid.get(), packageSidAsString));
+
+    wprintf(L"PackageFullName   : %ls\n", packageFullName);
+    wprintf(L"PackageFamilyName : %ls\n", packageFamilyName);
+    wprintf(L"PackageSID        : %ls\n", packageSidAsString.get());
+    wprintf(L"Name              : %ls\n", packageIdentity->name ? packageIdentity->name : L"");
+    wprintf(L"Version           : %hu.%hu.%hu.%hu\n", packageIdentity->version.Major, packageIdentity->version.Minor, packageIdentity->version.Build, packageIdentity->version.Revision);
+    wprintf(L"Architecture      : %ls\n", ToString(static_cast<ABI::Windows::System::ProcessorArchitecture>(packageIdentity->processorArchitecture)));
+    wprintf(L"ResourceId        : %ls\n", packageIdentity->resourceId ? packageIdentity->resourceId : L"");
+    wprintf(L"Publisher         : %ls\n", packageIdentity->publisher ? packageIdentity->publisher : L"");
+    wprintf(L"PublisherId       : %ls\n", packageIdentity->publisherId ? packageIdentity->publisherId : L"");
+
+    return S_OK;
+}
+
 HRESULT Command_Package_List(int argc, wchar_t* argv[])
 {
     constexpr auto help_string{ help_Command_Package_List };
 
     enum class PackageDisplayFormat { Full = 0, PackageFullName = 1, PackageFamilyName = 2 };
 
+    Architecture architectures{ Architecture::None };
     DependencyType dependencies{ DependencyType::All };
     PackageDisplayFormat format{};
     PCWSTR glob_name{};
@@ -3280,6 +3649,13 @@ HRESULT Command_Package_List(int argc, wchar_t* argv[])
             (CompareStringOrdinal(arg, -1, L"--help", -1, FALSE) == CSTR_EQUAL))
         {
             Help(help_string);
+        }
+        else if (wil::string_starts_with(arg, L"--architecture="))
+        {
+            if (FAILED_LOG(ToArchitectures(arg + (ARRAYSIZE(L"--architecture=") - 1), architectures)))
+            {
+                UnknownArgument(arg);
+            }
         }
         else if (CompareStringOrdinal(arg, -1, L"--dependencies", -1, FALSE) == CSTR_EQUAL)
         {
@@ -3679,6 +4055,17 @@ HRESULT Command_Package_List(int argc, wchar_t* argv[])
             RETURN_IF_FAILED(packageId->get_Version(&packageVersion));
             const auto version{ ToVersion(packageVersion) };
             if ((version < min_version) || (version > max_version))
+            {
+                continue;
+            }
+        }
+
+        if (architectures != Architecture::None)
+        {
+            ABI::Windows::System::ProcessorArchitecture processorArchitecture{};
+            RETURN_IF_FAILED(packageId->get_Architecture(&processorArchitecture));
+            const Architecture architecture{ ToArchitecture(processorArchitecture) };
+            if (WI_AreAllFlagsClear(architectures, architecture))
             {
                 continue;
             }
@@ -4788,6 +5175,10 @@ HRESULT Command_Package(int argc, wchar_t* argv[])
     if (CompareStringOrdinal(command, -1, L"add", -1, FALSE) == CSTR_EQUAL)
     {
         RETURN_IF_FAILED(Command_Package_Add(argc, argv));
+    }
+    else if (CompareStringOrdinal(command, -1, L"identity", -1, FALSE) == CSTR_EQUAL)
+    {
+        RETURN_IF_FAILED(Command_Package_Identity(argc, argv));
     }
     else if (CompareStringOrdinal(command, -1, L"list", -1, FALSE) == CSTR_EQUAL)
     {

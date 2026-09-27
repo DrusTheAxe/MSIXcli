@@ -476,6 +476,14 @@ inline PCWSTR integrity_level_to_string(const DWORD integrityLevel)
     }
 }
 
+inline HRESULT to_string(PSID sid, wil::unique_hlocal_string& sidString)
+{
+    sidString.reset();
+
+    RETURN_IF_WIN32_BOOL_FALSE(::ConvertSidToStringSidW(sid, wil::out_param(sidString)));
+    return S_OK;
+}
+
 inline HRESULT to_sid(PCWSTR sidString, wil::unique_any_psid& sid)
 {
     sid.reset();
