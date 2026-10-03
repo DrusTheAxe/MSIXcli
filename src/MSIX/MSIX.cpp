@@ -1540,6 +1540,30 @@ HRESULT ToPackageVolume(
 HRESULT ToPackageVolume(
     PCWSTR path,
     PCWSTR name,
+    ABI::Windows::Management::Deployment::IPackageManager6* packageManager6,
+    wil::com_ptr_nothrow<ABI::Windows::Management::Deployment::IPackageVolume>& packageVolume,
+    wil::unique_hstring& packageVolumePathHString)
+{
+    wil::com_ptr_nothrow<ABI::Windows::Management::Deployment::IPackageManager3> packageManager3;
+    RETURN_IF_FAILED(packageManager6->QueryInterface(IID_PPV_ARGS(packageManager3.put())));
+    RETURN_IF_FAILED(ToPackageVolume(path, name, packageManager3.get(), packageVolume, packageVolumePathHString));
+    return S_OK;
+}
+
+HRESULT ToPackageVolume(
+    PCWSTR path,
+    PCWSTR name,
+    ABI::Windows::Management::Deployment::IPackageManager6* packageManager6,
+    wil::com_ptr_nothrow<ABI::Windows::Management::Deployment::IPackageVolume>& packageVolume)
+{
+    wil::unique_hstring packageVolumePathHString;
+    RETURN_IF_FAILED(ToPackageVolume(path, name, packageManager6, packageVolume, packageVolumePathHString));
+    return S_OK;
+}
+
+HRESULT ToPackageVolume(
+    PCWSTR path,
+    PCWSTR name,
     ABI::Windows::Management::Deployment::IPackageManager9* packageManager9,
     wil::com_ptr_nothrow<ABI::Windows::Management::Deployment::IPackageVolume>& packageVolume,
     wil::unique_hstring& packageVolumePathHString)
@@ -1797,6 +1821,7 @@ constexpr PCWSTR help_Command_Package_Add{
     L"  --limit-to-existing           Do not download missing referenced packages\n"
     L"  --priority=<PRIORITY>         Execute the deployment operation with the specified priority\n"
     L"  --retain-files-on-failure     Keep files created on a failed deployment\n"
+    L"  --smartscreen                 SmartScreen filter and user verification before install (*.appinstaller only)\n"
     L"  --stage-in-place              Stage the package in place\n"
     L"  --stub=<STUB>                 Add a stub package\n"
     L"  --target=<VOLUME>             Add the package to the target Package Volume (e.g. C:)\n"
@@ -1805,7 +1830,7 @@ constexpr PCWSTR help_Command_Package_Add{
     L"  -?, -h, --help                Show command line help\n"
     L"\n"
     L"Arguments:\n"
-    L"  <PACKAGE>  = PackageFamilyName|PackageFullName|file|URI\n"
+    L"  <PACKAGE>  = file|URI\n"
     L"  <PRIORITY> = low|normal|high\n"
     L"  <STUB>     = default|full|stub|preference\n"
 };
@@ -3086,6 +3111,7 @@ HRESULT Command_Package_Add(int argc, wchar_t* argv[])
     bool force{};
     bool limitToExisting{};
     bool retainFilesOnFailure{};
+    bool smartScreen{};
     bool stageInPlace{};
     auto priority{ ABI::Windows::Management::Deployment::PackageOperationPriority_Normal };
     auto stub{ ABI::Windows::Management::Deployment::StubPackageOption_Default };
@@ -3155,6 +3181,10 @@ HRESULT Command_Package_Add(int argc, wchar_t* argv[])
         else if (CompareStringOrdinal(arg, -1, L"--retain-files-on-failure", -1, FALSE) == CSTR_EQUAL)
         {
             retainFilesOnFailure = true;
+        }
+        else if (CompareStringOrdinal(arg, -1, L"--smartscreen", -1, FALSE) == CSTR_EQUAL)
+        {
+            smartScreen = true;
         }
         else if (CompareStringOrdinal(arg, -1, L"--stage-in-place", -1, FALSE) == CSTR_EQUAL)
         {
@@ -3234,53 +3264,93 @@ HRESULT Command_Package_Add(int argc, wchar_t* argv[])
 
     wil::com_ptr_nothrow<ABI::Windows::Foundation::IUriRuntimeClass> packageUri;
     RETURN_IF_FAILED(wil::to_uri(package, packageUri));
-
-    wil::com_ptr_nothrow<ABI::Windows::Management::Deployment::IPackageManager9> packageManager9;
-    {
-        wil::com_ptr_nothrow<IInspectable> inspectable;
-        RETURN_IF_FAILED(ActivateInstance(inspectable, RuntimeClass_Windows_Management_Deployment_PackageManager));
-        RETURN_IF_FAILED(inspectable.query_to(packageManager9.put()));
-    }
-
-    if (allowUnsigned)
-    {
-        RETURN_IF_FAILED(addPackageOptions->put_AllowUnsigned(true));
-    }
-    if (developerMode)
-    {
-        RETURN_IF_FAILED(addPackageOptions->put_DeveloperMode(true));
-    }
-    if (externalLocation)
-    {
-        wil::com_ptr_nothrow<ABI::Windows::Foundation::IUriRuntimeClass> externalLocationUri;
-        RETURN_IF_FAILED(wil::to_uri(package, externalLocationUri));
-        RETURN_IF_FAILED(addPackageOptions->put_ExternalLocationUri(externalLocationUri.get()));
-    }
-    if (stageInPlace)
-    {
-        RETURN_IF_FAILED(addPackageOptions->put_StageInPlace(true));
-    }
-    if (stub != ABI::Windows::Management::Deployment::StubPackageOption_Default)
-    {
-        RETURN_IF_FAILED(addPackageOptions->put_StubPackageOption(stub));
-    }
-    if (target)
-    {
-        wil::com_ptr_nothrow<ABI::Windows::Management::Deployment::IPackageVolume> targetVolume;
-        RETURN_IF_FAILED(ToPackageVolume(target, nullptr, packageManager9.get(), targetVolume));
-        RETURN_IF_FAILED(addPackageOptions->put_TargetVolume(targetVolume.get()));
-    }
-    if (limitToExisting)
-    {
-        RETURN_IF_FAILED(addPackageOptions2->put_LimitToExistingPackages(true));
-    }
-    if (priority != ABI::Windows::Management::Deployment::PackageOperationPriority_Normal)
-    {
-        RETURN_IF_FAILED(addPackageOptions3->put_PackageOperationPriority(priority));
-    }
+    wil::unique_hstring uriPath;
+    RETURN_IF_FAILED(packageUri->get_Path(wil::out_param(uriPath)));
+    PCWSTR path{ WindowsGetStringRawBuffer(uriPath.get(), nullptr) };
+    bool isAppInstallerFile{ wil::string_ends_with(path, L".appinstaller", true) };
 
     wil::com_ptr_nothrow<__FIAsyncOperationWithProgress_2_Windows__CManagement__CDeployment__CDeploymentResult_Windows__CManagement__CDeployment__CDeploymentProgress> deploymentOperation;
-    RETURN_IF_FAILED(packageManager9->AddPackageByUriAsync(packageUri.get(), addPackageOptions.get(), deploymentOperation.put()));
+    if (isAppInstallerFile)
+    {
+        wil::com_ptr_nothrow<ABI::Windows::Management::Deployment::IPackageManager6> packageManager6;
+        {
+            wil::com_ptr_nothrow<IInspectable> inspectable;
+            RETURN_IF_FAILED(ActivateInstance(inspectable, RuntimeClass_Windows_Management_Deployment_PackageManager));
+            RETURN_IF_FAILED(inspectable.query_to(packageManager6.put()));
+        }
+
+        ABI::Windows::Management::Deployment::AddPackageByAppInstallerOptions appInstallerOptions{};
+        WI_SetFlagIf(appInstallerOptions, ABI::Windows::Management::Deployment::AddPackageByAppInstallerOptions_ForceTargetAppShutdown, force);
+        WI_SetFlagIf(appInstallerOptions, ABI::Windows::Management::Deployment::AddPackageByAppInstallerOptions_LimitToExistingPackages, limitToExisting);
+
+        wil::com_ptr_nothrow<ABI::Windows::Management::Deployment::IPackageVolume> targetVolume;
+        if (target)
+        {
+            RETURN_IF_FAILED(ToPackageVolume(target, nullptr, packageManager6.get(), targetVolume));
+        }
+
+        if (smartScreen)
+        {
+            RETURN_IF_FAILED(packageManager6->RequestAddPackageByAppInstallerFileAsync(packageUri.get(), appInstallerOptions, targetVolume.get(), deploymentOperation.put()));
+        }
+        else
+        {
+            RETURN_IF_FAILED(packageManager6->AddPackageByAppInstallerFileAsync(packageUri.get(), appInstallerOptions, targetVolume.get(), deploymentOperation.put()));
+        }
+    }
+    else
+    {
+        wil::com_ptr_nothrow<ABI::Windows::Management::Deployment::IPackageManager9> packageManager9;
+        {
+            wil::com_ptr_nothrow<IInspectable> inspectable;
+            RETURN_IF_FAILED(ActivateInstance(inspectable, RuntimeClass_Windows_Management_Deployment_PackageManager));
+            RETURN_IF_FAILED(inspectable.query_to(packageManager9.put()));
+        }
+
+        if (allowUnsigned)
+        {
+            RETURN_IF_FAILED(addPackageOptions->put_AllowUnsigned(true));
+        }
+        if (developerMode)
+        {
+            RETURN_IF_FAILED(addPackageOptions->put_DeveloperMode(true));
+        }
+        if (externalLocation)
+        {
+            wil::com_ptr_nothrow<ABI::Windows::Foundation::IUriRuntimeClass> externalLocationUri;
+            RETURN_IF_FAILED(wil::to_uri(package, externalLocationUri));
+            RETURN_IF_FAILED(addPackageOptions->put_ExternalLocationUri(externalLocationUri.get()));
+        }
+        if (retainFilesOnFailure)
+        {
+            RETURN_IF_FAILED(addPackageOptions->put_RetainFilesOnFailure(true));
+        }
+        if (stageInPlace)
+        {
+            RETURN_IF_FAILED(addPackageOptions->put_StageInPlace(true));
+        }
+        if (stub != ABI::Windows::Management::Deployment::StubPackageOption_Default)
+        {
+            RETURN_IF_FAILED(addPackageOptions->put_StubPackageOption(stub));
+        }
+        if (target)
+        {
+            wil::com_ptr_nothrow<ABI::Windows::Management::Deployment::IPackageVolume> targetVolume;
+            RETURN_IF_FAILED(ToPackageVolume(target, nullptr, packageManager9.get(), targetVolume));
+            RETURN_IF_FAILED(addPackageOptions->put_TargetVolume(targetVolume.get()));
+        }
+        if (limitToExisting)
+        {
+            RETURN_IF_FAILED(addPackageOptions2->put_LimitToExistingPackages(true));
+        }
+        if (priority != ABI::Windows::Management::Deployment::PackageOperationPriority_Normal)
+        {
+            RETURN_IF_FAILED(addPackageOptions3->put_PackageOperationPriority(priority));
+        }
+
+        // Time to make the donuts...
+        RETURN_IF_FAILED(packageManager9->AddPackageByUriAsync(packageUri.get(), addPackageOptions.get(), deploymentOperation.put()));
+    }
     PCWSTR errorText{};
     wil::unique_hstring errorTextHString{};
     HRESULT extendedError{};
@@ -3626,6 +3696,7 @@ HRESULT Command_Package_List(int argc, wchar_t* argv[])
 
     Architecture architectures{ Architecture::None };
     DependencyType dependencies{ DependencyType::All };
+    bool dependenciesParameter{};
     PackageDisplayFormat format{};
     PCWSTR glob_name{};
     PCWSTR glob_packageFamilyName{};
@@ -3660,6 +3731,7 @@ HRESULT Command_Package_List(int argc, wchar_t* argv[])
         else if (CompareStringOrdinal(arg, -1, L"--dependencies", -1, FALSE) == CSTR_EQUAL)
         {
             dependencies = DependencyType::All;
+            dependenciesParameter = true;
         }
         else if (wil::string_starts_with(arg, L"--dependencies:"))
         {
@@ -3667,6 +3739,7 @@ HRESULT Command_Package_List(int argc, wchar_t* argv[])
             {
                 UnknownArgument(arg);
             }
+            dependenciesParameter = true;
         }
         else if (CompareStringOrdinal(arg, -1, L"--format=full", -1, FALSE) == CSTR_EQUAL)
         {
@@ -3713,6 +3786,7 @@ HRESULT Command_Package_List(int argc, wchar_t* argv[])
         else if (CompareStringOrdinal(arg, -1, L"--no-dependencies", -1, FALSE) == CSTR_EQUAL)
         {
             dependencies = DependencyType::None;
+            dependenciesParameter = false;
         }
         else if (CompareStringOrdinal(arg, -1, L"--no-references", -1, FALSE) == CSTR_EQUAL)
         {
@@ -3787,11 +3861,18 @@ HRESULT Command_Package_List(int argc, wchar_t* argv[])
 
     if ((dependencies != DependencyType::None) && user)
     {
-        wprintf(L"Error 0x00000001: Incompatible argument\n"
-                L"    Full command line: '%ls'\n"
-                L"Argument: --dependencies and --user=<SID> are not compatible\n",
-                GetCommandLine());
-        ::ExitProcess(1);
+        if (dependenciesParameter)
+        {
+            wprintf(L"Error 0x00000001: Incompatible argument\n"
+                    L"    Full command line: '%ls'\n"
+                    L"Argument: --dependencies and --user=<SID> are not compatible\n",
+                    GetCommandLine());
+            ::ExitProcess(1);
+        }
+        else
+        {
+            dependencies = DependencyType::None;
+        }
     }
 
     wil::com_ptr_nothrow<ABI::Windows::ApplicationModel::IFindRelatedPackagesOptions> findRelatedPackagesOptions_References;
