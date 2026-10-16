@@ -4327,7 +4327,7 @@ HRESULT Command_Package_Register(int argc, wchar_t* argv[])
     wil::com_ptr_nothrow<ABI::Windows::Management::Deployment::IRegisterPackageOptions> registerPackageOptions;
     {
         wil::com_ptr_nothrow<IInspectable> inspectable;
-        RETURN_IF_FAILED(ActivateInstance(inspectable, RuntimeClass_Windows_Management_Deployment_AddPackageOptions));
+        RETURN_IF_FAILED(ActivateInstance(inspectable, RuntimeClass_Windows_Management_Deployment_RegisterPackageOptions));
         RETURN_IF_FAILED(inspectable.query_to(registerPackageOptions.put()));
     }
 
