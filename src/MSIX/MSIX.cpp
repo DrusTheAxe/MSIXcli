@@ -2087,6 +2087,236 @@ HRESULT Command_Certificate(int argc, wchar_t* argv[])
     return command(filename);
 }
 
+void PrintFile(PCWSTR name, std::uint64_t sizeUncompressed, std::uint64_t sizeCompressed, std::uint32_t countBlocks)
+{
+    const auto ratio{ (sizeCompressed * 100 + (sizeCompressed - 1)) / sizeUncompressed };
+    wprintf(L"%10llu  %10llu  %2llu%%  %6u  %ls\n", sizeUncompressed, sizeCompressed, ratio, countBlocks, name);
+}
+
+HRESULT Command_File_List(int argc, wchar_t* argv[])
+{
+    constexpr auto help_string{ help_Command_File_List };
+
+    if (argc < 4)
+    {
+        Help(help_string);
+    }
+
+    PCWSTR filename{ argv[3] };
+
+    PCWSTR exclude{};
+    PCWSTR glob{};
+    bool header{ true };
+    bool logo{ true };
+    bool summary{ true };
+
+    int argn{ 4 };
+    for (; argn < argc; ++argn)
+    {
+        PCWSTR arg{ argv[argn] };
+        if ((CompareStringOrdinal(arg, -1, L"-?", -1, FALSE) == CSTR_EQUAL) ||
+            (CompareStringOrdinal(arg, -1, L"-h", -1, FALSE) == CSTR_EQUAL) ||
+            (CompareStringOrdinal(arg, -1, L"--help", -1, FALSE) == CSTR_EQUAL))
+        {
+            Help(help_string);
+        }
+        else if (wil::string_starts_with(arg, L"--exclude="))
+        {
+            exclude = arg + (ARRAYSIZE(L"--exclude=") - 1);
+        }
+        else if (wil::string_starts_with(arg, L"--glob="))
+        {
+            glob = arg + (ARRAYSIZE(L"--glob=") - 1);
+        }
+        else if (CompareStringOrdinal(arg, -1, L"--no-header", -1, FALSE) == CSTR_EQUAL)
+        {
+            header = false;
+        }
+        else if (CompareStringOrdinal(arg, -1, L"--no-summary", -1, FALSE) == CSTR_EQUAL)
+        {
+            summary = false;
+        }
+        else if (CompareStringOrdinal(arg, -1, L"--", -1, FALSE) == CSTR_EQUAL)
+        {
+            ++argn;
+            break;
+        }
+        else if (CompareStringOrdinal(arg, -1, L"--benchmark", -1, FALSE) == CSTR_EQUAL)
+        {
+            g_benchmark = true;
+        }
+        else if ((CompareStringOrdinal(arg, -1, L"-nologo", -1, FALSE) == CSTR_EQUAL) ||
+                 (CompareStringOrdinal(arg, -1, L"--no-logo", -1, FALSE) == CSTR_EQUAL))
+        {
+            logo = false;
+        }
+        else if (arg[0] != L'-')
+        {
+            break;
+        }
+        else
+        {
+            UnknownArgument(argv[argn]);
+        }
+    }
+    if (argn < argc)
+    {
+        glob = argv[argn++];
+    }
+    if (argn < argc)
+    {
+        UnknownArgument(argv[argn]);
+    }
+
+    if (logo)
+    {
+        ShowLogo();
+    }
+
+    wil::com_ptr_nothrow<IAppxPackageReader> packageReader;
+    wil::com_ptr_nothrow<IAppxBundleReader> bundleReader;
+    wil::com_ptr_nothrow<IAppxBlockMapReader> blockMapReader;
+    wil::unique_cotaskmem_ptr<WCHAR[]> packageFullName;
+    if (MSIX::IsPackage(filename))
+    {
+        RETURN_IF_FAILED_MSG(MSIX::Packaging::Package::Reader::Open(filename, packageReader), "%ls", filename);
+        RETURN_IF_FAILED(packageReader->GetBlockMap(&blockMapReader));
+        if (header)
+        {
+            RETURN_IF_FAILED(MSIX::Packaging::Package::Reader::PackageToPackageFullName(packageReader.get(), packageFullName));
+            wil::com_ptr_nothrow<IAppxFile> footprintFile;
+        }
+    }
+    else if (MSIX::IsBundle(filename))
+    {
+        RETURN_IF_FAILED_MSG(MSIX::Packaging::Package::Reader::Open(filename, bundleReader), "%ls", filename);
+        RETURN_IF_FAILED(bundleReader->GetBlockMap(&blockMapReader));
+        if (header)
+        {
+            RETURN_IF_FAILED(MSIX::Packaging::Package::Reader::PackageToPackageFullName(bundleReader.get(), packageFullName));
+        }
+    }
+    else
+    {
+        RETURN_HR_MSG(E_INVALIDARG, "%ls", filename);
+    }
+
+    if (header)
+    {
+        //TODO header
+    }
+
+    wprintf(L"   Size     Compressed Cmpr  Blocks  Name\n"
+            L"----------  ---------- ----  ------  ----\n");
+
+    std::uint32_t countFiles{};
+    std::uint32_t totalBlocks{};
+    std::uint64_t totalSizeUncompressed{};
+    std::uint64_t totalSizeCompressed{};
+
+    wil::com_ptr_nothrow<IAppxBlockMapFilesEnumerator> filesEnumerator;
+    RETURN_IF_FAILED(blockMapReader->GetFiles(&filesEnumerator));
+    BOOL hasCurrent{};
+    RETURN_IF_FAILED(filesEnumerator->GetHasCurrent(&hasCurrent));
+    while (hasCurrent)
+    {
+        wil::com_ptr_nothrow<IAppxBlockMapFile> blockMapFile;
+        RETURN_IF_FAILED(filesEnumerator->GetCurrent(&blockMapFile));
+        wil::unique_cotaskmem_ptr<WCHAR[]> name;
+        RETURN_IF_FAILED(blockMapFile->GetName(wil::out_param(name)));
+        bool match{ true };
+        if (!wil::string_is_null_or_empty(exclude))
+        {
+            bool matchExclude{};
+            RETURN_IF_FAILED(wil::glob(name.get(), exclude, matchExclude));
+            match = !matchExclude;
+        }
+        if (match)
+        {
+            if (!wil::string_is_null_or_empty(glob))
+            {
+                RETURN_IF_FAILED(wil::glob(name.get(), glob, match));
+            }
+        }
+        if (match)
+        {
+            std::uint64_t sizeUncompressed{};
+            RETURN_IF_FAILED(blockMapFile->GetUncompressedSize(&sizeUncompressed));
+            totalSizeUncompressed += sizeUncompressed;
+            std::uint64_t sizeCompressed{};
+            wil::com_ptr_nothrow<IAppxBlockMapBlocksEnumerator> blocksEnumerator;
+            RETURN_IF_FAILED(blockMapFile->GetBlocks(&blocksEnumerator));
+            std::uint32_t countBlocks{};
+            BOOL hasCurrentBlock{};
+            RETURN_IF_FAILED(blocksEnumerator->GetHasCurrent(&hasCurrentBlock));
+            while (hasCurrentBlock)
+            {
+                wil::com_ptr_nothrow<IAppxBlockMapBlock> block;
+                RETURN_IF_FAILED(blocksEnumerator->GetCurrent(&block));
+                ++countBlocks;
+                UINT32 blockCompressedSize{};
+                RETURN_IF_FAILED(block->GetCompressedSize(&blockCompressedSize));
+                sizeCompressed += blockCompressedSize;
+                BOOL hasNextBlock{};
+                RETURN_IF_FAILED(blocksEnumerator->MoveNext(&hasNextBlock));
+                hasCurrentBlock = hasNextBlock;
+            }
+            totalSizeCompressed += sizeCompressed;
+            ++countFiles;
+            totalBlocks += countBlocks;
+            PrintFile(name.get(), sizeUncompressed, sizeCompressed, countBlocks);
+        }
+        BOOL hasNext{};
+        RETURN_IF_FAILED(filesEnumerator->MoveNext(&hasNext));
+        hasCurrent = hasNext;
+    }
+
+    if (summary)
+    {
+        const auto ratio{ (totalSizeCompressed * 100 + (totalSizeCompressed - 1)) / totalSizeUncompressed };
+        wprintf(L"----------  ----------  ---  ------  ----\n"
+                L"%10llu  %10llu  %2llu%%  %6u  %u file%ls\n",
+                totalSizeUncompressed, totalSizeCompressed, ratio, totalBlocks,
+                countFiles, countFiles == 1 ? L"" : L"s");
+    }
+
+    return S_OK;
+}
+
+HRESULT Command_File(int argc, wchar_t* argv[])
+{
+    constexpr auto help_string{ help_Command_File };
+
+    if (argc < 3)
+    {
+        Help(help_string);
+    }
+
+    PCWSTR command{ argv[2] };
+    if (CompareStringOrdinal(command, -1, L"create", -1, FALSE) == CSTR_EQUAL)
+    {
+        //TODO RETURN_IF_FAILED(Command_File_Create(argc, argv));
+    }
+    else if (CompareStringOrdinal(command, -1, L"exists", -1, FALSE) == CSTR_EQUAL)
+    {
+        //TODO RETURN_IF_FAILED(Command_File_Exists(argc, argv));
+    }
+    else if (CompareStringOrdinal(command, -1, L"extract", -1, FALSE) == CSTR_EQUAL)
+    {
+        //TODO RETURN_IF_FAILED(Command_File_Extract(argc, argv));
+    }
+    else if (CompareStringOrdinal(command, -1, L"list", -1, FALSE) == CSTR_EQUAL)
+    {
+        RETURN_IF_FAILED(Command_File_List(argc, argv));
+    }
+    else
+    {
+        Help(help_string);
+    }
+    return S_OK;
+}
+
+
 HRESULT Command_Help_Commands_Tree(int argc, wchar_t* argv[])
 {
     constexpr auto help_string{ help_Command_Help_Commands_Tree };
@@ -2174,47 +2404,6 @@ HRESULT Command_Help(int argc, wchar_t* argv[])
     else
     {
         Help(help_string);
-    }
-    return S_OK;
-}
-
-HRESULT PackageToPackageFullName(IAppxPackageReader* packageReader, wil::unique_cotaskmem_ptr<WCHAR[]>& packageFullName)
-{
-    wil::com_ptr_nothrow<IAppxManifestReader> manifestReader;
-    RETURN_IF_FAILED(packageReader->GetManifest(&manifestReader));
-    wil::com_ptr_nothrow<IAppxManifestPackageId> manifestPackageId;
-    RETURN_IF_FAILED(manifestReader->GetPackageId(&manifestPackageId));
-    RETURN_IF_FAILED(manifestPackageId->GetPackageFullName(wil::out_param(packageFullName)));
-    return S_OK;
-}
-
-HRESULT PackageToPackageFullName(IAppxBundleReader* bundleReader, wil::unique_cotaskmem_ptr<WCHAR[]>& packageFullName)
-{
-    wil::com_ptr_nothrow<IAppxBundleManifestReader> manifestReader;
-    RETURN_IF_FAILED(bundleReader->GetManifest(&manifestReader));
-    wil::com_ptr_nothrow<IAppxManifestPackageId> manifestPackageId;
-    RETURN_IF_FAILED(manifestReader->GetPackageId(&manifestPackageId));
-    RETURN_IF_FAILED(manifestPackageId->GetPackageFullName(wil::out_param(packageFullName)));
-    return S_OK;
-}
-
-HRESULT PackageToPackageFullName(PCWSTR filename, wil::unique_cotaskmem_ptr<WCHAR[]>& packageFullName)
-{
-    if (MSIX::IsPackage(filename))
-    {
-        wil::com_ptr_nothrow<IAppxPackageReader> packageReader;
-        RETURN_IF_FAILED_MSG(MSIX::Packaging::Package::Reader::Open(filename, packageReader), "%ls", filename);
-        RETURN_IF_FAILED(PackageToPackageFullName(packageReader.get(), packageFullName));
-    }
-    else if (MSIX::IsBundle(filename))
-    {
-        wil::com_ptr_nothrow<IAppxBundleReader> bundleReader;
-        RETURN_IF_FAILED_MSG(MSIX::Packaging::Package::Reader::Open(filename, bundleReader), "%ls", filename);
-        RETURN_IF_FAILED(PackageToPackageFullName(bundleReader.get(), packageFullName));
-    }
-    else
-    {
-        RETURN_HR_MSG(E_INVALIDARG, "%ls", filename);
     }
     return S_OK;
 }
@@ -3815,7 +4004,7 @@ HRESULT Command_Package_Remove(int argc, wchar_t* argv[])
     }
     else if (SUCCEEDED(wil::is_regular_file(package, exists)) && exists)
     {
-        RETURN_IF_FAILED(PackageToPackageFullName(package, packageFullNameBuffer));
+        RETURN_IF_FAILED(MSIX::Packaging::Package::Reader::PackageToPackageFullName(package, packageFullNameBuffer));
         packageFullName = packageFullNameBuffer.get();
     }
     else if (SUCCEEDED(wil::to_uri(package, packageUri)))
@@ -4207,7 +4396,7 @@ HRESULT Command_Package_Status_Clear(int argc, wchar_t* argv[])
     }
     else if (IsPackageFileOrUri(package))
     {
-        RETURN_IF_FAILED(PackageToPackageFullName(package, packageFullNameBuffer));
+        RETURN_IF_FAILED(MSIX::Packaging::Package::Reader::PackageToPackageFullName(package, packageFullNameBuffer));
         packageFullName = packageFullNameBuffer.get();
     }
     else
@@ -4301,7 +4490,7 @@ HRESULT Command_Package_Status_Set(int argc, wchar_t* argv[])
     }
     else if (IsPackageFileOrUri(package))
     {
-        RETURN_IF_FAILED(PackageToPackageFullName(package, packageFullNameBuffer));
+        RETURN_IF_FAILED(MSIX::Packaging::Package::Reader::PackageToPackageFullName(package, packageFullNameBuffer));
         packageFullName = packageFullNameBuffer.get();
     }
     else
@@ -6329,6 +6518,10 @@ int Main(int argc, wchar_t* argv[])
     if (CompareStringOrdinal(arg, -1, L"certificate", -1, FALSE) == CSTR_EQUAL)
     {
         return MessageOnError(Command_Certificate(argc, argv));
+    }
+    else if (CompareStringOrdinal(arg, -1, L"file", -1, FALSE) == CSTR_EQUAL)
+    {
+        return MessageOnError(Command_File(argc, argv));
     }
     else if (CompareStringOrdinal(arg, -1, L"help", -1, FALSE) == CSTR_EQUAL)
     {

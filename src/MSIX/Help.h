@@ -81,6 +81,28 @@ constexpr PCWSTR help_Command_Certificate{
     L"  <FILE*> can be '0x<HEX>' to specify a certificate by its SHA-256 thumbprint\n"
 };
 
+constexpr PCWSTR help_Command_File{
+    L"Description:\n"
+    L"  View or modify a package file\n"
+    L"\n"
+    L"Usage:\n"
+    L"  " MSIX_EXE_NAME L" file <command> [options]\n"
+    L"\n"
+    L"Options:\n"
+    L"  --benchmark           Display elapsed time\n"
+    L"  -nologo, --no-logo    Do not display startup banner or copyright message\n"
+    L"  -?, -h, --help        Show command line help\n"
+    L"\n"
+    L"Commands:\n"
+    L"  create <FILE>               Create a package\n"
+    L"  exists <FILE>               Check if a file exists in a package\n"
+    L"  extract <FILE>              Extract files in a package\n"
+    L"  list <FILE>                 Display files in a package\n"
+    L"\n"
+    L"Arguments:\n"
+    L"  <FILE> = file|URI\n"
+};
+
 constexpr PCWSTR help_Command_File_Create{
     L"Description:\n"
     L"  Create a package file\n"
@@ -89,10 +111,11 @@ constexpr PCWSTR help_Command_File_Create{
     L"  " MSIX_EXE_NAME L" file create <FILE> [options] [GLOB...]\n"
     L"\n"
     L"Options:\n"
-    L"  --glob[:<PROPERTY>]=<PATTERN>  Add files with <PROPERTY> (default=name) matching PATTERN (*,? wildcards)\n"
+    L"  --exclude=<PATTERN>            Exclude files matching PATTERN (*,? wildcards)\n"
+    L"  --if-exists=<IFEXISTS>         Behavior when output file exists\n"
+    L"  --glob=<PATTERN>               Add files matching PATTERN (*,? wildcards)\n"
     L"  --no-summary                   Do not display summary information\n"
     L"  --output=<PATH>                Path to write files\n"
-    L"  --if-exists=<IFEXISTS>         Behavior when output file exists\n"
     L"  --                             End option processing\n"
     L"  --benchmark                    Display elapsed time\n"
     L"  -nologo, --no-logo             Do not display startup banner or copyright message\n"
@@ -100,19 +123,20 @@ constexpr PCWSTR help_Command_File_Create{
     L"\n"
     L"Arguments:\n"
     L"  <FILE> = The package file\n"
-    L"  [GLOB...] = One or more patterns Same as '--glob=GLOB'\n"
+    L"  [GLOB...] = One or more patterns, same as '--glob=GLOB'\n"
     L"  <IFEXISTS> = error|overwrite|ignore|prompt (default=error)\n"
 };
 
-constexpr PCWSTR help_Command_File_List{
+constexpr PCWSTR help_Command_File_Exists{
     L"Description:\n"
-    L"  Display the package file's content\n"
+    L"  Check the package file's content\n"
     L"\n"
     L"Usage:\n"
-    L"  " MSIX_EXE_NAME L" file list [options] [GLOB]\n"
+    L"  " MSIX_EXE_NAME L" file exists <FILE> [options] [GLOB..]\n"
     L"\n"
     L"Options:\n"
-    L"  --glob[:<PROPERTY>]=<PATTERN>  Display packages with <PROPERTY> (default=name) matching PATTERN (*,? wildcards)\n"
+    L"  --exclude=<PATTERN>            Exclude files matching PATTERN (*,? wildcards)\n"
+    L"  --glob=<PATTERN>               Add files matching PATTERN (*,? wildcards)\n"
     L"  --no-summary                   Do not display summary information\n"
     L"  --                             End option processing\n"
     L"  --benchmark                    Display elapsed time\n"
@@ -120,7 +144,8 @@ constexpr PCWSTR help_Command_File_List{
     L"  -?, -h, --help                 Show command line help\n"
     L"\n"
     L"Arguments:\n"
-    L"  [GLOB] = Same as '--glob=GLOB'\n"
+    L"  <FILE> = The package file\n"
+    L"  [GLOB...] = One or more patterns, same as '--glob=GLOB'\n"
 };
 
 constexpr PCWSTR help_Command_File_Extract{
@@ -128,10 +153,11 @@ constexpr PCWSTR help_Command_File_Extract{
     L"  Extract the package file's content\n"
     L"\n"
     L"Usage:\n"
-    L"  " MSIX_EXE_NAME L" file extract [options] [GLOB...]\n"
+    L"  " MSIX_EXE_NAME L" file extract <FILE> [options] [GLOB...]\n"
     L"\n"
     L"Options:\n"
-    L"  --glob[:<PROPERTY>]=<PATTERN>  Extract packages with <PROPERTY> (default=name) matching PATTERN (*,? wildcards)\n"
+    L"  --exclude=<PATTERN>            Exclude files matching PATTERN (*,? wildcards)\n"
+    L"  --glob=<PATTERN>               Add files matching PATTERN (*,? wildcards)\n"
     L"  --no-header                    Do not display header information\n"
     L"  --no-summary                   Do not display summary information\n"
     L"  --output=<PATH>                Path to write files\n"
@@ -142,8 +168,31 @@ constexpr PCWSTR help_Command_File_Extract{
     L"  -?, -h, --help                 Show command line help\n"
     L"\n"
     L"Arguments:\n"
+    L"  <FILE> = The package file\n"
     L"  [GLOB...] = One or more patterns, same as '--glob=GLOB'\n"
     L"  <IFEXISTS> = error|overwrite|ignore|prompt (default=error)\n"
+};
+
+constexpr PCWSTR help_Command_File_List{
+    L"Description:\n"
+    L"  Display the package file's content\n"
+    L"\n"
+    L"Usage:\n"
+    L"  " MSIX_EXE_NAME L" file list <FILE> [options] [GLOB...]\n"
+    L"\n"
+    L"Options:\n"
+    L"  --exclude=<PATTERN>            Exclude files matching PATTERN (*,? wildcards)\n"
+    L"  --glob=<PATTERN>               Add files matching PATTERN (*,? wildcards)\n"
+    L"  --no-header                    Do not display header information\n"
+    L"  --no-summary                   Do not display summary information\n"
+    L"  --                             End option processing\n"
+    L"  --benchmark                    Display elapsed time\n"
+    L"  -nologo, --no-logo             Do not display startup banner or copyright message\n"
+    L"  -?, -h, --help                 Show command line help\n"
+    L"\n"
+    L"Arguments:\n"
+    L"  <FILE> = The package file\n"
+    L"  [GLOB...] = One or more patterns, same as '--glob=GLOB'\n"
 };
 
 constexpr PCWSTR help_Command_Help_Commands_Tree{

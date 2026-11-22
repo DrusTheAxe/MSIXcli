@@ -44,5 +44,46 @@ inline HRESULT Open(
     RETURN_IF_FAILED(factory->CreateBundleReader(stream.get(), bundleReader.put()));
     return S_OK;
 }
+
+inline HRESULT PackageToPackageFullName(IAppxPackageReader* packageReader, wil::unique_cotaskmem_ptr<WCHAR[]>& packageFullName)
+{
+    wil::com_ptr_nothrow<IAppxManifestReader> manifestReader;
+    RETURN_IF_FAILED(packageReader->GetManifest(&manifestReader));
+    wil::com_ptr_nothrow<IAppxManifestPackageId> manifestPackageId;
+    RETURN_IF_FAILED(manifestReader->GetPackageId(&manifestPackageId));
+    RETURN_IF_FAILED(manifestPackageId->GetPackageFullName(wil::out_param(packageFullName)));
+    return S_OK;
+}
+
+inline HRESULT PackageToPackageFullName(IAppxBundleReader* bundleReader, wil::unique_cotaskmem_ptr<WCHAR[]>& packageFullName)
+{
+    wil::com_ptr_nothrow<IAppxBundleManifestReader> manifestReader;
+    RETURN_IF_FAILED(bundleReader->GetManifest(&manifestReader));
+    wil::com_ptr_nothrow<IAppxManifestPackageId> manifestPackageId;
+    RETURN_IF_FAILED(manifestReader->GetPackageId(&manifestPackageId));
+    RETURN_IF_FAILED(manifestPackageId->GetPackageFullName(wil::out_param(packageFullName)));
+    return S_OK;
+}
+
+inline HRESULT PackageToPackageFullName(PCWSTR filename, wil::unique_cotaskmem_ptr<WCHAR[]>& packageFullName)
+{
+    if (MSIX::IsPackage(filename))
+    {
+        wil::com_ptr_nothrow<IAppxPackageReader> packageReader;
+        RETURN_IF_FAILED_MSG(MSIX::Packaging::Package::Reader::Open(filename, packageReader), "%ls", filename);
+        RETURN_IF_FAILED(PackageToPackageFullName(packageReader.get(), packageFullName));
+    }
+    else if (MSIX::IsBundle(filename))
+    {
+        wil::com_ptr_nothrow<IAppxBundleReader> bundleReader;
+        RETURN_IF_FAILED_MSG(MSIX::Packaging::Package::Reader::Open(filename, bundleReader), "%ls", filename);
+        RETURN_IF_FAILED(PackageToPackageFullName(bundleReader.get(), packageFullName));
+    }
+    else
+    {
+        RETURN_HR_MSG(E_INVALIDARG, "%ls", filename);
+    }
+    return S_OK;
+}
 }
 }
