@@ -122,7 +122,7 @@ public:
 
     HRESULT LoadFootprintSizes(IAppxPackageReader* packageReader, IAppxBlockMapReader* blockMapReader)
     {
-        for (const auto type : s_packageFootprintFileTypes)
+        for (const auto type : MSIX::Packaging::s_packageFootprintFileTypes)
         {
             // AppxBlockMap.xml and AppxSignature.p7x sizes aren't available via the block map
             if ((type == APPX_FOOTPRINT_FILE_TYPE_BLOCKMAP) || (type == APPX_FOOTPRINT_FILE_TYPE_SIGNATURE))
@@ -135,12 +135,12 @@ public:
                 RETURN_IF_FAILED(stream->Stat(&stat, STATFLAG_NONAME));
                 std::uint64_t size{ stat.cbSize.QuadPart };
                 m_footprintFileSize[FootprintFileSizeIndex(type, false)] = size;
-                // Packaging API doesn't exposed the compressed sizes
+                // Packaging API doesn't expose the compressed sizes
                 //TODO Read the .msix as a ZIP file and examine the CentralDirectory entry
             }
             else
             {
-                PCWSTR filename{ s_packageFileNames[type] };
+                PCWSTR filename{ MSIX::Packaging::s_packageFileNames[type] };
 
                 wil::com_ptr_nothrow<IAppxBlockMapFile> blockMapFile;
                 const HRESULT hr{ blockMapReader->GetFile(filename, &blockMapFile) };
@@ -179,7 +179,7 @@ public:
 
     HRESULT LoadFootprintSizes(IAppxBundleReader* bundleReader, IAppxBlockMapReader* blockMapReader)
     {
-        for (const auto type : s_bundleFootprintFileTypes)
+        for (const auto type : MSIX::Packaging::s_bundleFootprintFileTypes)
         {
             // AppxBlockMap.xml and AppxSignature.p7x sizes aren't available via the block map
             if ((type == APPX_BUNDLE_FOOTPRINT_FILE_TYPE_BLOCKMAP) || (type == APPX_BUNDLE_FOOTPRINT_FILE_TYPE_SIGNATURE))
@@ -197,7 +197,7 @@ public:
             }
             else
             {
-                PCWSTR filename{ s_bundleFileNames[type] };
+                PCWSTR filename{ MSIX::Packaging::s_bundleFileNames[type] };
 
                 wil::com_ptr_nothrow<IAppxBlockMapFile> blockMapFile;
                 const HRESULT hr{ blockMapReader->GetFile(filename, &blockMapFile) };
@@ -496,12 +496,12 @@ public:
     static constexpr PCWSTR PackageFootprintFileName(APPX_FOOTPRINT_FILE_TYPE type)
     {
         static_assert(APPX_FOOTPRINT_FILE_TYPE_MANIFEST == 0, "APPX_FOOTPRINT_FILE_TYPE_MANIFEST != 0");
-        static_assert(APPX_FOOTPRINT_FILE_TYPE_CONTENTGROUPMAP == ARRAYSIZE(s_packageFileNames) - 1, "APPX_FOOTPRINT_FILE_TYPE_CONTENTGROUPMAP != size of s_packageFileNames");
+        static_assert(APPX_FOOTPRINT_FILE_TYPE_CONTENTGROUPMAP == ARRAYSIZE(MSIX::Packaging::s_packageFileNames) - 1, "APPX_FOOTPRINT_FILE_TYPE_CONTENTGROUPMAP != size of MSIX::Packaging::s_packageFileNames");
         if ((type < APPX_FOOTPRINT_FILE_TYPE_MANIFEST) || (type > APPX_FOOTPRINT_FILE_TYPE_CONTENTGROUPMAP))
         {
             return L"???";
         }
-        return s_packageFileNames[type];
+        return MSIX::Packaging::s_packageFileNames[type];
     };
 
 
@@ -518,12 +518,12 @@ public:
     static constexpr PCWSTR BundleFootprintFileName(APPX_BUNDLE_FOOTPRINT_FILE_TYPE type)
     {
         static_assert(APPX_BUNDLE_FOOTPRINT_FILE_TYPE_MANIFEST == 0, "APPX_BUNDLE_FOOTPRINT_FILE_TYPE_MANIFEST != 0");
-        static_assert(APPX_BUNDLE_FOOTPRINT_FILE_TYPE_SIGNATURE == ARRAYSIZE(s_bundleFileNames) - 1, "APPX_BUNDLE_FOOTPRINT_FILE_TYPE_SIGNATURE != size of s_bundleFileNames");
+        static_assert(APPX_BUNDLE_FOOTPRINT_FILE_TYPE_SIGNATURE == ARRAYSIZE(MSIX::Packaging::s_bundleFileNames) - 1, "APPX_BUNDLE_FOOTPRINT_FILE_TYPE_SIGNATURE != size of MSIX::Packaging::s_bundleFileNames");
         if ((type < APPX_BUNDLE_FOOTPRINT_FILE_TYPE_MANIFEST) || (type > APPX_BUNDLE_FOOTPRINT_FILE_TYPE_SIGNATURE))
         {
             return L"???";
         }
-        return s_bundleFileNames[type];
+        return MSIX::Packaging::s_bundleFileNames[type];
     };
 
 
@@ -556,7 +556,7 @@ public:
     std::uint64_t PackageFootprintTotalSizeCompressed(bool compressed) const
     {
         std::uint64_t size{};
-        for (const auto type : s_packageFootprintFileTypes)
+        for (const auto type : MSIX::Packaging::s_packageFootprintFileTypes)
         {
             size += m_footprintFileSize[FootprintFileSizeIndex(type, compressed)];
         }
@@ -566,7 +566,7 @@ public:
     std::uint64_t BundleFootprintTotalSizeCompressed(bool compressed) const
     {
         std::uint64_t size{};
-        for (const auto type : s_bundleFootprintFileTypes)
+        for (const auto type : MSIX::Packaging::s_bundleFootprintFileTypes)
         {
             size += m_footprintFileSize[FootprintFileSizeIndex(type, compressed)];
         }
@@ -598,34 +598,6 @@ private:
     {
         return type * 2 + (compressed ? 0 : 1);
     }
-
-private:
-    inline static constexpr APPX_FOOTPRINT_FILE_TYPE s_packageFootprintFileTypes[]{
-        APPX_FOOTPRINT_FILE_TYPE_MANIFEST,
-        APPX_FOOTPRINT_FILE_TYPE_BLOCKMAP,
-        APPX_FOOTPRINT_FILE_TYPE_SIGNATURE,
-        APPX_FOOTPRINT_FILE_TYPE_CODEINTEGRITY,
-        APPX_FOOTPRINT_FILE_TYPE_CONTENTGROUPMAP
-    };
-    inline static constexpr PCWSTR s_packageFileNames[]{
-        L"AppxManifest.xml",
-        L"AppxBlockMap.xml",
-        L"AppxSignature.p7x",
-        L"CodeIntegrity.cat",
-        L"ContentGroupMap.xml"
-    };
-
-private:
-    inline static constexpr APPX_BUNDLE_FOOTPRINT_FILE_TYPE s_bundleFootprintFileTypes[]{
-        APPX_BUNDLE_FOOTPRINT_FILE_TYPE_MANIFEST,
-        APPX_BUNDLE_FOOTPRINT_FILE_TYPE_BLOCKMAP,
-        APPX_BUNDLE_FOOTPRINT_FILE_TYPE_SIGNATURE
-    };
-    inline static constexpr PCWSTR s_bundleFileNames[]{
-        L"AppxMetadata/AppxManifest.xml",
-        L"AppxBlockMap.xml",
-        L"AppxSignature.p7x"
-    };
 
 private:
     wil::com_ptr_nothrow<IAppxPackageReader> m_packageReader;

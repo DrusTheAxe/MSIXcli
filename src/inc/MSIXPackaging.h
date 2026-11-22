@@ -17,7 +17,35 @@ inline bool IsBundle(PCWSTR filename)
     return wil::string_ends_with(filename, L".msixbundle") || wil::string_ends_with(filename, L".appxbundle");
 }
 
-namespace Packaging::Package::Reader
+namespace Packaging
+{
+inline static constexpr APPX_FOOTPRINT_FILE_TYPE s_packageFootprintFileTypes[]{
+    APPX_FOOTPRINT_FILE_TYPE_MANIFEST,
+    APPX_FOOTPRINT_FILE_TYPE_BLOCKMAP,
+    APPX_FOOTPRINT_FILE_TYPE_SIGNATURE,
+    APPX_FOOTPRINT_FILE_TYPE_CODEINTEGRITY,
+    APPX_FOOTPRINT_FILE_TYPE_CONTENTGROUPMAP
+};
+inline static constexpr PCWSTR s_packageFileNames[]{
+    L"AppxManifest.xml",
+    L"AppxBlockMap.xml",
+    L"AppxSignature.p7x",
+    L"CodeIntegrity.cat",
+    L"ContentGroupMap.xml"
+};
+
+inline static constexpr APPX_BUNDLE_FOOTPRINT_FILE_TYPE s_bundleFootprintFileTypes[]{
+    APPX_BUNDLE_FOOTPRINT_FILE_TYPE_MANIFEST,
+    APPX_BUNDLE_FOOTPRINT_FILE_TYPE_BLOCKMAP,
+    APPX_BUNDLE_FOOTPRINT_FILE_TYPE_SIGNATURE
+};
+inline static constexpr PCWSTR s_bundleFileNames[]{
+    L"AppxMetadata/AppxManifest.xml",
+    L"AppxBlockMap.xml",
+    L"AppxSignature.p7x"
+};
+
+namespace Package::Reader
 {
 inline HRESULT Open(
     PCWSTR filename,
@@ -84,6 +112,7 @@ inline HRESULT PackageToPackageFullName(PCWSTR filename, wil::unique_cotaskmem_p
         RETURN_HR_MSG(E_INVALIDARG, "%ls", filename);
     }
     return S_OK;
+}
 }
 }
 }

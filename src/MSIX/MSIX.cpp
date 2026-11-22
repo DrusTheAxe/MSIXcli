@@ -2089,8 +2089,84 @@ HRESULT Command_Certificate(int argc, wchar_t* argv[])
 
 void PrintFile(PCWSTR name, std::uint64_t sizeUncompressed, std::uint64_t sizeCompressed, std::uint32_t countBlocks)
 {
-    const auto ratio{ (sizeCompressed * 100 + (sizeCompressed - 1)) / sizeUncompressed };
-    wprintf(L"%10llu  %10llu  %2llu%%  %6u  %ls\n", sizeUncompressed, sizeCompressed, ratio, countBlocks, name);
+    const std::uint32_t ratio{
+        (sizeCompressed == 0) || (sizeUncompressed == 0) ?
+            0u :
+            static_cast<std::uint32_t>((sizeCompressed * 100 + (sizeCompressed - 1)) / sizeUncompressed)
+    };
+    wprintf(L"%10llu  %10llu %3u%%  %6u  %ls\n", sizeUncompressed, sizeCompressed, ratio, countBlocks, name);
+}
+
+void PrintFile(PCWSTR name, std::uint64_t sizeUncompressed)
+{
+    wprintf(L"%10llu         N/A  N/A     N/A  %ls\n", sizeUncompressed, name);
+}
+
+HRESULT AddToArray(
+    wil::unique_cotaskmem_array_ptr<wil::unique_cotaskmem_string>& array,
+    PCWSTR value)
+{
+    RETURN_HR_IF_NULL(E_INVALIDARG, value);
+    RETURN_HR_IF(E_INVALIDARG, *value == L'\0');
+
+    auto string{ wil::make_cotaskmem_string_nothrow(value) };
+    RETURN_IF_NULL_ALLOC(string);
+
+    const auto oldSize{ array.size() };
+    const auto newSize{ oldSize + 1 };
+    auto storage{ wil::make_unique_cotaskmem_nothrow<PWSTR[]>(newSize) };
+    RETURN_IF_NULL_ALLOC(storage);
+
+    wil::unique_cotaskmem_array_ptr<wil::unique_cotaskmem_string> newArray(storage.release(), newSize);
+
+    for (size_t index = 0; index < oldSize; ++index)
+    {
+        newArray[index] = std::exchange(array[index], nullptr);
+    }
+    newArray[oldSize] = string.release();
+
+    array = wistd::move(newArray);
+    return S_OK;
+}
+
+HRESULT IsGlobMatch(
+    PCWSTR string,
+    const wil::unique_cotaskmem_array_ptr<wil::unique_cotaskmem_string>& globInclude,
+    const wil::unique_cotaskmem_array_ptr<wil::unique_cotaskmem_string>& globExclude,
+    bool& isMatch)
+{
+    isMatch = false;
+
+    if (globExclude)
+    {
+        for (PCWSTR glob : globExclude)
+        {
+            bool match{};
+            RETURN_IF_FAILED(wil::glob(string, glob, match));
+            if (match)
+            {
+                return S_OK;
+            }
+        }
+    }
+
+    if (globInclude)
+    {
+        for (PCWSTR glob : globInclude)
+        {
+            bool match{};
+            RETURN_IF_FAILED(wil::glob(string, glob, match));
+            if (match)
+            {
+                isMatch = true;
+                return S_OK;
+            }
+        }
+        return S_OK;
+    }
+
+    isMatch = true;
+    return S_OK;
 }
 
 HRESULT Command_File_List(int argc, wchar_t* argv[])
@@ -2104,10 +2180,12 @@ HRESULT Command_File_List(int argc, wchar_t* argv[])
 
     PCWSTR filename{ argv[3] };
 
-    PCWSTR exclude{};
-    PCWSTR glob{};
+    bool footprintFiles{ true };
+    wil::unique_cotaskmem_array_ptr<wil::unique_cotaskmem_string> globExclude;
+    wil::unique_cotaskmem_array_ptr<wil::unique_cotaskmem_string> globInclude;
     bool header{ true };
     bool logo{ true };
+    bool payloadFiles{ true };
     bool summary{ true };
 
     int argn{ 4 };
@@ -2122,15 +2200,33 @@ HRESULT Command_File_List(int argc, wchar_t* argv[])
         }
         else if (wil::string_starts_with(arg, L"--exclude="))
         {
-            exclude = arg + (ARRAYSIZE(L"--exclude=") - 1);
+            PCWSTR pattern{ arg + (ARRAYSIZE(L"--exclude=") - 1) };
+            if (wil::string_is_null_or_empty(pattern))
+            {
+                UnknownArgument(arg);
+            }
+            RETURN_IF_FAILED(AddToArray(globExclude, pattern));
         }
         else if (wil::string_starts_with(arg, L"--glob="))
         {
-            glob = arg + (ARRAYSIZE(L"--glob=") - 1);
+            PCWSTR pattern{ arg + (ARRAYSIZE(L"--glob=") - 1) };
+            if (wil::string_is_null_or_empty(pattern))
+            {
+                UnknownArgument(arg);
+            }
+            RETURN_IF_FAILED(AddToArray(globInclude, pattern));
+        }
+        else if (CompareStringOrdinal(arg, -1, L"--no-footprint-files", -1, FALSE) == CSTR_EQUAL)
+        {
+            footprintFiles = false;
         }
         else if (CompareStringOrdinal(arg, -1, L"--no-header", -1, FALSE) == CSTR_EQUAL)
         {
             header = false;
+        }
+        else if (CompareStringOrdinal(arg, -1, L"--no-payload-files", -1, FALSE) == CSTR_EQUAL)
+        {
+            payloadFiles = false;
         }
         else if (CompareStringOrdinal(arg, -1, L"--no-summary", -1, FALSE) == CSTR_EQUAL)
         {
@@ -2159,13 +2255,371 @@ HRESULT Command_File_List(int argc, wchar_t* argv[])
             UnknownArgument(argv[argn]);
         }
     }
-    if (argn < argc)
+    for (; argn < argc; ++argn)
     {
-        glob = argv[argn++];
+        PCWSTR arg{ argv[argn] };
+        if (wil::string_is_null_or_empty(arg))
+        {
+            UnknownArgument(arg);
+        }
+        RETURN_IF_FAILED(AddToArray(globInclude, arg));
     }
-    if (argn < argc)
+
+    if (logo)
     {
-        UnknownArgument(argv[argn]);
+        ShowLogo();
+    }
+
+    wil::com_ptr_nothrow<IAppxPackageReader> packageReader;
+    wil::com_ptr_nothrow<IAppxBundleReader> bundleReader;
+    wil::com_ptr_nothrow<IAppxBlockMapReader> blockMapReader;
+    wil::unique_cotaskmem_ptr<WCHAR[]> packageFullName;
+    if (MSIX::IsPackage(filename))
+    {
+        RETURN_IF_FAILED_MSG(MSIX::Packaging::Package::Reader::Open(filename, packageReader), "%ls", filename);
+        RETURN_IF_FAILED(packageReader->GetBlockMap(&blockMapReader));
+        if (header)
+        {
+            RETURN_IF_FAILED(MSIX::Packaging::Package::Reader::PackageToPackageFullName(packageReader.get(), packageFullName));
+        }
+    }
+    else if (MSIX::IsBundle(filename))
+    {
+        RETURN_IF_FAILED_MSG(MSIX::Packaging::Package::Reader::Open(filename, bundleReader), "%ls", filename);
+        RETURN_IF_FAILED(bundleReader->GetBlockMap(&blockMapReader));
+        if (header)
+        {
+            RETURN_IF_FAILED(MSIX::Packaging::Package::Reader::PackageToPackageFullName(bundleReader.get(), packageFullName));
+        }
+    }
+    else
+    {
+        RETURN_HR_MSG(E_INVALIDARG, "%ls", filename);
+    }
+
+    if (header)
+    {
+        wprintf(L"\n"
+                L"PackageFullName: %ls\n", packageFullName.get());
+    }
+
+    wprintf(L"\n"
+            L"   Size     Compressed Cmpr  Blocks  Name\n"
+            L"----------  ---------- ----  ------  ----\n");
+
+    std::uint32_t countFiles{};
+    std::uint32_t totalBlocks{};
+    std::uint64_t totalSizeUncompressed{};
+    std::uint64_t totalSizeCompressed{};
+    std::uint64_t totalSizeFootprintUncompressed{};
+
+    if (payloadFiles)
+    {
+        wil::com_ptr_nothrow<IAppxBlockMapFilesEnumerator> filesEnumerator;
+        RETURN_IF_FAILED(blockMapReader->GetFiles(&filesEnumerator));
+        BOOL hasCurrent{};
+        RETURN_IF_FAILED(filesEnumerator->GetHasCurrent(&hasCurrent));
+        while (hasCurrent)
+        {
+            wil::com_ptr_nothrow<IAppxBlockMapFile> blockMapFile;
+            RETURN_IF_FAILED(filesEnumerator->GetCurrent(&blockMapFile));
+            wil::unique_cotaskmem_ptr<WCHAR[]> name;
+            RETURN_IF_FAILED(blockMapFile->GetName(wil::out_param(name)));
+            bool match{};
+            RETURN_IF_FAILED(IsGlobMatch(name.get(), globInclude, globExclude, match));
+            if (match)
+            {
+                std::uint64_t sizeUncompressed{};
+                RETURN_IF_FAILED(blockMapFile->GetUncompressedSize(&sizeUncompressed));
+                totalSizeUncompressed += sizeUncompressed;
+                std::uint64_t sizeCompressed{};
+                wil::com_ptr_nothrow<IAppxBlockMapBlocksEnumerator> blocksEnumerator;
+                RETURN_IF_FAILED(blockMapFile->GetBlocks(&blocksEnumerator));
+                std::uint32_t countBlocks{};
+                BOOL hasCurrentBlock{};
+                RETURN_IF_FAILED(blocksEnumerator->GetHasCurrent(&hasCurrentBlock));
+                while (hasCurrentBlock)
+                {
+                    wil::com_ptr_nothrow<IAppxBlockMapBlock> block;
+                    RETURN_IF_FAILED(blocksEnumerator->GetCurrent(&block));
+                    ++countBlocks;
+                    UINT32 blockCompressedSize{};
+                    RETURN_IF_FAILED(block->GetCompressedSize(&blockCompressedSize));
+                    sizeCompressed += blockCompressedSize;
+                    BOOL hasNextBlock{};
+                    RETURN_IF_FAILED(blocksEnumerator->MoveNext(&hasNextBlock));
+                    hasCurrentBlock = hasNextBlock;
+                }
+                totalSizeCompressed += sizeCompressed;
+                ++countFiles;
+                totalBlocks += countBlocks;
+                PrintFile(name.get(), sizeUncompressed, sizeCompressed, countBlocks);
+            }
+            BOOL hasNext{};
+            RETURN_IF_FAILED(filesEnumerator->MoveNext(&hasNext));
+            hasCurrent = hasNext;
+        }
+    }
+    if (footprintFiles)
+    {
+        if (packageReader)
+        {
+            for (const auto type : MSIX::Packaging::s_packageFootprintFileTypes)
+            {
+                PCWSTR name{ MSIX::Packaging::s_packageFileNames[type] };
+
+                bool match{};
+                RETURN_IF_FAILED(IsGlobMatch(name, globInclude, globExclude, match));
+                if (!match)
+                {
+                    continue;
+                }
+
+                // AppxBlockMap.xml and AppxSignature.p7x sizes aren't available via the block map
+                if ((type == APPX_FOOTPRINT_FILE_TYPE_BLOCKMAP) || (type == APPX_FOOTPRINT_FILE_TYPE_SIGNATURE))
+                {
+                    wil::com_ptr_nothrow<IAppxFile> footprintFile;
+                    const HRESULT hr{ packageReader->GetFootprintFile(type, &footprintFile) };
+                    if (SUCCEEDED(hr))
+                    {
+                        wil::com_ptr_nothrow<IStream> stream;
+                        RETURN_IF_FAILED(footprintFile->GetStream(&stream));
+                        STATSTG stat{};
+                        RETURN_IF_FAILED(stream->Stat(&stat, STATFLAG_NONAME));
+                        const std::uint64_t sizeUncompressed{ stat.cbSize.QuadPart };
+                        totalSizeFootprintUncompressed += sizeUncompressed;
+                        // Packaging API doesn't expose the compressed size
+                        //TODO Read the .msix as a ZIP file and examine the CentralDirectory entry
+                        ++countFiles;
+                        // These files have no blocks as they're not in the blockmap
+                        PrintFile(name, sizeUncompressed);
+                    }
+                    else
+                    {
+                        RETURN_HR_IF_MSG(hr, hr != HRESULT_FROM_WIN32(ERROR_FILE_NOT_FOUND), "%ls", filename);
+                    }
+                }
+                else
+                {
+                    wil::com_ptr_nothrow<IAppxBlockMapFile> blockMapFile;
+                    const HRESULT hr{ blockMapReader->GetFile(filename, &blockMapFile) };
+                    if (SUCCEEDED(hr))
+                    {
+                        std::uint64_t sizeUncompressed{};
+                        RETURN_IF_FAILED(blockMapFile->GetUncompressedSize(&sizeUncompressed));
+                        totalSizeUncompressed += sizeUncompressed;
+
+                        std::uint64_t sizeCompressed{};
+                        wil::com_ptr_nothrow<IAppxBlockMapBlocksEnumerator> blocksEnumerator;
+                        RETURN_IF_FAILED(blockMapFile->GetBlocks(&blocksEnumerator));
+                        std::uint32_t countBlocks{};
+                        BOOL hasCurrentBlock{};
+                        RETURN_IF_FAILED(blocksEnumerator->GetHasCurrent(&hasCurrentBlock));
+                        while (hasCurrentBlock)
+                        {
+                            wil::com_ptr_nothrow<IAppxBlockMapBlock> block;
+                            RETURN_IF_FAILED(blocksEnumerator->GetCurrent(&block));
+                            ++countBlocks;
+                            UINT32 blockSizeCompressed{};
+                            RETURN_IF_FAILED(block->GetCompressedSize(&blockSizeCompressed));
+                            sizeCompressed += blockSizeCompressed;
+                            BOOL hasNextBlock{};
+                            RETURN_IF_FAILED(blocksEnumerator->MoveNext(&hasNextBlock));
+                            hasCurrentBlock = hasNextBlock;
+                        }
+                        totalSizeCompressed += sizeCompressed;
+                        ++countFiles;
+                        totalBlocks += countBlocks;
+                        PrintFile(name, sizeUncompressed, sizeCompressed, countBlocks);
+                    }
+                }
+            }
+        }
+        else if (bundleReader)
+        {
+            for (const auto type : MSIX::Packaging::s_bundleFootprintFileTypes)
+            {
+                PCWSTR name{ MSIX::Packaging::s_bundleFileNames[type] };
+
+                bool match{};
+                RETURN_IF_FAILED(IsGlobMatch(name, globInclude, globExclude, match));
+                if (!match)
+                {
+                    continue;
+                }
+
+                // AppxBlockMap.xml and AppxSignature.p7x sizes aren't available via the block map
+                if ((type == APPX_BUNDLE_FOOTPRINT_FILE_TYPE_BLOCKMAP) || (type == APPX_BUNDLE_FOOTPRINT_FILE_TYPE_SIGNATURE))
+                {
+                    wil::com_ptr_nothrow<IAppxFile> footprintFile;
+                    const HRESULT hr{ bundleReader->GetFootprintFile(type, &footprintFile) };
+                    if (SUCCEEDED(hr))
+                    {
+                        wil::com_ptr_nothrow<IStream> stream;
+                        RETURN_IF_FAILED(footprintFile->GetStream(&stream));
+                        STATSTG stat{};
+                        RETURN_IF_FAILED(stream->Stat(&stat, STATFLAG_NONAME));
+                        const std::uint64_t sizeUncompressed{ stat.cbSize.QuadPart };
+                        totalSizeFootprintUncompressed += sizeUncompressed;
+                        // Packaging API doesn't expose the compressed size
+                        //TODO Read the .msix as a ZIP file and examine the CentralDirectory entry
+                        ++countFiles;
+                        // These files have no blocks as they're not in the blockmap
+                        PrintFile(name, sizeUncompressed);
+                    }
+                    else
+                    {
+                        RETURN_HR_IF_MSG(hr, hr != HRESULT_FROM_WIN32(ERROR_FILE_NOT_FOUND), "%ls", filename);
+                    }
+                }
+                else
+                {
+                    wil::com_ptr_nothrow<IAppxBlockMapFile> blockMapFile;
+                    const HRESULT hr{ blockMapReader->GetFile(filename, &blockMapFile) };
+                    if (SUCCEEDED(hr))
+                    {
+                        std::uint64_t sizeUncompressed{};
+                        RETURN_IF_FAILED(blockMapFile->GetUncompressedSize(&sizeUncompressed));
+                        totalSizeUncompressed += sizeUncompressed;
+
+                        std::uint64_t sizeCompressed{};
+                        wil::com_ptr_nothrow<IAppxBlockMapBlocksEnumerator> blocksEnumerator;
+                        RETURN_IF_FAILED(blockMapFile->GetBlocks(&blocksEnumerator));
+                        std::uint32_t countBlocks{};
+                        BOOL hasCurrentBlock{};
+                        RETURN_IF_FAILED(blocksEnumerator->GetHasCurrent(&hasCurrentBlock));
+                        while (hasCurrentBlock)
+                        {
+                            wil::com_ptr_nothrow<IAppxBlockMapBlock> block;
+                            RETURN_IF_FAILED(blocksEnumerator->GetCurrent(&block));
+                            ++countBlocks;
+                            UINT32 blockSizeCompressed{};
+                            RETURN_IF_FAILED(block->GetCompressedSize(&blockSizeCompressed));
+                            sizeCompressed += blockSizeCompressed;
+                            BOOL hasNextBlock{};
+                            RETURN_IF_FAILED(blocksEnumerator->MoveNext(&hasNextBlock));
+                            hasCurrentBlock = hasNextBlock;
+                        }
+                        totalSizeCompressed += sizeCompressed;
+                        ++countFiles;
+                        totalBlocks += countBlocks;
+                        PrintFile(name, sizeUncompressed, sizeCompressed, countBlocks);
+                    }
+                }
+            }
+        }
+    }
+
+    if (summary)
+    {
+        const std::uint32_t ratio{
+            (totalSizeCompressed == 0) || (totalSizeUncompressed == 0) ?
+                0u :
+                static_cast<std::uint32_t>((totalSizeCompressed * 100 + (totalSizeCompressed - 1)) / totalSizeUncompressed)
+        };
+        wprintf(L"----------  ---------- ----  ------  ----\n"
+                L"%10llu  %10llu %3u%%  %6u  %u file%ls\n",
+                totalSizeUncompressed + totalSizeFootprintUncompressed, totalSizeCompressed, ratio, totalBlocks,
+                countFiles, countFiles == 1 ? L"" : L"s");
+    }
+
+    return S_OK;
+}
+
+HRESULT Command_File_Metadata(int argc, wchar_t* argv[])
+{
+    constexpr auto help_string{ help_Command_File_Metadata };
+
+    if (argc < 4)
+    {
+        Help(help_string);
+    }
+
+    PCWSTR filename{ argv[3] };
+
+    bool footprintFiles{ true };
+    wil::unique_cotaskmem_array_ptr<wil::unique_cotaskmem_string> globExclude;
+    wil::unique_cotaskmem_array_ptr<wil::unique_cotaskmem_string> globInclude;
+    bool header{ true };
+    bool logo{ true };
+    bool payloadFiles{ true };
+    bool summary{ true };
+
+    int argn{ 4 };
+    for (; argn < argc; ++argn)
+    {
+        PCWSTR arg{ argv[argn] };
+        if ((CompareStringOrdinal(arg, -1, L"-?", -1, FALSE) == CSTR_EQUAL) ||
+            (CompareStringOrdinal(arg, -1, L"-h", -1, FALSE) == CSTR_EQUAL) ||
+            (CompareStringOrdinal(arg, -1, L"--help", -1, FALSE) == CSTR_EQUAL))
+        {
+            Help(help_string);
+        }
+        else if (wil::string_starts_with(arg, L"--exclude="))
+        {
+            PCWSTR pattern{ arg + (ARRAYSIZE(L"--exclude=") - 1) };
+            if (wil::string_is_null_or_empty(pattern))
+            {
+                UnknownArgument(arg);
+            }
+            RETURN_IF_FAILED(AddToArray(globExclude, pattern));
+        }
+        else if (wil::string_starts_with(arg, L"--glob="))
+        {
+            PCWSTR pattern{ arg + (ARRAYSIZE(L"--glob=") - 1) };
+            if (wil::string_is_null_or_empty(pattern))
+            {
+                UnknownArgument(arg);
+            }
+            RETURN_IF_FAILED(AddToArray(globInclude, pattern));
+        }
+        else if (CompareStringOrdinal(arg, -1, L"--no-footprint-files", -1, FALSE) == CSTR_EQUAL)
+        {
+            footprintFiles = false;
+        }
+        else if (CompareStringOrdinal(arg, -1, L"--no-header", -1, FALSE) == CSTR_EQUAL)
+        {
+            header = false;
+        }
+        else if (CompareStringOrdinal(arg, -1, L"--no-payload-files", -1, FALSE) == CSTR_EQUAL)
+        {
+            payloadFiles = false;
+        }
+        else if (CompareStringOrdinal(arg, -1, L"--no-summary", -1, FALSE) == CSTR_EQUAL)
+        {
+            summary = false;
+        }
+        else if (CompareStringOrdinal(arg, -1, L"--", -1, FALSE) == CSTR_EQUAL)
+        {
+            ++argn;
+            break;
+        }
+        else if (CompareStringOrdinal(arg, -1, L"--benchmark", -1, FALSE) == CSTR_EQUAL)
+        {
+            g_benchmark = true;
+        }
+        else if ((CompareStringOrdinal(arg, -1, L"-nologo", -1, FALSE) == CSTR_EQUAL) ||
+                 (CompareStringOrdinal(arg, -1, L"--no-logo", -1, FALSE) == CSTR_EQUAL))
+        {
+            logo = false;
+        }
+        else if (arg[0] != L'-')
+        {
+            break;
+        }
+        else
+        {
+            UnknownArgument(argv[argn]);
+        }
+    }
+    for (; argn < argc; ++argn)
+    {
+        PCWSTR arg{ argv[argn] };
+        if (wil::string_is_null_or_empty(arg))
+        {
+            UnknownArgument(arg);
+        }
+        RETURN_IF_FAILED(AddToArray(globInclude, arg));
     }
 
     if (logo)
@@ -2213,70 +2667,215 @@ HRESULT Command_File_List(int argc, wchar_t* argv[])
     std::uint32_t totalBlocks{};
     std::uint64_t totalSizeUncompressed{};
     std::uint64_t totalSizeCompressed{};
+    std::uint64_t totalSizeFootprintUncompressed{};
 
-    wil::com_ptr_nothrow<IAppxBlockMapFilesEnumerator> filesEnumerator;
-    RETURN_IF_FAILED(blockMapReader->GetFiles(&filesEnumerator));
-    BOOL hasCurrent{};
-    RETURN_IF_FAILED(filesEnumerator->GetHasCurrent(&hasCurrent));
-    while (hasCurrent)
+    if (payloadFiles)
     {
-        wil::com_ptr_nothrow<IAppxBlockMapFile> blockMapFile;
-        RETURN_IF_FAILED(filesEnumerator->GetCurrent(&blockMapFile));
-        wil::unique_cotaskmem_ptr<WCHAR[]> name;
-        RETURN_IF_FAILED(blockMapFile->GetName(wil::out_param(name)));
-        bool match{ true };
-        if (!wil::string_is_null_or_empty(exclude))
+        wil::com_ptr_nothrow<IAppxBlockMapFilesEnumerator> filesEnumerator;
+        RETURN_IF_FAILED(blockMapReader->GetFiles(&filesEnumerator));
+        BOOL hasCurrent{};
+        RETURN_IF_FAILED(filesEnumerator->GetHasCurrent(&hasCurrent));
+        while (hasCurrent)
         {
-            bool matchExclude{};
-            RETURN_IF_FAILED(wil::glob(name.get(), exclude, matchExclude));
-            match = !matchExclude;
-        }
-        if (match)
-        {
-            if (!wil::string_is_null_or_empty(glob))
+            wil::com_ptr_nothrow<IAppxBlockMapFile> blockMapFile;
+            RETURN_IF_FAILED(filesEnumerator->GetCurrent(&blockMapFile));
+            wil::unique_cotaskmem_ptr<WCHAR[]> name;
+            RETURN_IF_FAILED(blockMapFile->GetName(wil::out_param(name)));
+            bool match{};
+            RETURN_IF_FAILED(IsGlobMatch(name.get(), globInclude, globExclude, match));
+            if (match)
             {
-                RETURN_IF_FAILED(wil::glob(name.get(), glob, match));
+                std::uint64_t sizeUncompressed{};
+                RETURN_IF_FAILED(blockMapFile->GetUncompressedSize(&sizeUncompressed));
+                totalSizeUncompressed += sizeUncompressed;
+                std::uint64_t sizeCompressed{};
+                wil::com_ptr_nothrow<IAppxBlockMapBlocksEnumerator> blocksEnumerator;
+                RETURN_IF_FAILED(blockMapFile->GetBlocks(&blocksEnumerator));
+                std::uint32_t countBlocks{};
+                BOOL hasCurrentBlock{};
+                RETURN_IF_FAILED(blocksEnumerator->GetHasCurrent(&hasCurrentBlock));
+                while (hasCurrentBlock)
+                {
+                    wil::com_ptr_nothrow<IAppxBlockMapBlock> block;
+                    RETURN_IF_FAILED(blocksEnumerator->GetCurrent(&block));
+                    ++countBlocks;
+                    UINT32 blockCompressedSize{};
+                    RETURN_IF_FAILED(block->GetCompressedSize(&blockCompressedSize));
+                    sizeCompressed += blockCompressedSize;
+                    BOOL hasNextBlock{};
+                    RETURN_IF_FAILED(blocksEnumerator->MoveNext(&hasNextBlock));
+                    hasCurrentBlock = hasNextBlock;
+                }
+                totalSizeCompressed += sizeCompressed;
+                ++countFiles;
+                totalBlocks += countBlocks;
+                PrintFile(name.get(), sizeUncompressed, sizeCompressed, countBlocks);
+            }
+            BOOL hasNext{};
+            RETURN_IF_FAILED(filesEnumerator->MoveNext(&hasNext));
+            hasCurrent = hasNext;
+        }
+    }
+    if (footprintFiles)
+    {
+        if (packageReader)
+        {
+            for (const auto type : MSIX::Packaging::s_packageFootprintFileTypes)
+            {
+                PCWSTR name{ MSIX::Packaging::s_packageFileNames[type] };
+
+                bool match{};
+                RETURN_IF_FAILED(IsGlobMatch(name, globInclude, globExclude, match));
+                if (!match)
+                {
+                    continue;
+                }
+
+                // AppxBlockMap.xml and AppxSignature.p7x sizes aren't available via the block map
+                if ((type == APPX_FOOTPRINT_FILE_TYPE_BLOCKMAP) || (type == APPX_FOOTPRINT_FILE_TYPE_SIGNATURE))
+                {
+                    wil::com_ptr_nothrow<IAppxFile> footprintFile;
+                    const HRESULT hr{ packageReader->GetFootprintFile(type, &footprintFile) };
+                    if (SUCCEEDED(hr))
+                    {
+                        wil::com_ptr_nothrow<IStream> stream;
+                        RETURN_IF_FAILED(footprintFile->GetStream(&stream));
+                        STATSTG stat{};
+                        RETURN_IF_FAILED(stream->Stat(&stat, STATFLAG_NONAME));
+                        const std::uint64_t sizeUncompressed{ stat.cbSize.QuadPart };
+                        totalSizeFootprintUncompressed += sizeUncompressed;
+                        // Packaging API doesn't expose the compressed size
+                        //TODO Read the .msix as a ZIP file and examine the CentralDirectory entry
+                        ++countFiles;
+                        // These files have no blocks as they're not in the blockmap
+                        PrintFile(name, sizeUncompressed);
+                    }
+                    else
+                    {
+                        RETURN_HR_IF_MSG(hr, hr != HRESULT_FROM_WIN32(ERROR_FILE_NOT_FOUND), "%ls", filename);
+                    }
+                }
+                else
+                {
+                    wil::com_ptr_nothrow<IAppxBlockMapFile> blockMapFile;
+                    const HRESULT hr{ blockMapReader->GetFile(filename, &blockMapFile) };
+                    if (SUCCEEDED(hr))
+                    {
+                        std::uint64_t sizeUncompressed{};
+                        RETURN_IF_FAILED(blockMapFile->GetUncompressedSize(&sizeUncompressed));
+                        totalSizeUncompressed += sizeUncompressed;
+
+                        std::uint64_t sizeCompressed{};
+                        wil::com_ptr_nothrow<IAppxBlockMapBlocksEnumerator> blocksEnumerator;
+                        RETURN_IF_FAILED(blockMapFile->GetBlocks(&blocksEnumerator));
+                        std::uint32_t countBlocks{};
+                        BOOL hasCurrentBlock{};
+                        RETURN_IF_FAILED(blocksEnumerator->GetHasCurrent(&hasCurrentBlock));
+                        while (hasCurrentBlock)
+                        {
+                            wil::com_ptr_nothrow<IAppxBlockMapBlock> block;
+                            RETURN_IF_FAILED(blocksEnumerator->GetCurrent(&block));
+                            ++countBlocks;
+                            UINT32 blockSizeCompressed{};
+                            RETURN_IF_FAILED(block->GetCompressedSize(&blockSizeCompressed));
+                            sizeCompressed += blockSizeCompressed;
+                            BOOL hasNextBlock{};
+                            RETURN_IF_FAILED(blocksEnumerator->MoveNext(&hasNextBlock));
+                            hasCurrentBlock = hasNextBlock;
+                        }
+                        totalSizeCompressed += sizeCompressed;
+                        ++countFiles;
+                        totalBlocks += countBlocks;
+                        PrintFile(name, sizeUncompressed, sizeCompressed, countBlocks);
+                    }
+                }
             }
         }
-        if (match)
+        else if (bundleReader)
         {
-            std::uint64_t sizeUncompressed{};
-            RETURN_IF_FAILED(blockMapFile->GetUncompressedSize(&sizeUncompressed));
-            totalSizeUncompressed += sizeUncompressed;
-            std::uint64_t sizeCompressed{};
-            wil::com_ptr_nothrow<IAppxBlockMapBlocksEnumerator> blocksEnumerator;
-            RETURN_IF_FAILED(blockMapFile->GetBlocks(&blocksEnumerator));
-            std::uint32_t countBlocks{};
-            BOOL hasCurrentBlock{};
-            RETURN_IF_FAILED(blocksEnumerator->GetHasCurrent(&hasCurrentBlock));
-            while (hasCurrentBlock)
+            for (const auto type : MSIX::Packaging::s_bundleFootprintFileTypes)
             {
-                wil::com_ptr_nothrow<IAppxBlockMapBlock> block;
-                RETURN_IF_FAILED(blocksEnumerator->GetCurrent(&block));
-                ++countBlocks;
-                UINT32 blockCompressedSize{};
-                RETURN_IF_FAILED(block->GetCompressedSize(&blockCompressedSize));
-                sizeCompressed += blockCompressedSize;
-                BOOL hasNextBlock{};
-                RETURN_IF_FAILED(blocksEnumerator->MoveNext(&hasNextBlock));
-                hasCurrentBlock = hasNextBlock;
+                PCWSTR name{ MSIX::Packaging::s_bundleFileNames[type] };
+
+                bool match{};
+                RETURN_IF_FAILED(IsGlobMatch(name, globInclude, globExclude, match));
+                if (!match)
+                {
+                    continue;
+                }
+
+                // AppxBlockMap.xml and AppxSignature.p7x sizes aren't available via the block map
+                if ((type == APPX_BUNDLE_FOOTPRINT_FILE_TYPE_BLOCKMAP) || (type == APPX_BUNDLE_FOOTPRINT_FILE_TYPE_SIGNATURE))
+                {
+                    wil::com_ptr_nothrow<IAppxFile> footprintFile;
+                    const HRESULT hr{ bundleReader->GetFootprintFile(type, &footprintFile) };
+                    if (SUCCEEDED(hr))
+                    {
+                        wil::com_ptr_nothrow<IStream> stream;
+                        RETURN_IF_FAILED(footprintFile->GetStream(&stream));
+                        STATSTG stat{};
+                        RETURN_IF_FAILED(stream->Stat(&stat, STATFLAG_NONAME));
+                        const std::uint64_t sizeUncompressed{ stat.cbSize.QuadPart };
+                        totalSizeFootprintUncompressed += sizeUncompressed;
+                        // Packaging API doesn't expose the compressed size
+                        //TODO Read the .msix as a ZIP file and examine the CentralDirectory entry
+                        ++countFiles;
+                        // These files have no blocks as they're not in the blockmap
+                        PrintFile(name, sizeUncompressed);
+                    }
+                    else
+                    {
+                        RETURN_HR_IF_MSG(hr, hr != HRESULT_FROM_WIN32(ERROR_FILE_NOT_FOUND), "%ls", filename);
+                    }
+                }
+                else
+                {
+                    wil::com_ptr_nothrow<IAppxBlockMapFile> blockMapFile;
+                    const HRESULT hr{ blockMapReader->GetFile(filename, &blockMapFile) };
+                    if (SUCCEEDED(hr))
+                    {
+                        std::uint64_t sizeUncompressed{};
+                        RETURN_IF_FAILED(blockMapFile->GetUncompressedSize(&sizeUncompressed));
+                        totalSizeUncompressed += sizeUncompressed;
+
+                        std::uint64_t sizeCompressed{};
+                        wil::com_ptr_nothrow<IAppxBlockMapBlocksEnumerator> blocksEnumerator;
+                        RETURN_IF_FAILED(blockMapFile->GetBlocks(&blocksEnumerator));
+                        std::uint32_t countBlocks{};
+                        BOOL hasCurrentBlock{};
+                        RETURN_IF_FAILED(blocksEnumerator->GetHasCurrent(&hasCurrentBlock));
+                        while (hasCurrentBlock)
+                        {
+                            wil::com_ptr_nothrow<IAppxBlockMapBlock> block;
+                            RETURN_IF_FAILED(blocksEnumerator->GetCurrent(&block));
+                            ++countBlocks;
+                            UINT32 blockSizeCompressed{};
+                            RETURN_IF_FAILED(block->GetCompressedSize(&blockSizeCompressed));
+                            sizeCompressed += blockSizeCompressed;
+                            BOOL hasNextBlock{};
+                            RETURN_IF_FAILED(blocksEnumerator->MoveNext(&hasNextBlock));
+                            hasCurrentBlock = hasNextBlock;
+                        }
+                        totalSizeCompressed += sizeCompressed;
+                        ++countFiles;
+                        totalBlocks += countBlocks;
+                        PrintFile(name, sizeUncompressed, sizeCompressed, countBlocks);
+                    }
+                }
             }
-            totalSizeCompressed += sizeCompressed;
-            ++countFiles;
-            totalBlocks += countBlocks;
-            PrintFile(name.get(), sizeUncompressed, sizeCompressed, countBlocks);
         }
-        BOOL hasNext{};
-        RETURN_IF_FAILED(filesEnumerator->MoveNext(&hasNext));
-        hasCurrent = hasNext;
     }
 
     if (summary)
     {
-        const auto ratio{ (totalSizeCompressed * 100 + (totalSizeCompressed - 1)) / totalSizeUncompressed };
-        wprintf(L"----------  ----------  ---  ------  ----\n"
-                L"%10llu  %10llu  %2llu%%  %6u  %u file%ls\n",
-                totalSizeUncompressed, totalSizeCompressed, ratio, totalBlocks,
+        const std::uint32_t ratio{
+            (totalSizeCompressed == 0) || (totalSizeUncompressed == 0) ?
+                0u :
+                static_cast<std::uint32_t>((totalSizeCompressed * 100 + (totalSizeCompressed - 1)) / totalSizeUncompressed)
+        };
+        wprintf(L"----------  ---------- ----  ------  ----\n"
+                L"%10llu  %10llu %3u%%  %6u  %u file%ls\n",
+                totalSizeUncompressed + totalSizeFootprintUncompressed, totalSizeCompressed, ratio, totalBlocks,
                 countFiles, countFiles == 1 ? L"" : L"s");
     }
 
@@ -2308,6 +2907,10 @@ HRESULT Command_File(int argc, wchar_t* argv[])
     else if (CompareStringOrdinal(command, -1, L"list", -1, FALSE) == CSTR_EQUAL)
     {
         RETURN_IF_FAILED(Command_File_List(argc, argv));
+    }
+    else if (CompareStringOrdinal(command, -1, L"metadata", -1, FALSE) == CSTR_EQUAL)
+    {
+        RETURN_IF_FAILED(Command_File_Metadata(argc, argv));
     }
     else
     {
