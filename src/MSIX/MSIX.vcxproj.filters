@@ -18,6 +18,12 @@
     <ClInclude Include="pch.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="Command_Tree.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Help.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="DllMain.cpp">
@@ -45,5 +51,6 @@
   <ItemGroup>
     <Manifest Condition="('$(MSIXADMIN)'=='0')" Include="MSIX.manifest" />
     <Manifest Condition="('$(MSIXADMIN)'=='1')" Include="MSIXadmin.manifest" />
+    <Manifest Include="MSIX.manifest" />
   </ItemGroup>
 </Project>

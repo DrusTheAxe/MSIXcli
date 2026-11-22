@@ -12,6 +12,22 @@
     <GenerateProjectSpecificOutputFolder>True</GenerateProjectSpecificOutputFolder>
     <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
     <NugetPackageDirectory>$(RepoRoot)\packages</NugetPackageDirectory>
+
+    <!-- Nuget warnings/errors and our need for multiple feeds (Nuget.org and Microsoft proxy)
+         * RestoreIgnoreFailedSources=true      => Converts package-source access failures into NU1801 warnings.
+                                                   Restore can succeed if all required packages are available elsewhere.
+         * NU1507                               => Multiple HTTP package sources are configured with Central Package Management
+                                                   without Package Source Mapping. Not a connectivity warning.
+         * NU1801                               => A package source could not be accessed, but RestoreIgnoreFailedSources allowed restore to continue.
+         * NU1900                               => Vulnerability data could not be retrieved from a source.
+                                                   Separate from package restore; RestoreIgnoreFailedSources does not suppress it.
+         * NoWarn … NU1507                      => Hides only the multiple-source warning. NU1801 and NU1900 remain visible.
+         * WarningsNotAsErrors … NU1801;NU1900  => Keeps those connectivity warnings visible but prevents warnings-as-errors from making them fatal.
+         * NoWarn … NU1801;NU1900               => Hides both connectivity warnings, including cases where all vulnerability-data sources are unavailable.
+     -->
+    <RestoreIgnoreFailedSources>true</RestoreIgnoreFailedSources>
+    <NoWarn>$(NoWarn);NU1507</NoWarn>
+    <WarningsNotAsErrors>$(WarningsNotAsErrors);NU1801;NU1900</WarningsNotAsErrors>
   </PropertyGroup>
 
   <PropertyGroup>
