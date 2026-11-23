@@ -455,6 +455,39 @@ void PrintPackageValue(PCWSTR key, HRESULT hr, const ABI::Windows::System::Proce
     }
 }
 
+constexpr PCWSTR ToString(const APPX_PACKAGE_ARCHITECTURE2 architecture)
+{
+    static_assert(static_cast<int>(APPX_PACKAGE_ARCHITECTURE2_X86) == static_cast<int>(ABI::Windows::System::ProcessorArchitecture_X86), "APPX_PACKAGE_ARCHITECTURE2_X86 != ABI::Windows::System::ProcessorArchitecture_X86");
+    static_assert(static_cast<int>(APPX_PACKAGE_ARCHITECTURE2_ARM) == static_cast<int>(ABI::Windows::System::ProcessorArchitecture_Arm), "APPX_PACKAGE_ARCHITECTURE2_ARM != ABI::Windows::System::ProcessorArchitecture_Arm");
+    static_assert(static_cast<int>(APPX_PACKAGE_ARCHITECTURE2_X64) == static_cast<int>(ABI::Windows::System::ProcessorArchitecture_X64), "APPX_PACKAGE_ARCHITECTURE2_X64 != ABI::Windows::System::ProcessorArchitecture_X64");
+    static_assert(static_cast<int>(APPX_PACKAGE_ARCHITECTURE2_NEUTRAL) == static_cast<int>(ABI::Windows::System::ProcessorArchitecture_Neutral), "APPX_PACKAGE_ARCHITECTURE2_NEUTRAL != ABI::Windows::System::ProcessorArchitecture_Neutral");
+    static_assert(static_cast<int>(APPX_PACKAGE_ARCHITECTURE2_ARM64) == static_cast<int>(ABI::Windows::System::ProcessorArchitecture_Arm64), "APPX_PACKAGE_ARCHITECTURE2_ARM64 != ABI::Windows::System::ProcessorArchitecture_Arm64");
+    static_assert(static_cast<int>(APPX_PACKAGE_ARCHITECTURE2_X86_ON_ARM64) == static_cast<int>(ABI::Windows::System::ProcessorArchitecture_X86OnArm64), "APPX_PACKAGE_ARCHITECTURE2_X86_ON_ARM64 != ABI::Windows::System::ProcessorArchitecture_X86OnArm64");
+    static_assert(static_cast<int>(APPX_PACKAGE_ARCHITECTURE2_UNKNOWN) == static_cast<int>(ABI::Windows::System::ProcessorArchitecture_Unknown), "APPX_PACKAGE_ARCHITECTURE2_UNKNOWN != ABI::Windows::System::ProcessorArchitecture_Unknown");
+
+    return ToString(static_cast<ABI::Windows::System::ProcessorArchitecture>(architecture));
+}
+
+void PrintPackageValue(PCWSTR key, HRESULT hr, const APPX_PACKAGE_ARCHITECTURE2 value)
+{
+    if (FAILED(hr))
+    {
+        PrintPackageKeyValueError(key, hr);
+    }
+    else
+    {
+        PCWSTR architecture{ ToString(value) };
+        if (architecture)
+        {
+            wprintf(L"%-30ls : %ls\n", key, architecture);
+        }
+        else
+        {
+            wprintf(L"%-30ls : ??? (%d)\n", key, value);
+        }
+    }
+}
+
 constexpr PCWSTR ToString(const ABI::Windows::Management::Deployment::PackageTypes packageType)
 {
     switch (packageType)
@@ -1642,6 +1675,7 @@ HRESULT ShowLogo()
                 L"\n"
                 L"Commands:\n"
                 L"  certificate  Certificate management\n"
+                L"  file         Package file operations\n"
                 L"  help         Help system\n"
                 L"  package      Package management\n"
                 L"  provision    Provision management\n"
@@ -2526,6 +2560,53 @@ HRESULT Command_File_List(int argc, wchar_t* argv[])
     return S_OK;
 }
 
+enum class MetadataInclude
+{
+    None                = 0,
+    Identity            = 0x0001,
+    Display             = 0x0002,
+    Applications        = 0x0004,
+    PackageDependencies = 0x0008,
+    Error               = 0x08000000,
+
+    All = Applications | Display | Identity | PackageDependencies
+};
+DEFINE_ENUM_FLAG_OPERATORS(MetadataInclude)
+
+MetadataInclude ToMetadataInclude(PCWSTR string)
+{
+    auto metadataInclude{ MetadataInclude::None };
+    for (auto c = *string; c != L'\0'; c = *++string)
+    {
+        if (c == L'*')
+        {
+            return MetadataInclude::All;
+        }
+        else if (c == L'i')
+        {
+            metadataInclude |= MetadataInclude::Identity;
+        }
+        else if (c == L'd')
+        {
+            metadataInclude |= MetadataInclude::Display;
+        }
+        else if (c == L'a')
+        {
+            metadataInclude |= MetadataInclude::Applications;
+        }
+        else if (c == L'p')
+        {
+            metadataInclude |= MetadataInclude::PackageDependencies;
+        }
+        else
+        {
+            // Invalid
+            return MetadataInclude::Error;
+        }
+    }
+    return metadataInclude;
+}
+
 HRESULT Command_File_Metadata(int argc, wchar_t* argv[])
 {
     constexpr auto help_string{ help_Command_File_Metadata };
@@ -2537,6 +2618,7 @@ HRESULT Command_File_Metadata(int argc, wchar_t* argv[])
 
     PCWSTR filename{ argv[3] };
 
+    MetadataInclude include{ MetadataInclude::All };
     bool logo{ true };
 
     int argn{ 4 };
@@ -2548,6 +2630,14 @@ HRESULT Command_File_Metadata(int argc, wchar_t* argv[])
             (CompareStringOrdinal(arg, -1, L"--help", -1, FALSE) == CSTR_EQUAL))
         {
             Help(help_string);
+        }
+        else if (wil::string_starts_with(arg, L"--include="))
+        {
+            include = ToMetadataInclude(arg + (ARRAYSIZE(L"--include=") - 1));
+            if (include == MetadataInclude::Error)
+            {
+                UnknownArgument(arg);
+            }
         }
         else if (CompareStringOrdinal(arg, -1, L"--", -1, FALSE) == CSTR_EQUAL)
         {
@@ -2582,42 +2672,148 @@ HRESULT Command_File_Metadata(int argc, wchar_t* argv[])
         ShowLogo();
     }
 
+    wil::com_ptr_nothrow<IAppxManifestReader> manifestReader;
     wil::com_ptr_nothrow<IAppxManifestPackageId> manifestPackageId;
+    wil::com_ptr_nothrow<IAppxManifestProperties> manifestProperties;
     if (MSIX::IsPackage(filename))
     {
         wil::com_ptr_nothrow<IAppxPackageReader> packageReader;
         RETURN_IF_FAILED_MSG(MSIX::Packaging::Package::Reader::Open(filename, packageReader), "%ls", filename);
-        wil::com_ptr_nothrow<IAppxManifestReader> manifestReader;
         RETURN_IF_FAILED(packageReader->GetManifest(&manifestReader));
         RETURN_IF_FAILED(manifestReader->GetPackageId(&manifestPackageId));
+        RETURN_IF_FAILED(manifestReader->GetProperties(&manifestProperties));
     }
     else if (MSIX::IsBundle(filename))
     {
         wil::com_ptr_nothrow<IAppxBundleReader> bundleReader;
         RETURN_IF_FAILED_MSG(MSIX::Packaging::Package::Reader::Open(filename, bundleReader), "%ls", filename);
-        wil::com_ptr_nothrow<IAppxBundleManifestReader> manifestReader;
-        RETURN_IF_FAILED(bundleReader->GetManifest(&manifestReader));
-        RETURN_IF_FAILED(manifestReader->GetPackageId(&manifestPackageId));
+        wil::com_ptr_nothrow<IAppxBundleManifestReader> bundleManifestReader;
+        RETURN_IF_FAILED(bundleReader->GetManifest(&bundleManifestReader));
+        RETURN_IF_FAILED(bundleManifestReader->GetPackageId(&manifestPackageId));
     }
     else
     {
         RETURN_HR_MSG(E_INVALIDARG, "%ls", filename);
     }
 
-    wprintf(L"Identity\n");
-    wil::unique_cotaskmem_ptr<WCHAR[]> string;
-    PrintPackageValue(L"    PackageFullName", manifestPackageId->GetPackageFullName(wil::out_param(string)), string);
-    PrintPackageValue(L"    PackageFamilyName", manifestPackageId->GetPackageFamilyName(wil::out_param(string)), string);
-    PrintPackageValue(L"    Name", manifestPackageId->GetName(wil::out_param(string)), string);
-    std::uint64_t version{};
-    hr = manifestPackageId->GetVersion(wil::out_param(version));
-    const auto packageVersion{ reinterpret_cast<ABI::Windows::ApplicationModel::PackageVersion*>(&version) };
-    PrintPackageValue(L"    Version", hr, *packageVersion);
-    auto architecture{ ABI::Windows::System::ProcessorArchitecture_Unknown };
-    PrintPackageValue(L"    Architecture", manifestPackageId->GetArchitecture(&architecture), architecture);
-    PrintPackageValue(L"    ResourceId", manifestPackageId->GetResourceId(wil::out_param(string)), string);
-    PrintPackageValue(L"    Publisher", manifestPackageId->GetPublisher(wil::out_param(string)), string);
-    PrintPackageValue(L"    PublisherId", manifestPackageId->GetPublisherId(wil::out_param(string)), string);
+    if (WI_IsFlagSet(include, MetadataInclude::Identity))
+    {
+        wprintf(L"Identity\n");
+        wil::unique_cotaskmem_ptr<WCHAR[]> string;
+        HRESULT hr{ manifestPackageId->GetPackageFullName(wil::out_param(string)) };
+        PrintPackageValue(L"    PackageFullName", hr, string.get());
+        wil::unique_cotaskmem_ptr<WCHAR[]> packageFamilyName;
+        hr = manifestPackageId->GetPackageFamilyName(wil::out_param(packageFamilyName));
+        PrintPackageValue(L"    PackageFamilyName", hr, packageFamilyName.get());
+        hr = manifestPackageId->GetName(wil::out_param(string));
+        PrintPackageValue(L"    Name", hr, string.get());
+        std::uint64_t version{};
+        hr = manifestPackageId->GetVersion(&version);
+        const auto packageVersion{ reinterpret_cast<ABI::Windows::ApplicationModel::PackageVersion*>(&version) };
+        PrintPackageValue(L"    Version", hr, *packageVersion);
+        wil::com_ptr_nothrow<IAppxManifestPackageId2> manifestPackageId2;
+        RETURN_IF_FAILED(manifestPackageId.query_to(manifestPackageId2.put()));
+        APPX_PACKAGE_ARCHITECTURE2 architecture{ APPX_PACKAGE_ARCHITECTURE2_UNKNOWN };
+        hr = manifestPackageId2->GetArchitecture2(&architecture);
+        PrintPackageValue(L"    Architecture", hr, architecture);
+        hr = manifestPackageId->GetResourceId(wil::out_param(string));
+        PrintPackageValue(L"    ResourceId", hr, string ? string.get() : L"");
+        hr = manifestPackageId->GetPublisher(wil::out_param(string));
+        PrintPackageValue(L"    Publisher", hr, string.get());
+        wchar_t name[PACKAGE_NAME_MAX_LENGTH + 1]{};
+        std::uint32_t nameLength{ ARRAYSIZE(name) };
+        wchar_t publisherId[PACKAGE_PUBLISHERID_MAX_LENGTH + 1]{};
+        std::uint32_t publisherIdLength{ ARRAYSIZE(publisherId) };
+        hr = HRESULT_FROM_WIN32(::PackageNameAndPublisherIdFromFamilyName(packageFamilyName.get(), &nameLength, name, &publisherIdLength, publisherId));
+        PrintPackageValue(L"    PublisherId", hr, publisherId);
+    }
+
+    if (WI_IsFlagSet(include, MetadataInclude::Display))
+    {
+        if (manifestProperties)
+        {
+            wprintf(L"Display\n");
+            wil::unique_cotaskmem_ptr<WCHAR[]> string;
+            HRESULT hr{ manifestProperties->GetStringValue(L"DisplayName", wil::out_param(string)) };
+            PrintPackageValue(L"    DisplayName", hr, string ? string.get() : L"");
+            hr = manifestProperties->GetStringValue(L"Description", wil::out_param(string));
+            PrintPackageValue(L"    Description", hr, string ? string.get() : L"");
+            hr = manifestProperties->GetStringValue(L"PublisherDisplayName", wil::out_param(string));
+            PrintPackageValue(L"    PublisherDisplayName", hr, string ? string.get() : L"");
+        }
+    }
+
+    if (manifestReader)
+    {
+        if (WI_IsFlagSet(include, MetadataInclude::Applications))
+        {
+            wil::com_ptr_nothrow<IAppxManifestApplicationsEnumerator> manifestApplicationsEnumerator;
+            RETURN_IF_FAILED(manifestReader->GetApplications(&manifestApplicationsEnumerator));
+            if (manifestApplicationsEnumerator)
+            {
+                wprintf(L"Applications\n");
+                wil::com_ptr_nothrow<IAppxManifestApplicationsEnumerator> applications;
+                RETURN_IF_FAILED(manifestReader->GetApplications(wil::out_param(applications)));
+                std::uint32_t index{};
+                BOOL hasCurrent{};
+                RETURN_IF_FAILED(applications->GetHasCurrent(&hasCurrent));
+                while (hasCurrent)
+                {
+                    wil::com_ptr_nothrow<IAppxManifestApplication> application;
+                    RETURN_IF_FAILED(applications->GetCurrent(wil::out_param(application)));
+                    wprintf(L"    #%u\n", ++index);
+                    wil::unique_cotaskmem_ptr<WCHAR[]> string;
+                    HRESULT hr{ application->GetAppUserModelId(wil::out_param(string)) };
+                    PrintPackageValue(L"    AppUserModelId", hr, string ? string.get() : L"");
+                    hr = application->GetStringValue(L"DisplayName", wil::out_param(string));
+                    PrintPackageValue(L"    DisplayName", hr, string ? string.get() : L"");
+                    hr = application->GetStringValue(L"Description", wil::out_param(string));
+                    PrintPackageValue(L"    Description", hr, string ? string.get() : L"");
+                    hr = application->GetStringValue(L"Executable", wil::out_param(string));
+                    PrintPackageValue(L"    ID", hr, string ? string.get() : L"");
+                    RETURN_IF_FAILED(applications->MoveNext(&hasCurrent));
+                }
+            }
+        }
+
+        if (WI_IsFlagSet(include, MetadataInclude::PackageDependencies))
+        {
+            wil::com_ptr_nothrow<IAppxManifestPackageDependenciesEnumerator> dependencies;
+            RETURN_IF_FAILED(manifestReader->GetPackageDependencies(&dependencies));
+            if (dependencies)
+            {
+                wprintf(L"Dependencies\n");
+                std::uint32_t index{};
+                BOOL hasCurrent{};
+                RETURN_IF_FAILED(dependencies->GetHasCurrent(&hasCurrent));
+                while (hasCurrent)
+                {
+                    wil::com_ptr_nothrow<IAppxManifestPackageDependency> dependency;
+                    RETURN_IF_FAILED(dependencies->GetCurrent(wil::out_param(dependency)));
+                    wprintf(L"    #%u\n", ++index);
+                    wil::unique_cotaskmem_ptr<WCHAR[]> string;
+                    HRESULT hr{ dependency->GetName(wil::out_param(string)) };
+                    PrintPackageValue(L"    Name", hr, string ? string.get() : L"");
+                    hr = dependency->GetPublisher(wil::out_param(string));
+                    PrintPackageValue(L"    Publisher", hr, string ? string.get() : L"");
+                    std::uint64_t version{};
+                    hr = dependency->GetMinVersion(&version);
+                    const auto minVersion{ reinterpret_cast<ABI::Windows::ApplicationModel::PackageVersion*>(&version) };
+                    PrintPackageValue(L"    MinVersion", hr, *minVersion);
+                    RETURN_IF_FAILED(dependencies->MoveNext(&hasCurrent));
+                }
+            }
+
+            //TODO IAppxManifestDeviceCapabilitiesEnumerator
+            //TODO IAppxManifestMainPackageDependenciesEnumerator
+            //TODO IAppxManifestOptionalPackageInfo
+            //TODO IAppxManifestResourcesEnumerator
+            //TODO IAppxManifestTargetDeviceFamily
+        }
+    }
+
+    //TODO IAppxBundleManifestPackageInfo
+    //TODO IAppxBundleReader::GetPayloadPackages
 
     return S_OK;
 }
