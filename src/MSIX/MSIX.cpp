@@ -2203,6 +2203,215 @@ HRESULT IsGlobMatch(
     return S_OK;
 }
 
+HRESULT Command_File_Exists(int argc, wchar_t* argv[])
+{
+    constexpr auto help_string{ help_Command_File_Exists };
+
+    if (argc < 4)
+    {
+        Help(help_string);
+    }
+
+    PCWSTR filename{ argv[3] };
+
+    bool exists{};
+    wil::unique_cotaskmem_array_ptr<wil::unique_cotaskmem_string> globExclude;
+    wil::unique_cotaskmem_array_ptr<wil::unique_cotaskmem_string> globInclude;
+    bool logo{ true };
+
+    int argn{ 4 };
+    for (; argn < argc; ++argn)
+    {
+        PCWSTR arg{ argv[argn] };
+        if ((CompareStringOrdinal(arg, -1, L"-?", -1, FALSE) == CSTR_EQUAL) ||
+            (CompareStringOrdinal(arg, -1, L"-h", -1, FALSE) == CSTR_EQUAL) ||
+            (CompareStringOrdinal(arg, -1, L"--help", -1, FALSE) == CSTR_EQUAL))
+        {
+            Help(help_string);
+        }
+        else if (wil::string_starts_with(arg, L"--exclude="))
+        {
+            PCWSTR pattern{ arg + (ARRAYSIZE(L"--exclude=") - 1) };
+            if (wil::string_is_null_or_empty(pattern))
+            {
+                UnknownArgument(arg);
+            }
+            RETURN_IF_FAILED(AddToArray(globExclude, pattern));
+        }
+        else if (wil::string_starts_with(arg, L"--glob="))
+        {
+            PCWSTR pattern{ arg + (ARRAYSIZE(L"--glob=") - 1) };
+            if (wil::string_is_null_or_empty(pattern))
+            {
+                UnknownArgument(arg);
+            }
+            RETURN_IF_FAILED(AddToArray(globInclude, pattern));
+        }
+        else if (CompareStringOrdinal(arg, -1, L"--", -1, FALSE) == CSTR_EQUAL)
+        {
+            ++argn;
+            break;
+        }
+        else if (CompareStringOrdinal(arg, -1, L"--benchmark", -1, FALSE) == CSTR_EQUAL)
+        {
+            g_benchmark = true;
+        }
+        else if ((CompareStringOrdinal(arg, -1, L"-nologo", -1, FALSE) == CSTR_EQUAL) ||
+                 (CompareStringOrdinal(arg, -1, L"--no-logo", -1, FALSE) == CSTR_EQUAL))
+        {
+            logo = false;
+        }
+        else if (arg[0] != L'-')
+        {
+            break;
+        }
+        else
+        {
+            UnknownArgument(argv[argn]);
+        }
+    }
+    for (; argn < argc; ++argn)
+    {
+        PCWSTR arg{ argv[argn] };
+        if (wil::string_is_null_or_empty(arg))
+        {
+            UnknownArgument(arg);
+        }
+        RETURN_IF_FAILED(AddToArray(globInclude, arg));
+    }
+
+    if (logo)
+    {
+        ShowLogo();
+    }
+
+    wil::com_ptr_nothrow<IAppxPackageReader> packageReader;
+    wil::com_ptr_nothrow<IAppxBundleReader> bundleReader;
+    wil::com_ptr_nothrow<IAppxBlockMapReader> blockMapReader;
+    if (MSIX::IsPackage(filename))
+    {
+        RETURN_IF_FAILED_MSG(MSIX::Packaging::Package::Reader::Open(filename, packageReader), "%ls", filename);
+        RETURN_IF_FAILED(packageReader->GetBlockMap(&blockMapReader));
+    }
+    else if (MSIX::IsBundle(filename))
+    {
+        RETURN_IF_FAILED_MSG(MSIX::Packaging::Package::Reader::Open(filename, bundleReader), "%ls", filename);
+        RETURN_IF_FAILED(bundleReader->GetBlockMap(&blockMapReader));
+    }
+    else
+    {
+        UnknownFileType(filename);
+    }
+    wil::com_ptr_nothrow<IAppxBlockMapFilesEnumerator> filesEnumerator;
+    RETURN_IF_FAILED(blockMapReader->GetFiles(&filesEnumerator));
+    BOOL hasCurrent{};
+    RETURN_IF_FAILED(filesEnumerator->GetHasCurrent(&hasCurrent));
+    while (hasCurrent)
+    {
+        wil::com_ptr_nothrow<IAppxBlockMapFile> blockMapFile;
+        RETURN_IF_FAILED(filesEnumerator->GetCurrent(&blockMapFile));
+        wil::unique_cotaskmem_ptr<WCHAR[]> name;
+        RETURN_IF_FAILED(blockMapFile->GetName(wil::out_param(name)));
+        bool match{};
+        RETURN_IF_FAILED(IsGlobMatch(name.get(), globInclude, globExclude, match));
+        if (match)
+        {
+            exists = true;
+            break;
+        }
+        BOOL hasNext{};
+        RETURN_IF_FAILED(filesEnumerator->MoveNext(&hasNext));
+        hasCurrent = hasNext;
+    }
+    if (!exists)
+    {
+        if (packageReader)
+        {
+            for (const auto type : MSIX::Packaging::s_packageFootprintFileTypes)
+            {
+                PCWSTR name{ MSIX::Packaging::s_packageFileNames[type] };
+
+                bool match{};
+                RETURN_IF_FAILED(IsGlobMatch(name, globInclude, globExclude, match));
+                if (!match)
+                {
+                    continue;
+                }
+
+                // AppxBlockMap.xml and AppxSignature.p7x sizes aren't available via the block map
+                if ((type == APPX_FOOTPRINT_FILE_TYPE_BLOCKMAP) || (type == APPX_FOOTPRINT_FILE_TYPE_SIGNATURE))
+                {
+                    wil::com_ptr_nothrow<IAppxFile> footprintFile;
+                    const HRESULT hr{ packageReader->GetFootprintFile(type, &footprintFile) };
+                    if (SUCCEEDED(hr))
+                    {
+                        exists = true;
+                        break;
+                    }
+                    else
+                    {
+                        RETURN_HR_IF_MSG(hr, hr != HRESULT_FROM_WIN32(ERROR_FILE_NOT_FOUND), "%ls not in %ls", name, filename);
+                    }
+                }
+                else
+                {
+                    wil::com_ptr_nothrow<IAppxBlockMapFile> blockMapFile;
+                    const HRESULT hr{ blockMapReader->GetFile(filename, &blockMapFile) };
+                    if (SUCCEEDED(hr))
+                    {
+                        exists = true;
+                        break;
+                    }
+                }
+            }
+        }
+        else if (bundleReader)
+        {
+            for (const auto type : MSIX::Packaging::s_bundleFootprintFileTypes)
+            {
+                PCWSTR name{ MSIX::Packaging::s_bundleFileNames[type] };
+
+                bool match{};
+                RETURN_IF_FAILED(IsGlobMatch(name, globInclude, globExclude, match));
+                if (!match)
+                {
+                    continue;
+                }
+
+                // AppxBlockMap.xml and AppxSignature.p7x sizes aren't available via the block map
+                if ((type == APPX_BUNDLE_FOOTPRINT_FILE_TYPE_BLOCKMAP) || (type == APPX_BUNDLE_FOOTPRINT_FILE_TYPE_SIGNATURE))
+                {
+                    wil::com_ptr_nothrow<IAppxFile> footprintFile;
+                    const HRESULT hr{ bundleReader->GetFootprintFile(type, &footprintFile) };
+                    if (SUCCEEDED(hr))
+                    {
+                        exists = true;
+                        break;
+                    }
+                    else
+                    {
+                        RETURN_HR_IF_MSG(hr, hr != HRESULT_FROM_WIN32(ERROR_FILE_NOT_FOUND), "%ls not in %ls", name, filename);
+                    }
+                }
+                else
+                {
+                    wil::com_ptr_nothrow<IAppxBlockMapFile> blockMapFile;
+                    const HRESULT hr{ blockMapReader->GetFile(filename, &blockMapFile) };
+                    if (SUCCEEDED(hr))
+                    {
+                        exists = true;
+                        break;
+                    }
+                }
+            }
+        }
+    }
+
+    wprintf(L"Matching file(s)%ls found in %ls\n", exists ? L"" : L" not", filename);
+
+    return exists ? S_OK : S_FALSE;
+}
+
 HRESULT Command_File_List(int argc, wchar_t* argv[])
 {
     constexpr auto help_string{ help_Command_File_List };
@@ -2430,7 +2639,7 @@ HRESULT Command_File_List(int argc, wchar_t* argv[])
                     }
                     else
                     {
-                        RETURN_HR_IF_MSG(hr, hr != HRESULT_FROM_WIN32(ERROR_FILE_NOT_FOUND), "%ls", filename);
+                        RETURN_HR_IF_MSG(hr, hr != HRESULT_FROM_WIN32(ERROR_FILE_NOT_FOUND), "%ls not in %ls", name, filename);
                     }
                 }
                 else
@@ -2503,7 +2712,7 @@ HRESULT Command_File_List(int argc, wchar_t* argv[])
                     }
                     else
                     {
-                        RETURN_HR_IF_MSG(hr, hr != HRESULT_FROM_WIN32(ERROR_FILE_NOT_FOUND), "%ls", filename);
+                        RETURN_HR_IF_MSG(hr, hr != HRESULT_FROM_WIN32(ERROR_FILE_NOT_FOUND), "%ls not in %ls", name, filename);
                     }
                 }
                 else
@@ -2834,7 +3043,7 @@ HRESULT Command_File(int argc, wchar_t* argv[])
     }
     else if (CompareStringOrdinal(command, -1, L"exists", -1, FALSE) == CSTR_EQUAL)
     {
-        //TODO RETURN_IF_FAILED(Command_File_Exists(argc, argv));
+        RETURN_IF_FAILED(Command_File_Exists(argc, argv));
     }
     else if (CompareStringOrdinal(command, -1, L"extract", -1, FALSE) == CSTR_EQUAL)
     {

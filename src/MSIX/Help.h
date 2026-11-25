@@ -138,7 +138,6 @@ constexpr PCWSTR help_Command_File_Exists{
     L"Options:\n"
     L"  --exclude=<PATTERN>            Exclude files matching PATTERN (*,? wildcards)\n"
     L"  --glob=<PATTERN>               Add files matching PATTERN (*,? wildcards)\n"
-    L"  --no-summary                   Do not display summary information\n"
     L"  --                             End option processing\n"
     L"  --benchmark                    Display elapsed time\n"
     L"  -nologo, --no-logo             Do not display startup banner or copyright message\n"

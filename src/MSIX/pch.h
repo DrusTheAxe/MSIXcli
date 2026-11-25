@@ -26,8 +26,11 @@
 
 // Windows Runtime (ABI projection)
 #include <roapi.h>
+#include <shcore.h>
 #include <winstring.h>
+#include <windows.foundation.h>
 #include <windows.management.deployment.h>
+#include <windows.storage.streams.h>
 
 // Windows Implementation Library (WIL)
 #include <wil/com.h>

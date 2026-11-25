@@ -47,29 +47,154 @@ inline static constexpr PCWSTR s_bundleFileNames[]{
 
 namespace Package::Reader
 {
-inline HRESULT Open(
+inline HRESULT OpenFile(
     PCWSTR filename,
     wil::com_ptr_nothrow<IAppxPackageReader>& packageReader)
 {
-    wil::com_ptr_nothrow<IAppxFactory> factory;
-    RETURN_IF_FAILED(CoCreateInstance(__uuidof(AppxFactory), nullptr, CLSCTX_INPROC_SERVER, IID_PPV_ARGS(&factory)));
-
     wil::com_ptr_nothrow<IStream> stream;
     RETURN_IF_FAILED(SHCreateStreamOnFileEx(filename, STGM_READ | STGM_SHARE_DENY_WRITE, 0, FALSE, nullptr, &stream));
+
+    wil::com_ptr_nothrow<IAppxFactory> factory;
+    RETURN_IF_FAILED(::CoCreateInstance(__uuidof(AppxFactory), nullptr, CLSCTX_INPROC_SERVER, IID_PPV_ARGS(&factory)));
     RETURN_IF_FAILED(factory->CreatePackageReader(stream.get(), packageReader.put()));
     return S_OK;
 }
 
-inline HRESULT Open(
+inline HRESULT OpenFile(
     PCWSTR filename,
     wil::com_ptr_nothrow<IAppxBundleReader>& bundleReader)
 {
-    wil::com_ptr_nothrow<IAppxBundleFactory> factory;
-    RETURN_IF_FAILED(CoCreateInstance(__uuidof(AppxBundleFactory), nullptr, CLSCTX_INPROC_SERVER, IID_PPV_ARGS(&factory)));
-
     wil::com_ptr_nothrow<IStream> stream;
     RETURN_IF_FAILED(SHCreateStreamOnFileEx(filename, STGM_READ | STGM_SHARE_DENY_WRITE, 0, FALSE, nullptr, &stream));
+
+    wil::com_ptr_nothrow<IAppxBundleFactory> factory;
+    RETURN_IF_FAILED(::CoCreateInstance(__uuidof(AppxBundleFactory), nullptr, CLSCTX_INPROC_SERVER, IID_PPV_ARGS(&factory)));
     RETURN_IF_FAILED(factory->CreateBundleReader(stream.get(), bundleReader.put()));
+    return S_OK;
+}
+
+inline HRESULT OpenStream(
+    ABI::Windows::Storage::Streams::IRandomAccessStreamReference* randomAccessStreamReference,
+    wil::com_ptr_nothrow<IStream>& stream)
+{
+    wil::com_ptr_nothrow<ABI::Windows::Foundation::IAsyncOperation<ABI::Windows::Storage::Streams::IRandomAccessStreamWithContentType*>> operation;
+    RETURN_IF_FAILED(randomAccessStreamReference->OpenReadAsync(operation.put()));
+
+    wil::com_ptr_nothrow<ABI::Windows::Storage::Streams::IRandomAccessStreamWithContentType> randomAccess;
+    RETURN_IF_FAILED(wil::wait_for_completion_nothrow(operation.get(), randomAccess.put()));
+
+    RETURN_IF_FAILED(::CreateStreamOverRandomAccessStream(randomAccess.get(), IID_PPV_ARGS(stream.put())));
+    return S_OK;
+}
+
+inline HRESULT OpenStream(
+    ABI::Windows::Foundation::IUriRuntimeClass* uri,
+    wil::com_ptr_nothrow<IStream>& stream)
+{
+    HSTRING_HEADER streamClassBuffer{};
+    HSTRING streamClass{};
+    RETURN_IF_FAILED(WindowsCreateStringReference(RuntimeClass_Windows_Storage_Streams_RandomAccessStreamReference,
+        ARRAYSIZE(RuntimeClass_Windows_Storage_Streams_RandomAccessStreamReference) - 1, &streamClassBuffer, &streamClass));
+
+    wil::com_ptr_nothrow<ABI::Windows::Storage::Streams::IRandomAccessStreamReferenceStatics> factory;
+    RETURN_IF_FAILED(::RoGetActivationFactory(streamClass, IID_PPV_ARGS(factory.put())));
+
+    wil::com_ptr_nothrow<ABI::Windows::Storage::Streams::IRandomAccessStreamReference> randomAccessStreamReference;
+    RETURN_IF_FAILED(factory->CreateFromUri(uri, randomAccessStreamReference.put()));
+
+    RETURN_IF_FAILED(OpenStream(randomAccessStreamReference.get(), stream));
+    return S_OK;
+}
+
+inline HRESULT OpenStream(
+    HSTRING uriAsHString,
+    wil::com_ptr_nothrow<IStream>& stream)
+{
+    HSTRING_HEADER uriClassBuffer{};
+    HSTRING uriClass{};
+    RETURN_IF_FAILED(::WindowsCreateStringReference(RuntimeClass_Windows_Foundation_Uri,
+        ARRAYSIZE(RuntimeClass_Windows_Foundation_Uri) - 1, &uriClassBuffer, &uriClass));
+
+    wil::com_ptr_nothrow<ABI::Windows::Foundation::IUriRuntimeClassFactory> uriFactory;
+    RETURN_IF_FAILED(::RoGetActivationFactory(uriClass, IID_PPV_ARGS(uriFactory.put())));
+
+    wil::com_ptr_nothrow<ABI::Windows::Foundation::IUriRuntimeClass> uri;
+    RETURN_IF_FAILED(uriFactory->CreateUri(uriAsHString, uri.put()));
+
+    RETURN_IF_FAILED(OpenStream(uri.get(), stream));
+    return S_OK;
+}
+
+inline HRESULT OpenStream(
+    PCWSTR uriAsString,
+    wil::com_ptr_nothrow<IStream>& stream)
+{
+    HSTRING_HEADER uriBuffer{};
+    HSTRING uriAsHString{};
+    RETURN_IF_FAILED(::WindowsCreateStringReference(uriAsString, static_cast<UINT32>(wcslen(uriAsString)), &uriBuffer, &uriAsHString));
+
+    RETURN_IF_FAILED(OpenStream(uriAsHString, stream));
+    return S_OK;
+}
+
+inline HRESULT OpenUri(
+    PCWSTR uri,
+    wil::com_ptr_nothrow<IAppxPackageReader>& packageReader)
+{
+    wil::com_ptr_nothrow<IStream> stream;
+    RETURN_IF_FAILED(OpenStream(uri, stream));
+
+    wil::com_ptr_nothrow<IAppxFactory> factory;
+    RETURN_IF_FAILED(::CoCreateInstance(__uuidof(AppxFactory), nullptr, CLSCTX_INPROC_SERVER, IID_PPV_ARGS(&factory)));
+    RETURN_IF_FAILED(factory->CreatePackageReader(stream.get(), packageReader.put()));
+    return S_OK;
+}
+
+inline HRESULT OpenUri(
+    PCWSTR uri,
+    wil::com_ptr_nothrow<IAppxBundleReader>& bundleReader)
+{
+    wil::com_ptr_nothrow<IStream> stream;
+    RETURN_IF_FAILED(OpenStream(uri, stream));
+
+    wil::com_ptr_nothrow<IAppxBundleFactory> factory;
+    RETURN_IF_FAILED(::CoCreateInstance(__uuidof(AppxBundleFactory), nullptr, CLSCTX_INPROC_SERVER, IID_PPV_ARGS(&factory)));
+    RETURN_IF_FAILED(factory->CreateBundleReader(stream.get(), bundleReader.put()));
+    return S_OK;
+}
+
+inline bool IsUrl(PCWSTR string)
+{
+    return wil::string_starts_with(string, L"https:") || wil::string_starts_with(string, L"http:");
+}
+
+inline HRESULT Open(
+    PCWSTR uriOrFilename,
+    wil::com_ptr_nothrow<IAppxPackageReader>& packageReader)
+{
+    if (IsUrl(uriOrFilename))
+    {
+        RETURN_IF_FAILED(OpenUri(uriOrFilename, packageReader));
+    }
+    else
+    {
+        RETURN_IF_FAILED(OpenFile(uriOrFilename, packageReader));
+    }
+    return S_OK;
+}
+
+inline HRESULT Open(
+    PCWSTR uriOrFilename,
+    wil::com_ptr_nothrow<IAppxBundleReader>& bundleReader)
+{
+    if (IsUrl(uriOrFilename))
+    {
+        RETURN_IF_FAILED(OpenUri(uriOrFilename, bundleReader));
+    }
+    else
+    {
+        RETURN_IF_FAILED(OpenFile(uriOrFilename, bundleReader));
+    }
     return S_OK;
 }
 
