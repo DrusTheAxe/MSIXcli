@@ -95,13 +95,14 @@ constexpr PCWSTR help_Command_File{
     L"\n"
     L"Commands:\n"
     L"  create <FILE>               Create a package\n"
-    L"  exists <FILE>               Check if a file exists in a package\n"
-    L"  extract <FILE>              Extract files in a package\n"
-    L"  list <FILE>                 Display files in a package\n"
-    L"  metadata <FILE>             Display metadata for a package\n"
+    L"  exists <FILE*>              Check if a file exists in a package\n"
+    L"  extract <FILE*>             Extract files in a package\n"
+    L"  list <FILE*>                Display files in a package\n"
+    L"  metadata <FILE*>            Display metadata for a package\n"
     L"\n"
     L"Arguments:\n"
-    L"  <FILE> = file|URI\n"
+    L"  <FILE> = file\n"
+    L"  <FILE*> = file or URI\n"
 };
 
 constexpr PCWSTR help_Command_File_Create{
