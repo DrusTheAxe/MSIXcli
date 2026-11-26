@@ -2411,6 +2411,7 @@ HRESULT ExtractFile(
         filename = filenameBuffer.get();
     }
 
+    wprintf(L"%ls\n", filename);
     PWSTR lastBackslash{ wcsrchr(filename, L'\\') };
     if (lastBackslash)
     {
@@ -2430,7 +2431,8 @@ HRESULT ExtractFile(
     const DWORD grfMode{ ifExists == IfExists::Overwrite ?
         static_cast<DWORD>(STGM_CREATE | STGM_WRITE | STGM_SHARE_EXCLUSIVE) :
         static_cast<DWORD>(STGM_FAILIFTHERE | STGM_WRITE | STGM_SHARE_EXCLUSIVE) };
-    RETURN_IF_FAILED(SHCreateStreamOnFileEx(filename, grfMode, 0, TRUE, nullptr, outputStream.put()));
+    const BOOL fCreate{ TRUE /*ifExists == IfExists::Overwrite ? TRUE : FALSE*/ };
+    RETURN_IF_FAILED(SHCreateStreamOnFileEx(filename, grfMode, 0, fCreate, nullptr, outputStream.put()));
     RETURN_IF_FAILED(fileStream->CopyTo(outputStream.get(), fileSizeAsLargeInteger, nullptr, nullptr));
     return S_OK;
 }
@@ -2552,6 +2554,10 @@ HRESULT Command_File_Extract(int argc, wchar_t* argv[])
         {
             summary = false;
         }
+        else if (CompareStringOrdinal(arg, -1, L"-o", -1, FALSE) == CSTR_EQUAL)
+        {
+            ifExists = IfExists::Overwrite;
+        }
         else if (wil::string_starts_with(arg, L"--output="))
         {
             output = arg + (ARRAYSIZE(L"--output=") - 1);
@@ -2621,6 +2627,15 @@ HRESULT Command_File_Extract(int argc, wchar_t* argv[])
         RETURN_HR_MSG(E_INVALIDARG, "%ls", filename);
     }
 
+    // wil::CreateDirectoryDeepNoThrow() doesn't handle relative paths
+    // so set output=CurrentDirectory if it's not set
+    wil::unique_process_heap_string currentDirectory;
+    if (!output)
+    {
+        RETURN_IF_FAILED(wil::GetCurrentDirectoryW(currentDirectory));
+        output = currentDirectory.get();
+    }
+
     if (header)
     {
         wprintf(L"\n"
@@ -2649,7 +2664,7 @@ HRESULT Command_File_Extract(int argc, wchar_t* argv[])
                 const HRESULT hr{ packageReader->GetFootprintFile(type, &footprintFile) };
                 if (SUCCEEDED(hr))
                 {
-                    ExtractFile(footprintFile.get(), output, ifExists, globInclude, globExclude);
+                    RETURN_IF_FAILED(ExtractFile(footprintFile.get(), output, ifExists, globInclude, globExclude));
                 }
                 else
                 {
@@ -2674,7 +2689,7 @@ HRESULT Command_File_Extract(int argc, wchar_t* argv[])
             const HRESULT hr{ bundleReader->GetFootprintFile(type, &footprintFile) };
             if (SUCCEEDED(hr))
             {
-                ExtractFile(footprintFile.get(), output, ifExists, globInclude, globExclude);
+                RETURN_IF_FAILED(ExtractFile(footprintFile.get(), output, ifExists, globInclude, globExclude));
             }
             else
             {

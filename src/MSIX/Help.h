@@ -162,6 +162,7 @@ constexpr PCWSTR help_Command_File_Extract{
     L"  --glob=<PATTERN>               Add files matching PATTERN (*,? wildcards)\n"
     L"  --no-header                    Do not display header information\n"
     L"  --no-summary                   Do not display summary information\n"
+    L"  -o                             Overwrite files (same as --if-exists=overwrite)\n"
     L"  --output=<PATH>                Path to write files\n"
     L"  --                             End option processing\n"
     L"  --benchmark                    Display elapsed time\n"
