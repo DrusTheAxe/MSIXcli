@@ -3,6 +3,8 @@
 
 #pragma once
 
+namespace msixcli
+{
 // Synchronous file stream.
 //
 // Reference counting is thread-safe.
@@ -333,3 +335,4 @@ private:
     wistd::unique_ptr<BYTE[]> m_buffer;
     DWORD m_mode{ STGM_WRITE };
 };
+}

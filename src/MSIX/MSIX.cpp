@@ -2144,6 +2144,24 @@ HRESULT AddToArray(
     return S_OK;
 }
 
+bool IsInArray(
+    const wil::unique_cotaskmem_array_ptr<wil::unique_cotaskmem_string>& array,
+    PCWSTR value)
+{
+    if (value && (*value != L'\0'))
+    {
+        for (size_t index = 0; index < array.size(); ++index)
+        {
+            if (CompareStringOrdinal(array[index], -1, value, -1, FALSE) == CSTR_EQUAL)
+            {
+                return true;
+            }
+        }
+    }
+
+    return false;
+}
+
 HRESULT IsGlobMatch(
     PCWSTR string,
     const wil::unique_cotaskmem_array_ptr<wil::unique_cotaskmem_string>& globInclude,
@@ -2379,9 +2397,7 @@ HRESULT Command_File_Exists(int argc, wchar_t* argv[])
                 exists = true;
                 break;
             }
-            BOOL hasNext{};
-            RETURN_IF_FAILED(filesEnumerator->MoveNext(&hasNext));
-            hasCurrent = hasNext;
+            RETURN_IF_FAILED(filesEnumerator->MoveNext(&hasCurrent));
         }
     }
 
@@ -2402,8 +2418,15 @@ HRESULT ExtractFile(
     IAppxFile* file,
     PCWSTR output,
     IfExists ifExists,
-    bool preallocate)
+    bool preallocate,
+    wil::unique_cotaskmem_array_ptr<wil::unique_cotaskmem_string>& pathsCreated,
+    IAppxBlockMapReader* blockMapReader,
+    std::uint32_t* totalBlocks,
+    std::uint64_t* totalSizeUncompressed,
+    std::uint64_t* totalSizeCompressed)
 {
+    wprintf(L"Extracting %ls\n", name);
+
     wil::unique_hlocal_string filenameBuffer;
     PWSTR filename{ name };
     if (output)
@@ -2413,12 +2436,15 @@ HRESULT ExtractFile(
         filename = filenameBuffer.get();
     }
 
-    wprintf(L"%ls\n", filename);
     PWSTR lastBackslash{ wcsrchr(filename, L'\\') };
     if (lastBackslash)
     {
         *lastBackslash = L'\0';
-        RETURN_IF_FAILED(wil::CreateDirectoryDeepNoThrow(filename));
+        if (!IsInArray(pathsCreated, filename))
+        {
+            RETURN_IF_FAILED(wil::CreateDirectoryDeepNoThrow(filename));
+            RETURN_IF_FAILED(AddToArray(pathsCreated, filename));
+        }
         *lastBackslash = L'\\';
     }
 
@@ -2431,7 +2457,7 @@ HRESULT ExtractFile(
     RETURN_IF_FAILED(file->GetStream(fileStream.put()));
     wil::com_ptr_nothrow<IStream> outputStream;
     const auto disposition{ ifExists == IfExists::Overwrite ? CREATE_ALWAYS : CREATE_NEW };
-    RETURN_IF_FAILED(StreamOverFile::CreateWriter(outputStream.put(), filename, disposition));
+    RETURN_IF_FAILED(msixcli::StreamOverFile::CreateWriter(outputStream.put(), filename, disposition));
     if (preallocate)
     {
         RETURN_IF_FAILED(outputStream->SetSize(fileSizeAsLargeInteger));
@@ -2445,6 +2471,46 @@ HRESULT ExtractFile(
     {
         RETURN_IF_FAILED(fileStream->CopyTo(outputStream.get(), fileSizeAsLargeInteger, nullptr, nullptr));
     }
+
+    if ((totalBlocks || totalSizeCompressed) && blockMapReader)
+    {
+        wil::com_ptr_nothrow<IAppxBlockMapFile> blockMapFile;
+        RETURN_IF_FAILED(blockMapReader->GetFile(name, blockMapFile.put()));
+        if (totalSizeUncompressed)
+        {
+            std::uint64_t size{};
+            RETURN_IF_FAILED(blockMapFile->GetUncompressedSize(&size));
+            *totalSizeUncompressed += size;
+        }
+
+        wil::com_ptr_nothrow<IAppxBlockMapBlocksEnumerator> blocksEnumerator;
+        RETURN_IF_FAILED(blockMapFile->GetBlocks(&blocksEnumerator));
+        BOOL hasCurrent{};
+        RETURN_IF_FAILED(blocksEnumerator->GetHasCurrent(&hasCurrent));
+        while (hasCurrent)
+        {
+            wil::com_ptr_nothrow<IAppxBlockMapBlock> block;
+            RETURN_IF_FAILED(blocksEnumerator->GetCurrent(&block));
+            if (totalBlocks)
+            {
+                ++*totalBlocks;
+            }
+            if (totalSizeCompressed)
+            {
+                std::uint32_t size{};
+                RETURN_IF_FAILED(block->GetCompressedSize(&size));
+                *totalSizeCompressed += size;
+            }
+            RETURN_IF_FAILED(blocksEnumerator->MoveNext(&hasCurrent));
+        }
+    }
+    else if (totalSizeUncompressed)
+    {
+        std::uint64_t size{};
+        RETURN_IF_FAILED(file->GetSize(&size));
+        *totalSizeUncompressed += size;
+    }
+
     return S_OK;
 }
 
@@ -2453,6 +2519,11 @@ HRESULT ExtractFile(
     PCWSTR output,
     IfExists ifExists,
     bool preallocate,
+    wil::unique_cotaskmem_array_ptr<wil::unique_cotaskmem_string>& pathsCreated,
+    IAppxBlockMapReader* blockMapReader,
+    std::uint32_t* totalBlocks,
+    std::uint64_t* totalSizeUncompressed,
+    std::uint64_t* totalSizeCompressed,
     const wil::unique_cotaskmem_array_ptr<wil::unique_cotaskmem_string>& globInclude,
     const wil::unique_cotaskmem_array_ptr<wil::unique_cotaskmem_string>& globExclude)
 {
@@ -2469,7 +2540,8 @@ HRESULT ExtractFile(
         }
     }
 
-    RETURN_IF_FAILED(ExtractFile(name.get(), file, output, ifExists, preallocate));
+    RETURN_IF_FAILED(ExtractFile(name.get(), file, output, ifExists, preallocate, pathsCreated,
+                                 blockMapReader, totalBlocks, totalSizeUncompressed, totalSizeCompressed));
     return S_OK;
 }
 
@@ -2478,6 +2550,12 @@ HRESULT ExtractFiles(
     PCWSTR output,
     IfExists ifExists,
     bool preallocate,
+    wil::unique_cotaskmem_array_ptr<wil::unique_cotaskmem_string>& pathsCreated,
+    IAppxBlockMapReader* blockMapReader,
+    std::uint32_t& countFiles,
+    std::uint32_t* totalBlocks,
+    std::uint64_t* totalSizeUncompressed,
+    std::uint64_t* totalSizeCompressed,
     const wil::unique_cotaskmem_array_ptr<wil::unique_cotaskmem_string>& globInclude,
     const wil::unique_cotaskmem_array_ptr<wil::unique_cotaskmem_string>& globExclude)
 {
@@ -2487,7 +2565,10 @@ HRESULT ExtractFiles(
     {
         wil::com_ptr_nothrow<IAppxFile> file;
         RETURN_IF_FAILED(payloadFiles->GetCurrent(file.put()));
-        RETURN_IF_FAILED(ExtractFile(file.get(), output, ifExists, preallocate, globInclude, globExclude));
+        RETURN_IF_FAILED(ExtractFile(file.get(), output, ifExists, preallocate, pathsCreated,
+                                     blockMapReader, totalBlocks, totalSizeUncompressed, totalSizeCompressed,
+                                     globInclude, globExclude));
+        ++countFiles;
 
         RETURN_IF_FAILED(payloadFiles->MoveNext(&hasCurrent));
     }
@@ -2621,24 +2702,15 @@ HRESULT Command_File_Extract(int argc, wchar_t* argv[])
     wil::com_ptr_nothrow<IAppxPackageReader> packageReader;
     wil::com_ptr_nothrow<IAppxBundleReader> bundleReader;
     wil::com_ptr_nothrow<IAppxBlockMapReader> blockMapReader;
-    wil::unique_cotaskmem_ptr<WCHAR[]> packageFullName;
     if (MSIX::IsPackage(filename))
     {
         RETURN_IF_FAILED_MSG(MSIX::Packaging::Package::Reader::Open(filename, packageReader), "%ls", filename);
         RETURN_IF_FAILED(packageReader->GetBlockMap(&blockMapReader));
-        if (header)
-        {
-            RETURN_IF_FAILED(MSIX::Packaging::Package::Reader::PackageToPackageFullName(packageReader.get(), packageFullName));
-        }
     }
     else if (MSIX::IsBundle(filename))
     {
         RETURN_IF_FAILED_MSG(MSIX::Packaging::Package::Reader::Open(filename, bundleReader), "%ls", filename);
         RETURN_IF_FAILED(bundleReader->GetBlockMap(&blockMapReader));
-        if (header)
-        {
-            RETURN_IF_FAILED(MSIX::Packaging::Package::Reader::PackageToPackageFullName(bundleReader.get(), packageFullName));
-        }
     }
     else
     {
@@ -2654,15 +2726,12 @@ HRESULT Command_File_Extract(int argc, wchar_t* argv[])
         output = currentDirectory.get();
     }
 
+    wil::unique_cotaskmem_array_ptr<wil::unique_cotaskmem_string> pathsCreated;
+
     if (header)
     {
-        wprintf(L"\n"
-                L"PackageFullName: %ls\n", packageFullName.get());
+        wprintf(L"File: %ls\n", filename);
     }
-
-    wprintf(L"\n"
-            L"   Size     Compressed Cmpr  Blocks  Name\n"
-            L"----------  ---------- ----  ------  ----\n");
 
     std::uint32_t countFiles{};
     std::uint32_t totalBlocks{};
@@ -2682,7 +2751,20 @@ HRESULT Command_File_Extract(int argc, wchar_t* argv[])
                 const HRESULT hr{ packageReader->GetFootprintFile(type, &footprintFile) };
                 if (SUCCEEDED(hr))
                 {
-                    RETURN_IF_FAILED(ExtractFile(footprintFile.get(), output, ifExists, preallocate, globInclude, globExclude));
+                    // AppxBlockMap.xml, AppxSignature.p7x and AppxMetadata\CodeIntegrity.cat aren't listed in the blockmap
+                    if ((type == APPX_FOOTPRINT_FILE_TYPE_BLOCKMAP) || (type == APPX_FOOTPRINT_FILE_TYPE_SIGNATURE) || (type == APPX_FOOTPRINT_FILE_TYPE_CODEINTEGRITY))
+                    {
+                        RETURN_IF_FAILED(ExtractFile(footprintFile.get(), output, ifExists, preallocate, pathsCreated,
+                                                     nullptr, &totalBlocks, &totalSizeUncompressed, &totalSizeCompressed,
+                                                     globInclude, globExclude));
+                    }
+                    else
+                    {
+                        RETURN_IF_FAILED(ExtractFile(footprintFile.get(), output, ifExists, preallocate, pathsCreated,
+                                                     blockMapReader.get(), &totalBlocks, &totalSizeUncompressed, &totalSizeCompressed,
+                                                     globInclude, globExclude));
+                    }
+                    ++countFiles;
                 }
                 else
                 {
@@ -2694,7 +2776,9 @@ HRESULT Command_File_Extract(int argc, wchar_t* argv[])
         {
             wil::com_ptr_nothrow<IAppxFilesEnumerator> files;
             RETURN_IF_FAILED(packageReader->GetPayloadFiles(files.put()));
-            RETURN_IF_FAILED(ExtractFiles(files.get(), output, ifExists, preallocate, globInclude, globExclude));
+            RETURN_IF_FAILED(ExtractFiles(files.get(), output, ifExists, preallocate, pathsCreated,
+                                          blockMapReader.get(), countFiles, &totalBlocks, &totalSizeUncompressed, &totalSizeCompressed,
+                                          globInclude, globExclude));
         }
     }
     else if (bundleReader)
@@ -2707,7 +2791,10 @@ HRESULT Command_File_Extract(int argc, wchar_t* argv[])
             const HRESULT hr{ bundleReader->GetFootprintFile(type, &footprintFile) };
             if (SUCCEEDED(hr))
             {
-                RETURN_IF_FAILED(ExtractFile(footprintFile.get(), output, ifExists, preallocate, globInclude, globExclude));
+                RETURN_IF_FAILED(ExtractFile(footprintFile.get(), output, ifExists, preallocate, pathsCreated,
+                                             blockMapReader.get(), &totalBlocks, &totalSizeUncompressed, &totalSizeCompressed,
+                                             globInclude, globExclude));
+                ++countFiles;
             }
             else
             {
@@ -2717,7 +2804,9 @@ HRESULT Command_File_Extract(int argc, wchar_t* argv[])
             {
                 wil::com_ptr_nothrow<IAppxFilesEnumerator> files;
                 RETURN_IF_FAILED(packageReader->GetPayloadFiles(files.put()));
-                RETURN_IF_FAILED(ExtractFiles(files.get(), output, ifExists, preallocate, globInclude, globExclude));
+                RETURN_IF_FAILED(ExtractFiles(files.get(), output, ifExists, preallocate, pathsCreated,
+                                              blockMapReader.get(), countFiles, &totalBlocks, &totalSizeUncompressed, &totalSizeCompressed,
+                                              globInclude, globExclude));
             }
         }
     }
@@ -2729,10 +2818,12 @@ HRESULT Command_File_Extract(int argc, wchar_t* argv[])
                 0u :
                 static_cast<std::uint32_t>((totalSizeCompressed * 100 + (totalSizeCompressed - 1)) / totalSizeUncompressed)
         };
-        wprintf(L"----------  ---------- ----  ------  ----\n"
-                L"%10llu  %10llu %3u%%  %6u  %u file%ls\n",
-                totalSizeUncompressed + totalSizeFootprintUncompressed, totalSizeCompressed, ratio, totalBlocks,
-                countFiles, countFiles == 1 ? L"" : L"s");
+        wprintf(L"\n"
+                L"Files     : %u\n"
+                L"Blocks    : %u\n"
+                L"Size      : %llu\n"
+                L"Compressed: %llu (%u%%)\n",
+                countFiles, totalBlocks, totalSizeUncompressed + totalSizeFootprintUncompressed, totalSizeCompressed, ratio);
     }
 
     return S_OK;
@@ -2941,9 +3032,7 @@ HRESULT Command_File_List(int argc, wchar_t* argv[])
                             UINT32 blockSizeCompressed{};
                             RETURN_IF_FAILED(block->GetCompressedSize(&blockSizeCompressed));
                             sizeCompressed += blockSizeCompressed;
-                            BOOL hasNextBlock{};
-                            RETURN_IF_FAILED(blocksEnumerator->MoveNext(&hasNextBlock));
-                            hasCurrentBlock = hasNextBlock;
+                            RETURN_IF_FAILED(blocksEnumerator->MoveNext(&hasCurrentBlock));
                         }
                         totalSizeCompressed += sizeCompressed;
                         ++countFiles;
@@ -3018,9 +3107,7 @@ HRESULT Command_File_List(int argc, wchar_t* argv[])
                             UINT32 blockSizeCompressed{};
                             RETURN_IF_FAILED(block->GetCompressedSize(&blockSizeCompressed));
                             sizeCompressed += blockSizeCompressed;
-                            BOOL hasNextBlock{};
-                            RETURN_IF_FAILED(blocksEnumerator->MoveNext(&hasNextBlock));
-                            hasCurrentBlock = hasNextBlock;
+                            RETURN_IF_FAILED(blocksEnumerator->MoveNext(&hasCurrentBlock));
                         }
                         totalSizeCompressed += sizeCompressed;
                         ++countFiles;
@@ -3068,18 +3155,14 @@ HRESULT Command_File_List(int argc, wchar_t* argv[])
                     UINT32 blockCompressedSize{};
                     RETURN_IF_FAILED(block->GetCompressedSize(&blockCompressedSize));
                     sizeCompressed += blockCompressedSize;
-                    BOOL hasNextBlock{};
-                    RETURN_IF_FAILED(blocksEnumerator->MoveNext(&hasNextBlock));
-                    hasCurrentBlock = hasNextBlock;
+                    RETURN_IF_FAILED(blocksEnumerator->MoveNext(&hasCurrentBlock));
                 }
                 totalSizeCompressed += sizeCompressed;
                 ++countFiles;
                 totalBlocks += countBlocks;
                 PrintFile(name.get(), sizeUncompressed, sizeCompressed, countBlocks);
             }
-            BOOL hasNext{};
-            RETURN_IF_FAILED(filesEnumerator->MoveNext(&hasNext));
-            hasCurrent = hasNext;
+            RETURN_IF_FAILED(filesEnumerator->MoveNext(&hasCurrent));
         }
     }
 
