@@ -2400,7 +2400,8 @@ HRESULT ExtractFile(
     PWSTR name,
     IAppxFile* file,
     PCWSTR output,
-    IfExists ifExists)
+    IfExists ifExists,
+    bool preallocate)
 {
     wil::unique_hlocal_string filenameBuffer;
     PWSTR filename{ name };
@@ -2409,6 +2410,16 @@ HRESULT ExtractFile(
         const DWORD flags{ PATHCCH_ALLOW_LONG_PATHS | PATHCCH_FORCE_ENABLE_LONG_NAME_PROCESS };
         RETURN_IF_FAILED(PathAllocCombine(output, name, flags, filenameBuffer.put()));
         filename = filenameBuffer.get();
+    }
+
+    if (ifExists == IfExists::Error)
+    {
+        const auto attributes{ ::GetFileAttributesW(filename) };
+        if (attributes == INVALID_FILE_ATTRIBUTES)
+        {
+            const auto lastError{ ::GetLastError() };
+            RETURN_HR_IF(HRESULT_FROM_WIN32(ERROR_ALREADY_EXISTS), lastError == ERROR_ALREADY_EXISTS);
+        }
     }
 
     wprintf(L"%ls\n", filename);
@@ -2428,12 +2439,22 @@ HRESULT ExtractFile(
     wil::com_ptr_nothrow<IStream> fileStream;
     RETURN_IF_FAILED(file->GetStream(fileStream.put()));
     wil::com_ptr_nothrow<IStream> outputStream;
-    const DWORD grfMode{ ifExists == IfExists::Overwrite ?
-        static_cast<DWORD>(STGM_CREATE | STGM_WRITE | STGM_SHARE_EXCLUSIVE) :
-        static_cast<DWORD>(STGM_FAILIFTHERE | STGM_WRITE | STGM_SHARE_EXCLUSIVE) };
-    const BOOL fCreate{ TRUE /*ifExists == IfExists::Overwrite ? TRUE : FALSE*/ };
+    const auto grfMode{ static_cast<DWORD>(STGM_CREATE | STGM_WRITE | STGM_SHARE_EXCLUSIVE) };
+    const BOOL fCreate{ TRUE };
     RETURN_IF_FAILED(SHCreateStreamOnFileEx(filename, grfMode, 0, fCreate, nullptr, outputStream.put()));
-    RETURN_IF_FAILED(fileStream->CopyTo(outputStream.get(), fileSizeAsLargeInteger, nullptr, nullptr));
+    if (preallocate)
+    {
+        RETURN_IF_FAILED(outputStream->SetSize(fileSizeAsLargeInteger));
+        ULARGE_INTEGER bytesRead{};
+        ULARGE_INTEGER bytesWritten{};
+        RETURN_IF_FAILED(fileStream->CopyTo(outputStream.get(), fileSizeAsLargeInteger, &bytesRead, &bytesWritten));
+        RETURN_HR_IF(STG_E_READFAULT, bytesRead.QuadPart != fileSize);
+        RETURN_HR_IF(STG_E_WRITEFAULT, bytesWritten.QuadPart != fileSize);
+    }
+    else
+    {
+        RETURN_IF_FAILED(fileStream->CopyTo(outputStream.get(), fileSizeAsLargeInteger, nullptr, nullptr));
+    }
     return S_OK;
 }
 
@@ -2441,6 +2462,7 @@ HRESULT ExtractFile(
     IAppxFile* file,
     PCWSTR output,
     IfExists ifExists,
+    bool preallocate,
     const wil::unique_cotaskmem_array_ptr<wil::unique_cotaskmem_string>& globInclude,
     const wil::unique_cotaskmem_array_ptr<wil::unique_cotaskmem_string>& globExclude)
 {
@@ -2457,7 +2479,7 @@ HRESULT ExtractFile(
         }
     }
 
-    RETURN_IF_FAILED(ExtractFile(name.get(), file, output, ifExists));
+    RETURN_IF_FAILED(ExtractFile(name.get(), file, output, ifExists, preallocate));
     return S_OK;
 }
 
@@ -2465,6 +2487,7 @@ HRESULT ExtractFiles(
     IAppxFilesEnumerator* payloadFiles,
     PCWSTR output,
     IfExists ifExists,
+    bool preallocate,
     const wil::unique_cotaskmem_array_ptr<wil::unique_cotaskmem_string>& globInclude,
     const wil::unique_cotaskmem_array_ptr<wil::unique_cotaskmem_string>& globExclude)
 {
@@ -2474,7 +2497,7 @@ HRESULT ExtractFiles(
     {
         wil::com_ptr_nothrow<IAppxFile> file;
         RETURN_IF_FAILED(payloadFiles->GetCurrent(file.put()));
-        RETURN_IF_FAILED(ExtractFile(file.get(), output, ifExists, globInclude, globExclude));
+        RETURN_IF_FAILED(ExtractFile(file.get(), output, ifExists, preallocate, globInclude, globExclude));
 
         RETURN_IF_FAILED(payloadFiles->MoveNext(&hasCurrent));
     }
@@ -2493,6 +2516,7 @@ HRESULT Command_File_Extract(int argc, wchar_t* argv[])
     PCWSTR filename{ argv[3] };
     HelpIf(filename, help_string);
 
+    bool preallocate{};
     bool footprintFiles{ true };
     wil::unique_cotaskmem_array_ptr<wil::unique_cotaskmem_string> globExclude;
     wil::unique_cotaskmem_array_ptr<wil::unique_cotaskmem_string> globInclude;
@@ -2561,6 +2585,10 @@ HRESULT Command_File_Extract(int argc, wchar_t* argv[])
         else if (wil::string_starts_with(arg, L"--output="))
         {
             output = arg + (ARRAYSIZE(L"--output=") - 1);
+        }
+        else if (CompareStringOrdinal(arg, -1, L"--preallocate", -1, FALSE) == CSTR_EQUAL)
+        {
+            preallocate = true;
         }
         else if (CompareStringOrdinal(arg, -1, L"--", -1, FALSE) == CSTR_EQUAL)
         {
@@ -2664,7 +2692,7 @@ HRESULT Command_File_Extract(int argc, wchar_t* argv[])
                 const HRESULT hr{ packageReader->GetFootprintFile(type, &footprintFile) };
                 if (SUCCEEDED(hr))
                 {
-                    RETURN_IF_FAILED(ExtractFile(footprintFile.get(), output, ifExists, globInclude, globExclude));
+                    RETURN_IF_FAILED(ExtractFile(footprintFile.get(), output, ifExists, preallocate, globInclude, globExclude));
                 }
                 else
                 {
@@ -2676,7 +2704,7 @@ HRESULT Command_File_Extract(int argc, wchar_t* argv[])
         {
             wil::com_ptr_nothrow<IAppxFilesEnumerator> files;
             RETURN_IF_FAILED(packageReader->GetPayloadFiles(files.put()));
-            RETURN_IF_FAILED(ExtractFiles(files.get(), output, ifExists, globInclude, globExclude));
+            RETURN_IF_FAILED(ExtractFiles(files.get(), output, ifExists, preallocate, globInclude, globExclude));
         }
     }
     else if (bundleReader)
@@ -2689,7 +2717,7 @@ HRESULT Command_File_Extract(int argc, wchar_t* argv[])
             const HRESULT hr{ bundleReader->GetFootprintFile(type, &footprintFile) };
             if (SUCCEEDED(hr))
             {
-                RETURN_IF_FAILED(ExtractFile(footprintFile.get(), output, ifExists, globInclude, globExclude));
+                RETURN_IF_FAILED(ExtractFile(footprintFile.get(), output, ifExists, preallocate, globInclude, globExclude));
             }
             else
             {
@@ -2699,7 +2727,7 @@ HRESULT Command_File_Extract(int argc, wchar_t* argv[])
             {
                 wil::com_ptr_nothrow<IAppxFilesEnumerator> files;
                 RETURN_IF_FAILED(packageReader->GetPayloadFiles(files.put()));
-                RETURN_IF_FAILED(ExtractFiles(files.get(), output, ifExists, globInclude, globExclude));
+                RETURN_IF_FAILED(ExtractFiles(files.get(), output, ifExists, preallocate, globInclude, globExclude));
             }
         }
     }
