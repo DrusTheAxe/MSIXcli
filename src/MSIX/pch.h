@@ -4,6 +4,7 @@
 #pragma once
 
 // C/C++ Library
+#include <atomic>
 #include <fcntl.h>
 #include <io.h>
 #include <tuple>
@@ -11,6 +12,7 @@
 // Win32 / Shell
 #include <windows.h>
 #include <unknwn.h>
+#include <objidl.h>
 #include <userenv.h>
 #include <shlobj.h>
 #include <shlwapi.h>

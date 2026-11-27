@@ -4,6 +4,7 @@
 #include "pch.h"
 
 #include <windows.h>
+#include <StreamOverFile.h>
 
 #if !defined(MSIXADMIN)
 #define MSIXADMIN 1
@@ -2412,16 +2413,6 @@ HRESULT ExtractFile(
         filename = filenameBuffer.get();
     }
 
-    if (ifExists == IfExists::Error)
-    {
-        const auto attributes{ ::GetFileAttributesW(filename) };
-        if (attributes == INVALID_FILE_ATTRIBUTES)
-        {
-            const auto lastError{ ::GetLastError() };
-            RETURN_HR_IF(HRESULT_FROM_WIN32(ERROR_ALREADY_EXISTS), lastError == ERROR_ALREADY_EXISTS);
-        }
-    }
-
     wprintf(L"%ls\n", filename);
     PWSTR lastBackslash{ wcsrchr(filename, L'\\') };
     if (lastBackslash)
@@ -2439,9 +2430,8 @@ HRESULT ExtractFile(
     wil::com_ptr_nothrow<IStream> fileStream;
     RETURN_IF_FAILED(file->GetStream(fileStream.put()));
     wil::com_ptr_nothrow<IStream> outputStream;
-    const auto grfMode{ static_cast<DWORD>(STGM_CREATE | STGM_WRITE | STGM_SHARE_EXCLUSIVE) };
-    const BOOL fCreate{ TRUE };
-    RETURN_IF_FAILED(SHCreateStreamOnFileEx(filename, grfMode, 0, fCreate, nullptr, outputStream.put()));
+    const auto disposition{ ifExists == IfExists::Overwrite ? CREATE_ALWAYS : CREATE_NEW };
+    RETURN_IF_FAILED(StreamOverFile::CreateWriter(outputStream.put(), filename, disposition));
     if (preallocate)
     {
         RETURN_IF_FAILED(outputStream->SetSize(fileSizeAsLargeInteger));
@@ -2516,7 +2506,7 @@ HRESULT Command_File_Extract(int argc, wchar_t* argv[])
     PCWSTR filename{ argv[3] };
     HelpIf(filename, help_string);
 
-    bool preallocate{};
+    bool preallocate{ true };
     bool footprintFiles{ true };
     wil::unique_cotaskmem_array_ptr<wil::unique_cotaskmem_string> globExclude;
     wil::unique_cotaskmem_array_ptr<wil::unique_cotaskmem_string> globInclude;
@@ -2574,6 +2564,10 @@ HRESULT Command_File_Extract(int argc, wchar_t* argv[])
         {
             payloadFiles = false;
         }
+        else if (CompareStringOrdinal(arg, -1, L"--no-preallocate", -1, FALSE) == CSTR_EQUAL)
+        {
+            preallocate = false;
+        }
         else if (CompareStringOrdinal(arg, -1, L"--no-summary", -1, FALSE) == CSTR_EQUAL)
         {
             summary = false;
@@ -2585,10 +2579,6 @@ HRESULT Command_File_Extract(int argc, wchar_t* argv[])
         else if (wil::string_starts_with(arg, L"--output="))
         {
             output = arg + (ARRAYSIZE(L"--output=") - 1);
-        }
-        else if (CompareStringOrdinal(arg, -1, L"--preallocate", -1, FALSE) == CSTR_EQUAL)
-        {
-            preallocate = true;
         }
         else if (CompareStringOrdinal(arg, -1, L"--", -1, FALSE) == CSTR_EQUAL)
         {

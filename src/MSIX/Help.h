@@ -161,6 +161,7 @@ constexpr PCWSTR help_Command_File_Extract{
     L"  --if-exists=<IFEXISTS>         Behavior when output file exists\n"
     L"  --glob=<PATTERN>               Add files matching PATTERN (*,? wildcards)\n"
     L"  --no-header                    Do not display header information\n"
+    L"  --no-preallocate               Do not preallocate file size before write\n"
     L"  --no-summary                   Do not display summary information\n"
     L"  -o                             Overwrite files (same as --if-exists=overwrite)\n"
     L"  --output=<PATH>                Path to write files\n"
